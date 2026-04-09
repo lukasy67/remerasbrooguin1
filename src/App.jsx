@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-// IMPORTANTE: Limpiamos los íconos sobrantes para que Vercel no bloquee la compilación
-import { Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone, Loader2, Layers, Lock, Unlock, X, Eye, EyeOff, Download, FileText, Info, AlertCircle, Search, CheckCircle2, Edit, Filter, Link2, Plus, ShieldAlert, Settings, MessageCircle, DollarSign, TrendingUp } from 'lucide-react';
+import { Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone, Loader2, Layers, Lock, Unlock, X, Eye, EyeOff, Download, FileText, Info, AlertCircle, Search, CheckCircle2, Edit, Filter, Link2, Plus, ShieldAlert, Settings, MessageCircle, DollarSign, TrendingUp, Scissors } from 'lucide-react';
 
 // ==========================================
 // CONFIGURACIÓN DE SUPABASE (CONEXIÓN DIRECTA API REST)
@@ -131,7 +130,7 @@ export default function App() {
   // ESTADOS DEL FORMULARIO
   // ==========================================
   const [showInfo, setShowInfo] = useState(false);
-  const [searchTerm, setSearchTerm] = useState(''); // Reparado: Ahora esta variable se usará en el Input visual
+  const [searchTerm, setSearchTerm] = useState(''); 
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [editingId, setEditingId] = useState(null);
@@ -165,7 +164,6 @@ export default function App() {
     setLoading(false);
   };
 
-  // Verifica si la lista está cerrada
   const currentGroupSettings = groupSettings.find(g => g.group_name === displayGroup);
   const isGroupLocked = currentGroupSettings ? currentGroupSettings.is_locked : false;
 
@@ -211,10 +209,9 @@ export default function App() {
     if (!formData.name.trim() || formData.quantity < 1) {
       alert("Por favor completa el nombre y la cantidad obligatorios."); return;
     }
-    if (isAdmin || isGroupAdmin) {
-      if (formData.phone.trim() && !/^09\d{8}$/.test(formData.phone.trim())) {
-        alert("El número de teléfono debe tener 10 dígitos y empezar con 09 (Ej: 0984948834). Corrige para proceder."); return;
-      }
+    
+    if (!/^09\d{8}$/.test(formData.phone.trim())) {
+      alert("El número de teléfono debe tener 10 dígitos y empezar con 09 (Ej: 0984948834). Corrige para proceder."); return;
     }
 
     let prefix = '';
@@ -260,7 +257,6 @@ export default function App() {
     }
   };
 
-  // --- BOTÓN CERRAR LISTA (BLOQUEO) ---
   const toggleGroupLock = async () => {
     if (!isAdmin) return;
     const newStatus = !isGroupLocked;
@@ -277,7 +273,6 @@ export default function App() {
     }
   };
 
-  // --- GESTOR DE SEÑAS (PAGOS PARCIALES) ---
   const handleOpenPayment = (order) => {
     if (!isAdmin) return;
     const total = getUnitPrice(order) * order.quantity;
@@ -305,7 +300,6 @@ export default function App() {
     }
   };
 
-  // Utilidades
   const getWhatsAppLink = (order) => {
     let phone = order.phone.replace(/\D/g, '');
     if (phone.startsWith('0')) phone = '595' + phone.substring(1);
@@ -427,7 +421,6 @@ export default function App() {
   const totalRevenue = activeOrders.reduce((sum, order) => sum + getOrderFinancials(order).total, 0);
   const totalCollected = activeOrders.reduce((sum, order) => sum + getOrderFinancials(order).paid, 0);
 
-  // DASHBOARD SUPREMO (GLOBAL)
   const globalStats = useMemo(() => {
     const allActive = orders.filter(o => !o.deleted);
     let expected = 0; let collected = 0;
@@ -438,7 +431,6 @@ export default function App() {
     return { items: allActive.length, expected, collected, debt: expected - collected };
   }, [orders]);
 
-  // Adaptación Dinámica de Resúmenes (Remeras) para el panel compacto
   const compactSummaryItems = useMemo(() => {
     const items = [];
     activeSizes.forEach(size => {
@@ -612,6 +604,118 @@ export default function App() {
     printWindow.document.close();
   };
 
+  // --- EXPORTACIÓN DE HOJA DE CORTE PARA TALLER ---
+  const handleExportHojaCorte = () => {
+    const printWindow = window.open('', '_blank');
+    
+    // Contabilizar remeras exactas (Talle + Género + Manga)
+    const cortesRemera = {};
+    activeOrders.forEach(o => {
+      const tipoManga = o.longSleeve ? 'MANGA LARGA' : 'Manga Corta';
+      const key = `Talle ${o.size} - ${o.gender} - ${tipoManga}`;
+      cortesRemera[key] = (cortesRemera[key] || 0) + o.quantity;
+    });
+
+    // Contabilizar shorts exactos
+    const cortesShort = {};
+    activeOrders.forEach(o => {
+       if (o.observations?.includes('Short:') && !o.observations?.includes('Short: NO')) {
+          const match = o.observations.match(/Short:\s*([^|]+)/);
+          if (match) {
+             const sSize = match[1].trim();
+             cortesShort[sSize] = (cortesShort[sSize] || 0) + o.quantity;
+          }
+       }
+    });
+
+    let html = `
+      <html>
+        <head>
+          <title>Hoja de Corte - ${isAdmin && adminGroupFilter !== 'Todos' ? adminGroupFilter : displayGroup}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; color: #000; }
+            h1 { font-size: 26px; text-align: center; margin-bottom: 5px; text-transform: uppercase; border-bottom: 3px solid #000; padding-bottom: 10px; }
+            h2 { font-size: 20px; margin-top: 30px; background-color: #e5e5e5; padding: 8px; border-left: 5px solid #000; }
+            .meta { font-size: 14px; margin-bottom: 20px; display: flex; justify-content: space-between; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 16px; }
+            th, td { border: 1px solid #000; padding: 12px; text-align: left; }
+            th { background-color: #f2f2f2; font-weight: bold; }
+            .qty { font-size: 22px; font-weight: 900; text-align: center; width: 100px; }
+            .item-desc { font-weight: bold; text-transform: uppercase; }
+            @media print { button { display: none; } body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <h1>HOJA DE CORTE DE TALLER: ${isAdmin && adminGroupFilter !== 'Todos' ? adminGroupFilter : displayGroup}</h1>
+          <div class="meta">
+            <span><strong>Fecha de impresión:</strong> ${new Date().toLocaleDateString()}</span>
+            <span><strong>Prenda Base:</strong> ${displayType} (${displayFabric})</span>
+          </div>
+          
+          <h2>1. CONFECCIÓN DE REMERAS</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Especificación de Corte (Talle - Género - Manga)</th>
+                <th class="qty">Cant.</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${Object.entries(cortesRemera).sort().map(([desc, cant]) => `
+                <tr>
+                  <td class="item-desc">${desc}</td>
+                  <td class="qty">${cant}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+    `;
+
+    if (Object.keys(cortesShort).length > 0) {
+      html += `
+          <h2>2. CONFECCIÓN DE SHORTS</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Especificación de Corte (Talle y Diseño)</th>
+                <th class="qty">Cant.</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${Object.entries(cortesShort).sort().map(([desc, cant]) => `
+                <tr>
+                  <td class="item-desc">Short Talle ${desc}</td>
+                  <td class="qty">${cant}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+      `;
+    }
+
+    if (totalSocks > 0) {
+      html += `
+          <h2>3. MEDIAS</h2>
+          <table>
+            <tbody>
+              <tr>
+                <td class="item-desc">Total de Pares de Medias a preparar</td>
+                <td class="qty">${totalSocks}</td>
+              </tr>
+            </tbody>
+          </table>
+      `;
+    }
+
+    html += `
+          <script>window.onload = () => { window.print(); window.onafterprint = () => window.close(); }</script>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
   return (
     <div className="min-h-screen bg-neutral-100 text-neutral-800 font-sans p-4 md:p-8 transition-colors duration-500">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -631,6 +735,16 @@ export default function App() {
           </div>
           
           <div className="flex-1 flex flex-col sm:flex-row gap-4 w-full md:w-auto md:justify-end z-10">
+            <div className="bg-indigo-800/40 p-3 rounded-xl border border-indigo-700 flex-shrink-0 shadow-inner flex flex-col justify-center">
+              <p className="text-[10px] text-indigo-300 uppercase tracking-widest font-bold mb-1">Consultas y Diseño</p>
+              <div className="text-sm font-medium text-white flex items-center gap-2">
+                Lucas López
+                <a href="https://wa.me/595984948834" target="_blank" rel="noopener noreferrer" className="bg-[#25D366]/20 text-[#25D366] px-2 py-0.5 rounded flex items-center gap-1 hover:bg-[#25D366]/30 transition-colors">
+                  <Phone className="w-3 h-3" /> 0984 948 834
+                </a>
+              </div>
+            </div>
+
             <div className={`p-3 rounded-xl border max-w-xs flex-shrink-0 shadow-inner flex items-center justify-between min-w-[150px] transition-colors ${isPreviewMode ? 'bg-emerald-900/80 border-emerald-500' : 'bg-indigo-800/60 border-indigo-700'}`}>
                <div>
                  <span className={`block text-[10px] uppercase tracking-widest font-bold mb-0.5 ${isPreviewMode ? 'text-emerald-300' : 'text-indigo-300'}`}>
@@ -641,14 +755,6 @@ export default function App() {
                <div className={`${isPreviewMode ? 'bg-emerald-700' : 'bg-indigo-700'} p-2 rounded-lg ml-2`}>
                  {isPreviewMode ? <Eye className="w-5 h-5 text-emerald-200" /> : <Link2 className="w-5 h-5 text-indigo-300" />}
                </div>
-            </div>
-            <div className="bg-indigo-800/40 p-3 rounded-xl border border-indigo-700 text-sm flex-1 max-w-sm shadow-inner">
-              <h3 className="font-bold text-indigo-100 mb-1 border-b border-indigo-700/50 pb-1 text-xs uppercase tracking-wider">Detalle del Producto</h3>
-              <ul className="text-indigo-200 space-y-1 mt-2 text-xs">
-                <li><span className="font-semibold text-white">Prenda:</span> {displayType}</li>
-                <li><span className="font-semibold text-white">Tela/Edad:</span> {displayFabric} ({displayAge})</li>
-                <li className="pt-1"><span className="font-bold text-emerald-400 text-sm">Desde: {new Intl.NumberFormat('es-PY').format(displayCost)} Gs.</span></li>
-              </ul>
             </div>
           </div>
         </header>
@@ -685,28 +791,33 @@ export default function App() {
               </div>
             </div>
 
-            {/* MODO SUPREMO: DASHBOARD Y CREADOR */}
+            {/* MODO SUPREMO: DASHBOARD Y CREADOR CON EXPLICACIONES DIDÁCTICAS */}
             {showGroupManager && isGroupAdmin && (
               <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
                 
                 {/* DASHBOARD FINANCIERO GLOBAL */}
-                <div className="bg-neutral-900 p-5 rounded-xl border border-neutral-700 shadow-inner text-white flex flex-col md:flex-row gap-6">
-                  <div className="flex-1">
-                    <h4 className="text-sm font-bold text-neutral-400 mb-3 flex items-center gap-2"><TrendingUp className="w-4 h-4" /> Dashboard Financiero Global</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div><p className="text-[10px] uppercase text-neutral-500">Recaudación Total</p><p className="text-xl font-black text-emerald-400">{new Intl.NumberFormat('es-PY').format(globalStats.collected)} Gs.</p></div>
-                      <div><p className="text-[10px] uppercase text-neutral-500">Deuda Pendiente</p><p className="text-xl font-black text-amber-400">{new Intl.NumberFormat('es-PY').format(globalStats.debt)} Gs.</p></div>
+                <div className="bg-neutral-900 p-5 rounded-xl border border-neutral-700 shadow-inner text-white">
+                  <div className="flex flex-col md:flex-row gap-6">
+                    <div className="flex-1">
+                      <h4 className="text-sm font-bold text-neutral-400 mb-1 flex items-center gap-2"><TrendingUp className="w-4 h-4" /> Dashboard Financiero Global</h4>
+                      <p className="text-[11px] text-neutral-500 mb-4 italic">💡 Muestra la sumatoria de plata y prendas de <b>TODOS</b> los colegios/equipos registrados juntos. Ideal para ver la salud general del negocio.</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div><p className="text-[10px] uppercase text-neutral-500">Recaudación Total</p><p className="text-xl font-black text-emerald-400">{new Intl.NumberFormat('es-PY').format(globalStats.collected)} Gs.</p></div>
+                        <div><p className="text-[10px] uppercase text-neutral-500">Deuda Pendiente</p><p className="text-xl font-black text-amber-400">{new Intl.NumberFormat('es-PY').format(globalStats.debt)} Gs.</p></div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="w-px bg-neutral-700 hidden md:block"></div>
-                  <div className="flex-1 flex flex-col justify-center">
-                    <div className="flex justify-between text-sm mb-1"><span className="text-neutral-400">Total Esperado:</span><span className="font-bold">{new Intl.NumberFormat('es-PY').format(globalStats.expected)} Gs.</span></div>
-                    <div className="flex justify-between text-sm"><span className="text-neutral-400">Total Prendas:</span><span className="font-bold">{globalStats.items}</span></div>
+                    <div className="w-px bg-neutral-700 hidden md:block"></div>
+                    <div className="flex-1 flex flex-col justify-center">
+                      <div className="flex justify-between text-sm mb-1"><span className="text-neutral-400">Total Esperado:</span><span className="font-bold">{new Intl.NumberFormat('es-PY').format(globalStats.expected)} Gs.</span></div>
+                      <div className="flex justify-between text-sm"><span className="text-neutral-400">Total Prendas Generales:</span><span className="font-bold">{globalStats.items}</span></div>
+                    </div>
                   </div>
                 </div>
 
                 <div className="bg-indigo-900 p-5 rounded-xl border border-indigo-700 shadow-inner text-white">
-                  <h4 className="text-sm font-bold text-emerald-300 mb-4 flex items-center gap-2"><Eye className="w-4 h-4" /> Creador de Enlaces Parametrizados (Vista en Vivo)</h4>
+                  <h4 className="text-sm font-bold text-emerald-300 mb-1 flex items-center gap-2"><Eye className="w-4 h-4" /> Creador de Enlaces Parametrizados (Vista en Vivo)</h4>
+                  <p className="text-[11px] text-indigo-300 mb-4 italic">💡 Crea un "espacio de trabajo" único para un cliente nuevo. El precio se calculará solo basándose en el PDF oficial. Al copiar el enlace, se lo pasas al capitán para que él mismo recopile los datos de su grupo allí.</p>
+                  
                   <form onSubmit={handleCreateGroup} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                       <div className="md:col-span-2">
@@ -755,7 +866,6 @@ export default function App() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
-          {/* Columna Formulario Principal (Y AVISO DE BLOQUEO) */}
           <div className="lg:col-span-1 space-y-6">
             
             {isGroupLocked && !isAdmin ? (
@@ -788,15 +898,13 @@ export default function App() {
                     </div>
                   </div>
 
-                  {(isAdmin || isGroupAdmin) && (
-                    <div>
-                      <label className="block text-sm font-medium text-neutral-700 mb-1">Teléfono (Obligatorio Admin)</label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Phone className="h-4 w-4 text-neutral-400" /></div>
-                        <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="Ej. 0984948834" className="block w-full pl-10 pr-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500 sm:text-sm" />
-                      </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1">Teléfono (Obligatorio)</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Phone className="h-4 w-4 text-neutral-400" /></div>
+                      <input type="tel" name="phone" value={formData.phone} onChange={handleChange} required placeholder="Ej. 0984948834" className="block w-full pl-10 pr-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500 sm:text-sm" />
                     </div>
-                  )}
+                  </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -929,7 +1037,6 @@ export default function App() {
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-neutral-200">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
                  
-                 {/* REPARACIÓN: Input de Búsqueda para que Vercel no bloquee */}
                  <div className="flex items-center gap-4 w-full sm:w-auto">
                    <h2 className="text-xl font-semibold flex items-center gap-2"><Search className="w-5 h-5 text-indigo-400" /> Pedidos Recientes</h2>
                    <input 
@@ -966,7 +1073,6 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-neutral-200">
-                  {/* Aplicamos el SearchTerm reparado aquí */}
                   {activeOrders.filter(o => o.name.toLowerCase().includes(searchTerm.toLowerCase())).map((order) => {
                     const cleanObs = order.observations ? order.observations.replace(/\[Precio:\s*\d+\]/, '').trim() : '';
                     const fins = getOrderFinancials(order);
@@ -1026,9 +1132,12 @@ export default function App() {
 
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-neutral-200">
                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
-                  <h2 className="text-xl font-semibold flex items-center gap-2"><ClipboardList className="w-5 h-5 text-emerald-600" /> Resumen de Producción</h2>
+                  <h2 className="text-xl font-semibold flex items-center gap-2"><ClipboardList className="w-5 h-5 text-emerald-600" /> Resumen de Pedidos</h2>
                   {isAdmin && (
-                    <div className="flex gap-2 w-full sm:w-auto">
+                    <div className="flex flex-wrap gap-2 w-full sm:w-auto justify-end">
+                      <button onClick={handleExportHojaCorte} className="flex-1 sm:flex-none text-xs bg-neutral-800 text-white border border-neutral-900 px-3 py-2 rounded-lg font-bold flex items-center justify-center gap-2 shadow-sm hover:bg-neutral-900">
+                        <Scissors className="w-3 h-3" /> Hoja de Corte
+                      </button>
                       <button onClick={handleExportCSV} className="flex-1 sm:flex-none text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-2 rounded-lg font-bold flex items-center justify-center gap-2 shadow-sm hover:bg-emerald-100">
                         <Download className="w-3 h-3" /> Excel
                       </button>
