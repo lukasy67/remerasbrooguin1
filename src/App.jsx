@@ -73,6 +73,13 @@ export default function App() {
   const [copyStatus, setCopyStatus] = useState('');
 
   const ADMIN_SECRET = 'brooguin2025';
+  const GROUP_SECRET = 'remeras';
+
+  const [isGroupAdmin, setIsGroupAdmin] = useState(false);
+  const [showGroupAuth, setShowGroupAuth] = useState(false);
+  const [groupPin, setGroupPin] = useState('');
+  const [groupPinError, setGroupPinError] = useState(false);
+  const [showGroupPassword, setShowGroupPassword] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -201,6 +208,27 @@ export default function App() {
     copyToClipboard(link);
     setNewGroupName('');
     alert(`Grupo "${cleanName}" creado. Enlace copiado al portapapeles.`);
+  };
+
+  const handleGroupManagerClick = () => {
+    if (isGroupAdmin) {
+      setShowGroupManager(!showGroupManager);
+    } else {
+      setShowGroupAuth(true);
+    }
+  };
+
+  const handleGroupAuth = () => {
+    if (groupPin === GROUP_SECRET) {
+      setIsGroupAdmin(true);
+      setShowGroupAuth(false);
+      setShowGroupManager(true);
+      setGroupPin('');
+      setGroupPinError(false);
+      setShowGroupPassword(false);
+    } else {
+      setGroupPinError(true);
+    }
   };
 
   const handleEditClick = (order) => {
@@ -355,25 +383,39 @@ export default function App() {
           <table>
             <thead>
               <tr>
-                <th>Cliente</th>
-                <th>Talle</th>
-                <th>Manga</th>
-                <th>Cant.</th>
-                <th>Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${activeOrders.map(o => `
-                <tr>
-                  <td>${o.name}</td>
-                  <td>${o.size} ${o.gender}</td>
-                  <td>${o.longSleeve ? 'Larga' : 'Corta'}</td>
-                  <td>${o.quantity}</td>
-                  <td>${o.paymentStatus}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
+            ${isAdmin && adminGroupFilter === 'Todos' ? '<th>Grupo</th>' : ''}
+            <th>Cliente</th>
+            <th>Talle</th>
+            <th>Género</th>
+            <th>Manga</th>
+            <th>Cant.</th>
+            <th>Estado</th>
+            <th>Obs.</th>
+            <th>Fecha</th>
+          </tr>
+        </thead>
+        <tbody>
+`;
+
+activeOrders.forEach(o => {
+  html += `
+    <tr>
+      ${isAdmin && adminGroupFilter === 'Todos' ? `<td>${o.group_name || 'General'}</td>` : ''}
+      <td>${o.name} <br><small>${o.phone || ''}</small></td>
+      <td>${o.size}</td>
+      <td>${o.gender}</td>
+      <td>${o.longSleeve ? 'Larga' : 'Corta'}</td>
+      <td>${o.quantity}</td>
+      <td>${o.paymentStatus || 'Pendiente'}</td>
+      <td>${o.observations || '-'}</td>
+      <td>${formatDate(o.created_at)}</td>
+    </tr>
+  `;
+});
+
+html += `
+        </tbody>
+      </table>
           <script>window.onload = () => { window.print(); window.onafterprint = () => window.close(); }</script>
         </body>
       </html>
@@ -432,13 +474,13 @@ export default function App() {
               </div>
               
               <div className="flex gap-2">
-                <button 
-                  onClick={() => setShowGroupManager(!showGroupManager)} 
-                  className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-700 transition-all"
-                >
-                  <Plus className="w-4 h-4" /> Gestor de Grupos
-                </button>
-                <div className="flex items-center gap-2 bg-indigo-50 p-2 rounded-lg border border-indigo-100">
+            <button 
+              onClick={handleGroupManagerClick} 
+              className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-700 transition-all"
+            >
+              <Plus className="w-4 h-4" /> Gestor de Grupos
+            </button>
+            <div className="flex items-center gap-2 bg-indigo-50 p-2 rounded-lg border border-indigo-100">
                   <Filter className="w-4 h-4 text-indigo-600" />
                   <select 
                     value={adminGroupFilter} 
@@ -633,28 +675,30 @@ export default function App() {
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-neutral-200 text-xs">
                     <thead className="bg-neutral-50">
-                      <tr>
-                        {isAdmin && adminGroupFilter === 'Todos' && <th className="px-4 py-3 text-left">Grupo</th>}
-                        <th className="px-4 py-3 text-left">Cliente</th>
-                        <th className="px-4 py-3 text-left">Detalles</th>
-                        <th className="px-4 py-3 text-left">Estado</th>
-                        {isAdmin && <th className="px-4 py-3 text-right">Acción</th>}
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-neutral-200">
-                      {activeOrders.map((order) => (
-                        <tr key={order.id} className="hover:bg-neutral-50">
-                          {isAdmin && adminGroupFilter === 'Todos' && <td className="px-4 py-3 font-bold text-indigo-600">{order.group_name}</td>}
-                          <td className="px-4 py-3 font-medium text-neutral-900">{order.name}<br/><span className="text-[9px] text-neutral-400">{order.phone}</span></td>
-                          <td className="px-4 py-3">{order.size} {order.gender} {order.longSleeve && '(L)'} x{order.quantity}</td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2 py-0.5 rounded font-black text-[9px] uppercase ${(order.paymentStatus || 'Pendiente') === 'Pagado' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                              {order.paymentStatus || 'Pendiente'}
-                            </span>
-                          </td>
-                          {isAdmin && (
-                            <td className="px-4 py-3 text-right">
-                              <div className="flex justify-end gap-1">
+                  <tr>
+                    {isAdmin && adminGroupFilter === 'Todos' && <th className="px-4 py-3 text-left">Grupo</th>}
+                    <th className="px-4 py-3 text-left">Cliente</th>
+                    <th className="px-4 py-3 text-left">Detalles</th>
+                    <th className="px-4 py-3 text-left">Estado</th>
+                    <th className="px-4 py-3 text-left">Fecha</th>
+                    {isAdmin && <th className="px-4 py-3 text-right">Acción</th>}
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-neutral-200">
+                  {activeOrders.map((order) => (
+                    <tr key={order.id} className="hover:bg-neutral-50">
+                      {isAdmin && adminGroupFilter === 'Todos' && <td className="px-4 py-3 font-bold text-indigo-600">{order.group_name}</td>}
+                      <td className="px-4 py-3 font-medium text-neutral-900">{order.name}<br/><span className="text-[9px] text-neutral-400">{order.phone}</span></td>
+                      <td className="px-4 py-3">{order.size} {order.gender} {order.longSleeve && '(L)'} x{order.quantity}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 rounded font-black text-[9px] uppercase ${(order.paymentStatus || 'Pendiente') === 'Pagado' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                          {order.paymentStatus || 'Pendiente'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-xs text-neutral-400">{formatDate(order.created_at)}</td>
+                      {isAdmin && (
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex justify-end gap-1">
                                 <button onClick={() => handleEditClick(order)} className="text-amber-500 p-1 hover:bg-amber-50 rounded"><Edit className="w-3 h-3" /></button>
                                 <button onClick={() => handleDelete(order.id)} className="text-red-500 p-1 hover:bg-red-50 rounded"><Trash2 className="w-3 h-3" /></button>
                               </div>
@@ -712,26 +756,68 @@ export default function App() {
         )}
 
         {/* Modal de Login */}
-        {showAdminLogin && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-indigo-900 flex items-center gap-2"><Lock className="w-5 h-5" /> Iniciar Sesión</h3>
-                <button onClick={() => setShowAdminLogin(false)} className="text-neutral-400"><X className="w-5 h-5" /></button>
-              </div>
-              <input 
-                type={showPassword ? "text" : "password"} 
-                value={adminPin} 
-                onChange={(e) => setAdminPin(e.target.value)} 
-                placeholder="Ingresa el PIN Admin" 
-                onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()} 
-                className="w-full px-4 py-3 border rounded-xl mb-4 focus:ring-2 focus:ring-indigo-500 outline-none" 
-              />
-              <button onClick={handleAdminLogin} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-all">Ingresar</button>
-            </div>
+    {showAdminLogin && (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+        <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-bold text-indigo-900 flex items-center gap-2"><Lock className="w-5 h-5" /> Iniciar Sesión</h3>
+            <button onClick={() => setShowAdminLogin(false)} className="text-neutral-400"><X className="w-5 h-5" /></button>
           </div>
-        )}
+          <div className="relative mb-4">
+            <input 
+              type={showPassword ? "text" : "password"} 
+              value={adminPin} 
+              onChange={(e) => setAdminPin(e.target.value)} 
+              placeholder="Ingresa el PIN Admin" 
+              onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()} 
+              className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none pr-12" 
+            />
+            <button 
+              type="button" 
+              onClick={() => setShowPassword(!showPassword)} 
+              className="absolute inset-y-0 right-0 pr-4 flex items-center text-neutral-500 hover:text-indigo-600 transition-colors"
+            >
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
+          </div>
+          {pinError && <p className="text-xs text-red-500 mb-3 mt-[-10px]">Contraseña incorrecta.</p>}
+          <button onClick={handleAdminLogin} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-all">Ingresar</button>
+        </div>
       </div>
-    </div>
-  );
+    )}
+
+    {/* Modal de Acceso a Grupos */}
+    {showGroupAuth && (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+        <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in fade-in zoom-in">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-bold text-indigo-900 flex items-center gap-2"><Lock className="w-5 h-5" /> Acceso a Grupos</h3>
+            <button onClick={() => {setShowGroupAuth(false); setGroupPinError(false); setGroupPin(''); setShowGroupPassword(false);}} className="text-neutral-400"><X className="w-5 h-5" /></button>
+          </div>
+          <p className="text-xs text-neutral-600 mb-4">Ingresa la contraseña para gestionar los grupos.</p>
+          <div className="relative mb-4">
+            <input 
+              type={showGroupPassword ? "text" : "password"} 
+              value={groupPin} 
+              onChange={(e) => setGroupPin(e.target.value)} 
+              placeholder="Contraseña de Grupos" 
+              onKeyDown={(e) => e.key === 'Enter' && handleGroupAuth()} 
+              className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none pr-12" 
+            />
+            <button 
+              type="button" 
+              onClick={() => setShowGroupPassword(!showGroupPassword)} 
+              className="absolute inset-y-0 right-0 pr-4 flex items-center text-neutral-500 hover:text-indigo-600 transition-colors"
+            >
+              {showGroupPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
+          </div>
+          {groupPinError && <p className="text-xs text-red-500 mb-3 mt-[-10px]">Contraseña incorrecta.</p>}
+          <button onClick={handleGroupAuth} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-all">Autorizar</button>
+        </div>
+      </div>
+    )}
+  </div>
+</div>
+);
 }
