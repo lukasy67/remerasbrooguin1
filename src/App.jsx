@@ -1,16 +1,16 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone, Loader2, Layers, Lock, Unlock, X, Eye, EyeOff, Download, FileText, Info, RefreshCw, AlertCircle, Search, CheckCircle2, AlignLeft, Edit, Filter, Link2, Copy, Plus } from 'lucide-react';
+import { Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone, Loader2, Layers, Lock, Unlock, X, Eye, EyeOff, Download, FileText, Info, RefreshCw, AlertCircle, Search, CheckCircle2, AlignLeft, Edit, Filter, Link2, Plus } from 'lucide-react';
 
 // ==========================================
 // CONFIGURACIÓN DE SUPABASE (CONEXIÓN DIRECTA API REST)
 // ==========================================
-// REEMPLAZA ESTO CON TUS DATOS REALES DE SUPABASE PARA QUE EL BOTÓN FUNCIONE
+// TUS DATOS REALES YA ESTÁN CONFIGURADOS AQUÍ
 const supabaseUrl = 'https://waoylkoopzluyhuuhbbc.supabase.co'; 
 const supabaseKey = 'sb_publishable_JYC_sxawUbpXIYycV7HO3A_kiUiFyoy'; 
 
 const supabaseRequest = async (path, method = 'GET', body = null) => {
   if (!supabaseUrl || supabaseUrl.includes('TU_URL_AQUI')) {
-    return { data: null, error: 'Configuración de Supabase pendiente. Por favor ingresa tu URL y KEY.' };
+    return { data: null, error: 'Configuración de Supabase pendiente.' };
   }
   
   const headers = {
@@ -57,7 +57,7 @@ export default function App() {
   const [activeGroup, setActiveGroup] = useState(initialGroup);
   const [adminGroupFilter, setAdminGroupFilter] = useState('Todos');
   
-  // Estados para el Administrador
+  // Estados para el Administrador Global
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [showGroupManager, setShowGroupManager] = useState(false);
@@ -70,11 +70,11 @@ export default function App() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [editingId, setEditingId] = useState(null);
-  const [copyStatus, setCopyStatus] = useState('');
 
   const ADMIN_SECRET = 'brooguin2025';
-  const GROUP_SECRET = 'remeras';
+  const GROUP_SECRET = 'remeras'; // Contraseña para crear grupos
 
+  // Estados para el Administrador de Grupos
   const [isGroupAdmin, setIsGroupAdmin] = useState(false);
   const [showGroupAuth, setShowGroupAuth] = useState(false);
   const [groupPin, setGroupPin] = useState('');
@@ -135,12 +135,6 @@ export default function App() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validación de llaves
-    if (supabaseUrl.includes('TU_URL_AQUI')) {
-      alert("⚠️ Error: No has configurado tus llaves de Supabase en el código (líneas 10 y 11). El botón no funcionará hasta que lo hagas.");
-      return;
-    }
-
     if (!formData.name.trim() || !formData.phone.trim() || formData.quantity < 1) {
       alert("Por favor completa los campos obligatorios.");
       return;
@@ -180,7 +174,7 @@ export default function App() {
       setFormData({ name: '', phone: '', size: 'M', gender: 'Femenino', quantity: 1, longSleeve: false, observations: '' });
     } catch (error) {
       console.error("Error al guardar:", error);
-      alert("Hubo un error al procesar tu solicitud. Revisa la consola o tus credenciales de Supabase.");
+      alert("Hubo un error al procesar tu solicitud. Intenta nuevamente.");
     }
   };
 
@@ -191,8 +185,6 @@ export default function App() {
     textArea.select();
     try {
       document.execCommand('copy');
-      setCopyStatus('¡Copiado!');
-      setTimeout(() => setCopyStatus(''), 2000);
     } catch (err) {
       console.error('Error al copiar', err);
     }
@@ -383,39 +375,39 @@ export default function App() {
           <table>
             <thead>
               <tr>
-            ${isAdmin && adminGroupFilter === 'Todos' ? '<th>Grupo</th>' : ''}
-            <th>Cliente</th>
-            <th>Talle</th>
-            <th>Género</th>
-            <th>Manga</th>
-            <th>Cant.</th>
-            <th>Estado</th>
-            <th>Obs.</th>
-            <th>Fecha</th>
-          </tr>
-        </thead>
-        <tbody>
-`;
+                ${isAdmin && adminGroupFilter === 'Todos' ? '<th>Grupo</th>' : ''}
+                <th>Cliente</th>
+                <th>Talle</th>
+                <th>Género</th>
+                <th>Manga</th>
+                <th>Cant.</th>
+                <th>Estado</th>
+                <th>Obs.</th>
+                <th>Fecha</th>
+              </tr>
+            </thead>
+            <tbody>
+    `;
 
-activeOrders.forEach(o => {
-  html += `
-    <tr>
-      ${isAdmin && adminGroupFilter === 'Todos' ? `<td>${o.group_name || 'General'}</td>` : ''}
-      <td>${o.name} <br><small>${o.phone || ''}</small></td>
-      <td>${o.size}</td>
-      <td>${o.gender}</td>
-      <td>${o.longSleeve ? 'Larga' : 'Corta'}</td>
-      <td>${o.quantity}</td>
-      <td>${o.paymentStatus || 'Pendiente'}</td>
-      <td>${o.observations || '-'}</td>
-      <td>${formatDate(o.created_at)}</td>
-    </tr>
-  `;
-});
+    activeOrders.forEach(o => {
+      html += `
+        <tr>
+          ${isAdmin && adminGroupFilter === 'Todos' ? `<td>${o.group_name || 'General'}</td>` : ''}
+          <td>${o.name} <br><small>${o.phone || ''}</small></td>
+          <td>${o.size}</td>
+          <td>${o.gender}</td>
+          <td>${o.longSleeve ? 'Larga' : 'Corta'}</td>
+          <td>${o.quantity}</td>
+          <td>${o.paymentStatus || 'Pendiente'}</td>
+          <td>${o.observations || '-'}</td>
+          <td>${formatDate(o.created_at)}</td>
+        </tr>
+      `;
+    });
 
-html += `
-        </tbody>
-      </table>
+    html += `
+            </tbody>
+          </table>
           <script>window.onload = () => { window.print(); window.onafterprint = () => window.close(); }</script>
         </body>
       </html>
@@ -474,13 +466,13 @@ html += `
               </div>
               
               <div className="flex gap-2">
-            <button 
-              onClick={handleGroupManagerClick} 
-              className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-700 transition-all"
-            >
-              <Plus className="w-4 h-4" /> Gestor de Grupos
-            </button>
-            <div className="flex items-center gap-2 bg-indigo-50 p-2 rounded-lg border border-indigo-100">
+                <button 
+                  onClick={handleGroupManagerClick} 
+                  className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-700 transition-all"
+                >
+                  <Plus className="w-4 h-4" /> Gestor de Grupos
+                </button>
+                <div className="flex items-center gap-2 bg-indigo-50 p-2 rounded-lg border border-indigo-100">
                   <Filter className="w-4 h-4 text-indigo-600" />
                   <select 
                     value={adminGroupFilter} 
@@ -495,8 +487,8 @@ html += `
               </div>
             </div>
 
-            {/* Interfaz de Creación de Grupos (Solo Admin) */}
-            {showGroupManager && (
+            {/* Interfaz de Creación de Grupos (Protegida) */}
+            {showGroupManager && isGroupAdmin && (
               <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 animate-in fade-in slide-in-from-top-2">
                 <h4 className="text-sm font-bold text-indigo-900 mb-3 flex items-center gap-2"><Link2 className="w-4 h-4" /> Crear Nuevo Enlace de Grupo</h4>
                 <form onSubmit={handleCreateGroup} className="flex flex-col sm:flex-row gap-3">
