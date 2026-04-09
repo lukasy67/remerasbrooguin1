@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone, Loader2, Layers, Lock, Unlock, X, Eye, EyeOff, Download, FileText, Info, RefreshCw, AlertCircle, Search, CheckCircle2, AlignLeft, Edit, Filter, Link2, Plus, ShieldAlert, Settings, MessageCircle, DollarSign, TrendingUp } from 'lucide-react';
+// IMPORTANTE: Limpiamos los íconos sobrantes para que Vercel no bloquee la compilación
+import { Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone, Loader2, Layers, Lock, Unlock, X, Eye, EyeOff, Download, FileText, Info, AlertCircle, Search, CheckCircle2, Edit, Filter, Link2, Plus, ShieldAlert, Settings, MessageCircle, DollarSign, TrendingUp } from 'lucide-react';
 
 // ==========================================
 // CONFIGURACIÓN DE SUPABASE (CONEXIÓN DIRECTA API REST)
@@ -58,7 +59,7 @@ const PRECIOS_BASE = {
 
 export default function App() {
   const [orders, setOrders] = useState([]);
-  const [groupSettings, setGroupSettings] = useState([]); // Configuraciones de grupos (Bloqueos)
+  const [groupSettings, setGroupSettings] = useState([]); 
   const [loading, setLoading] = useState(true);
   
   // ==========================================
@@ -130,7 +131,7 @@ export default function App() {
   // ESTADOS DEL FORMULARIO
   // ==========================================
   const [showInfo, setShowInfo] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(''); // Reparado: Ahora esta variable se usará en el Input visual
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [editingId, setEditingId] = useState(null);
@@ -164,7 +165,7 @@ export default function App() {
     setLoading(false);
   };
 
-  // Check Si el grupo actual está bloqueado
+  // Verifica si la lista está cerrada
   const currentGroupSettings = groupSettings.find(g => g.group_name === displayGroup);
   const isGroupLocked = currentGroupSettings ? currentGroupSettings.is_locked : false;
 
@@ -280,7 +281,6 @@ export default function App() {
   const handleOpenPayment = (order) => {
     if (!isAdmin) return;
     const total = getUnitPrice(order) * order.quantity;
-    // Transición: Si es de los viejos "Pagado" pero tiene 0 en amount_paid, asumimos que pagó todo
     const amount = order.amount_paid ?? (order.paymentStatus === 'Pagado' ? total : 0);
     setPaymentModal({ isOpen: true, order, amount: amount });
   };
@@ -305,7 +305,7 @@ export default function App() {
     }
   };
 
-  // Utilidades y Vistas
+  // Utilidades
   const getWhatsAppLink = (order) => {
     let phone = order.phone.replace(/\D/g, '');
     if (phone.startsWith('0')) phone = '595' + phone.substring(1);
@@ -349,6 +349,48 @@ export default function App() {
     alert(`Grupo "${cleanName}" configurado.\nEnlace copiado al portapapeles.`);
   };
 
+  const handleEditClick = (order) => {
+    setFormData({
+      ...formData,
+      name: order.name,
+      phone: order.phone === '-' ? '' : (order.phone || ''),
+      size: order.size,
+      gender: order.gender,
+      quantity: order.quantity,
+      longSleeve: order.longSleeve || false,
+      observations: order.observations || ''
+    });
+    setEditingId(order.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setFormData({ 
+        name: '', phone: '', size: activeSizes[0], gender: 'Femenino', quantity: 1, longSleeve: false, observations: '',
+        playerName: '', playerNumber: '', isGoalkeeper: false, includeShort: displayType.includes('Short'), shortSize: activeSizes[0], femaleShortType: 'Standard', includeSocks: displayType.includes('Medias')
+    });
+  };
+
+  const handleDelete = async (id) => {
+    if (!isAdmin) return;
+    await supabaseRequest(`orders?id=eq.${id}`, 'PATCH', { deleted: true });
+    fetchOrdersAndSettings();
+  };
+
+  const handleRestore = async (id) => {
+    if (!isAdmin) return;
+    await supabaseRequest(`orders?id=eq.${id}`, 'PATCH', { deleted: false });
+    fetchOrdersAndSettings();
+  };
+
+  const handlePermanentDelete = async (id) => {
+    if (!isAdmin) return;
+    if(!confirm("¿Estás seguro de eliminar esto permanentemente?")) return;
+    await supabaseRequest(`orders?id=eq.${id}`, 'DELETE');
+    fetchOrdersAndSettings();
+  };
+
   const activeOrders = useMemo(() => {
     let filtered = orders.filter(o => !o.deleted);
     if (!isAdmin) filtered = filtered.filter(o => (o.group_name || 'General') === displayGroup);
@@ -360,7 +402,6 @@ export default function App() {
 
   const availableGroups = useMemo(() => ['Todos', ...new Set(orders.filter(o => !o.deleted).map(o => o.group_name || 'General'))], [orders]);
 
-  // Cálculos Generales del Grupo Activo
   const summaryBySize = useMemo(() => {
     return activeSizes.map(size => {
       const sizeOrders = activeOrders.filter(order => order.size === size);
@@ -396,6 +437,180 @@ export default function App() {
     });
     return { items: allActive.length, expected, collected, debt: expected - collected };
   }, [orders]);
+
+  // Adaptación Dinámica de Resúmenes (Remeras) para el panel compacto
+  const compactSummaryItems = useMemo(() => {
+    const items = [];
+    activeSizes.forEach(size => {
+      const sizeOrders = activeOrders.filter(o => o.size === size);
+      ['Femenino', 'Masculino', 'Unisex'].forEach(gen => {
+        const shortCount = sizeOrders.filter(o => o.gender === gen && !o.longSleeve).reduce((sum, o) => sum + o.quantity, 0);
+        const longCount = sizeOrders.filter(o => o.gender === gen && o.longSleeve).reduce((sum, o) => sum + o.quantity, 0);
+        const genLabel = gen === 'Femenino' ? 'Fem' : gen === 'Masculino' ? 'Masc' : 'Uni';
+        
+        if (shortCount > 0) items.push({ size, gender: genLabel, isLong: false, total: shortCount });
+        if (longCount > 0) items.push({ size, gender: genLabel, isLong: true, total: longCount });
+      });
+    });
+    return items;
+  }, [activeOrders, activeSizes]);
+
+  // --- EXPORTACIÓN ---
+  const handleExportCSV = () => {
+    let csv = "\uFEFF"; 
+    csv += `RESUMEN PARA CONFECCION - VISTA: ${isAdmin ? adminGroupFilter : displayGroup}\n`;
+    csv += "Talle Remera;Femenino;Masculino;Unisex;Total\n";
+    summaryBySize.forEach(item => {
+      csv += `${item.size};${item.fem || '-'};${item.masc || '-'};${item.uni || '-'};${item.total}\n`;
+    });
+    csv += `\nTOTAL REMERAS;;;; ${totalGarments}\n`;
+    
+    if (Object.keys(shortsSummary).length > 0 || totalSocks > 0) {
+      csv += `\nEXTRAS DEPORTIVOS\n`;
+      csv += `Item;Talle;Total\n`;
+      Object.entries(shortsSummary).forEach(([size, qty]) => {
+        csv += `Short;${size};${qty}\n`;
+      });
+      if (totalSocks > 0) csv += `Medias;-;${totalSocks}\n`;
+    }
+
+    csv += `\nTOTAL A RECAUDAR;;;; ${new Intl.NumberFormat('es-PY').format(totalRevenue)} Gs\n\n`;
+
+    csv += "LISTA DE PEDIDOS\n";
+    csv += "Grupo;Cliente;Telefono;Talle;Genero;Manga;Cantidad;Estado de Pago;Observaciones;Fecha\n";
+    activeOrders.forEach(o => {
+      csv += `"${o.group_name || 'General'}";"${o.name}";"${o.phone || '-'}";"${o.size}";"${o.gender}";"${o.longSleeve ? 'Larga' : 'Corta'}";${o.quantity};"${o.paymentStatus || 'Pendiente'}";"${o.observations || ''}";"${formatDate(o.created_at)}"\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Pedidos_${isAdmin ? adminGroupFilter : displayGroup}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportPDF = () => {
+    const printWindow = window.open('', '_blank');
+    let html = `
+      <html>
+        <head>
+          <title>Pedidos - ${isAdmin && adminGroupFilter !== 'Todos' ? adminGroupFilter : displayGroup}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+            h1 { color: #312e81; font-size: 24px; text-align: center; margin-bottom: 5px; }
+            p.date { text-align: center; color: #666; margin-bottom: 30px; font-size: 14px; }
+            h2 { color: #4338ca; font-size: 18px; margin-top: 30px; border-bottom: 2px solid #e0e7ff; padding-bottom: 5px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
+            th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; }
+            th { background-color: #f3f4f6; color: #374151; }
+            .text-right { text-align: right; }
+            .text-center { text-align: center; }
+            .font-bold { font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <h1>BROOGUIN SPORT - Reporte de Pedidos</h1>
+          <p class="date">Vista: ${isAdmin ? adminGroupFilter : displayGroup} | ${new Date().toLocaleString()}</p>
+          
+          <h2>Resumen para Confección (Remeras)</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Talle</th>
+                <th class="text-center">Femenino</th>
+                <th class="text-center">Masculino</th>
+                <th class="text-center">Unisex</th>
+                <th class="text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    summaryBySize.forEach(item => {
+      if (item.total > 0) {
+        html += `<tr>
+          <td class="font-bold">${item.size}</td>
+          <td class="text-center">${item.fem || '-'}</td>
+          <td class="text-center">${item.masc || '-'}</td>
+          <td class="text-center">${item.uni || '-'}</td>
+          <td class="text-right font-bold">${item.total}</td>
+        </tr>`;
+      }
+    });
+
+    html += `
+            </tbody>
+            <tfoot>
+              <tr class="summary-total" style="background-color: #ecfdf5;">
+                <td colspan="4" class="text-right font-bold">Total Remeras:</td>
+                <td class="text-right font-bold">${totalGarments}</td>
+              </tr>
+              <tr class="summary-total" style="background-color: #e0e7ff;">
+                <td colspan="4" class="text-right font-bold">Recaudación Total Calculada:</td>
+                <td class="text-right font-bold">${new Intl.NumberFormat('es-PY').format(totalRevenue)} Gs</td>
+              </tr>
+            </tfoot>
+          </table>
+    `;
+
+    if (Object.keys(shortsSummary).length > 0 || totalSocks > 0) {
+      html += `
+          <h2>Extras Deportivos</h2>
+          <table style="width: 50%;">
+            <thead><tr><th>Item</th><th>Talle / Tipo</th><th class="text-right">Total</th></tr></thead>
+            <tbody>
+      `;
+      Object.entries(shortsSummary).forEach(([size, qty]) => {
+        html += `<tr><td>Short</td><td class="font-bold">${size}</td><td class="text-right">${qty}</td></tr>`;
+      });
+      if (totalSocks > 0) html += `<tr><td>Par de Medias</td><td class="font-bold">-</td><td class="text-right">${totalSocks}</td></tr>`;
+      html += `</tbody></table>`;
+    }
+
+    html += `
+          <h2>Lista de Pedidos Detallada</h2>
+          <table>
+            <thead>
+              <tr>
+                ${isAdmin && adminGroupFilter === 'Todos' ? '<th>Grupo</th>' : ''}
+                <th>Cliente</th>
+                <th>Talle</th>
+                <th>Género</th>
+                <th>Cant.</th>
+                <th>Estado</th>
+                <th>Datos Adicionales</th>
+              </tr>
+            </thead>
+            <tbody>
+    `;
+
+    activeOrders.forEach(o => {
+      html += `
+        <tr>
+          ${isAdmin && adminGroupFilter === 'Todos' ? `<td>${o.group_name || 'General'}</td>` : ''}
+          <td>${o.name} <br><small>${o.phone || ''}</small></td>
+          <td>${o.size}</td>
+          <td>${o.gender} ${o.longSleeve ? '(ML)' : ''}</td>
+          <td>${o.quantity}</td>
+          <td>${o.paymentStatus || 'Pendiente'}</td>
+          <td><small>${o.observations ? o.observations.replace(/\[Precio:\s*\d+\]/, '') : '-'}</small></td>
+        </tr>
+      `;
+    });
+
+    html += `
+            </tbody>
+          </table>
+          <script>window.onload = () => { window.print(); window.onafterprint = () => window.close(); }</script>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
 
   return (
     <div className="min-h-screen bg-neutral-100 text-neutral-800 font-sans p-4 md:p-8 transition-colors duration-500">
@@ -527,8 +742,8 @@ export default function App() {
                         <label className="text-[10px] uppercase tracking-wider text-indigo-300">Costo Base (Gs):</label>
                         <input type="number" value={newGroupConfig.costo} onChange={(e) => setNewGroupConfig({...newGroupConfig, costo: e.target.value})} className="w-32 px-3 py-1.5 rounded-lg bg-indigo-800 border-indigo-600 text-white font-bold text-sm outline-none" required />
                       </div>
-                      <button type="submit" className="bg-emerald-500 hover:bg-emerald-400 text-neutral-900 px-6 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors">
-                        <Link2 className="w-4 h-4" /> Generar Link
+                      <button type="submit" className="bg-emerald-500 hover:bg-emerald-400 text-neutral-900 px-6 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors shadow-lg">
+                        <Link2 className="w-4 h-4" /> Generar y Copiar Link
                       </button>
                     </div>
                   </form>
@@ -543,7 +758,6 @@ export default function App() {
           {/* Columna Formulario Principal (Y AVISO DE BLOQUEO) */}
           <div className="lg:col-span-1 space-y-6">
             
-            {/* Si el grupo está bloqueado y NO es admin, mostramos el candado y ocultamos form */}
             {isGroupLocked && !isAdmin ? (
                <div className="bg-red-50 p-8 rounded-2xl border border-red-200 text-center shadow-sm">
                   <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -689,15 +903,44 @@ export default function App() {
                 </form>
               </div>
             )}
+            
+            {/* Resumen Compacto */}
+            <div className="bg-indigo-50 p-5 rounded-2xl shadow-sm border border-indigo-100">
+              <h3 className="text-sm font-bold text-indigo-900 flex items-center gap-2 mb-3">
+                <Layers className="w-4 h-4 text-indigo-600" /> Resumen {displayGroup}
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {compactSummaryItems.map((item) => (
+                  <div key={`${item.size}-${item.gender}-${item.isLong}`} className="flex items-center bg-white border border-indigo-200 rounded text-[10px] overflow-hidden">
+                    <span className="bg-indigo-100 px-2 py-1 font-bold">{item.size}{item.gender[0]}{item.isLong ? 'L' : ''}</span>
+                    <span className="px-2 py-1 font-black">{item.total}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 pt-3 border-t border-indigo-200 flex justify-between items-center">
+                <span className="text-xs font-bold text-indigo-900">Total Prendas:</span>
+                <span className="text-sm font-black text-white bg-indigo-600 px-3 py-0.5 rounded-lg shadow-sm">{totalGarments}</span>
+              </div>
+            </div>
           </div>
 
           {/* Columna Listado y Resumen */}
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-neutral-200">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
-                 <h2 className="text-xl font-semibold flex items-center gap-2"><Search className="w-5 h-5 text-indigo-400" /> Pedidos Recientes</h2>
                  
-                 {/* BOTÓN CERRAR LISTA PARA ADMIN */}
+                 {/* REPARACIÓN: Input de Búsqueda para que Vercel no bloquee */}
+                 <div className="flex items-center gap-4 w-full sm:w-auto">
+                   <h2 className="text-xl font-semibold flex items-center gap-2"><Search className="w-5 h-5 text-indigo-400" /> Pedidos Recientes</h2>
+                   <input 
+                     type="text" 
+                     placeholder="Buscar por nombre..." 
+                     value={searchTerm} 
+                     onChange={(e) => setSearchTerm(e.target.value)} 
+                     className="flex-1 sm:w-48 px-3 py-1.5 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none" 
+                   />
+                 </div>
+                 
                  {isAdmin && (
                    <button onClick={toggleGroupLock} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-all ${isGroupLocked ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'}`}>
                      {isGroupLocked ? <Unlock className="w-4 h-4"/> : <Lock className="w-4 h-4"/>}
@@ -723,7 +966,8 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-neutral-200">
-                  {activeOrders.map((order) => {
+                  {/* Aplicamos el SearchTerm reparado aquí */}
+                  {activeOrders.filter(o => o.name.toLowerCase().includes(searchTerm.toLowerCase())).map((order) => {
                     const cleanObs = order.observations ? order.observations.replace(/\[Precio:\s*\d+\]/, '').trim() : '';
                     const fins = getOrderFinancials(order);
                     
@@ -746,7 +990,6 @@ export default function App() {
                           {cleanObs && <div className="text-[10px] text-neutral-500 mt-1 italic text-wrap max-w-[200px] leading-tight">{cleanObs}</div>}
                         </td>
                         <td className="px-4 py-3">
-                          {/* NUEVO GESTOR DE SEÑAS EN LA TABLA */}
                           {isAdmin ? (
                             <button onClick={() => handleOpenPayment(order)} className="text-left w-full hover:bg-neutral-100 p-1.5 rounded transition-colors group relative">
                               <div className={`text-[10px] font-black uppercase ${fins.balance === 0 ? 'text-green-600' : fins.paid > 0 ? 'text-amber-600' : 'text-red-500'}`}>
@@ -755,7 +998,6 @@ export default function App() {
                               <div className="text-[9px] text-neutral-500 font-medium">
                                  {new Intl.NumberFormat('es-PY').format(fins.paid)} / {new Intl.NumberFormat('es-PY').format(fins.total)} Gs.
                               </div>
-                              <div className="absolute right-1 top-2 hidden group-hover:block"><Edit className="w-3 h-3 text-neutral-400"/></div>
                             </button>
                           ) : (
                             <div className="p-1">
@@ -867,8 +1109,8 @@ export default function App() {
                       <tr key={o.id} className="border-t border-neutral-200">
                         <td className="py-2">{o.name} ({o.group_name})</td>
                         <td className="py-2 text-right">
-                           <button onClick={() => handleRestore(o.id)} className="text-indigo-600 font-bold px-2 py-1">Restaurar</button>
-                           <button onClick={() => handlePermanentDelete(o.id)} className="text-red-400 px-2 py-1">Eliminar</button>
+                           <button onClick={() => handleRestore(o.id)} className="text-indigo-600 font-bold px-2 py-1 hover:bg-indigo-50 rounded">Restaurar</button>
+                           <button onClick={() => handlePermanentDelete(o.id)} className="text-red-400 px-2 py-1 hover:bg-red-50 rounded">Eliminar</button>
                         </td>
                       </tr>
                     ))}
@@ -890,13 +1132,20 @@ export default function App() {
           )}
         </div>
 
+        {/* Notificación de éxito */}
+        {showSuccess && (
+          <div className="fixed bottom-6 right-6 bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-2xl z-50 animate-bounce">
+            <span className="font-bold text-sm flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> {successMessage}</span>
+          </div>
+        )}
+
         {/* Modal Pago (Gestor Señas) */}
         {paymentModal.isOpen && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
              <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in">
                 <div className="flex justify-between items-center mb-4">
                    <h3 className="font-bold text-indigo-900 flex items-center gap-2"><DollarSign className="w-5 h-5 bg-emerald-100 text-emerald-600 rounded-full p-0.5" /> Registrar Pago</h3>
-                   <button onClick={() => setPaymentModal({isOpen: false, order: null, amount: 0})} className="text-neutral-400"><X className="w-5 h-5" /></button>
+                   <button onClick={() => setPaymentModal({isOpen: false, order: null, amount: 0})} className="text-neutral-400 hover:text-neutral-600"><X className="w-5 h-5" /></button>
                 </div>
                 <div className="bg-neutral-50 p-3 rounded-lg mb-4 text-sm text-center">
                    <p className="text-neutral-500 mb-1">Total del pedido de {paymentModal.order.name}</p>
@@ -936,7 +1185,7 @@ export default function App() {
             <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-bold text-indigo-900 flex items-center gap-2"><ShieldAlert className="w-5 h-5 text-red-500" /> Modo Supremo</h3>
-                <button onClick={() => {setShowGroupAuth(false); setGroupPinError(false); setGroupPin(''); setShowGroupPassword(false);}} className="text-neutral-400"><X className="w-5 h-5" /></button>
+                <button onClick={() => {setShowGroupAuth(false); setGroupPinError(false); setGroupPin(''); setShowGroupPassword(false);}} className="text-neutral-400 hover:text-neutral-600"><X className="w-5 h-5" /></button>
               </div>
               <div className="relative mb-4">
                 <input type={showGroupPassword ? "text" : "password"} value={groupPin} onChange={(e) => setGroupPin(e.target.value)} placeholder="Contraseña Maestra" onKeyDown={(e) => e.key === 'Enter' && handleGroupAuth()} className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-red-500 outline-none pr-12" />
