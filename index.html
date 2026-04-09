@@ -1,13 +1,26 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
+    <title>Brooguin Sport - Pedidos</title>
+    
+    <!-- Este es el código mágico que da los estilos. DEBE estar aquí adentro del <head> -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+      /* Fondo grisecito por defecto para que no parpadee en blanco */
+      body { 
+        background-color: #f5f5f5; 
+        margin: 0; 
+        font-family: system-ui, -apple-system, sans-serif; 
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+    <!-- Esto conecta el HTML con tu código de React -->
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
