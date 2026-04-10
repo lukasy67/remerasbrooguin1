@@ -107,6 +107,7 @@ export default function App() {
 
   const [orders, setOrders] = useState([]);
   const [groupSettings, setGroupSettings] = useState([]); 
+  const [groupConfigs, setGroupConfigs] = useState({}); // "ADN invisible" de los grupos
   const [loading, setLoading] = useState(true);
   
   const [adminGroupFilter, setAdminGroupFilter] = useState('Todos');
@@ -154,11 +155,9 @@ export default function App() {
   const [cleanupRun, setCleanupRun] = useState(false);
   const [groupSort, setGroupSort] = useState({ key: 'lastOrder', direction: 'desc' });
 
-  // NUEVO: Estado global que siempre guarda el grupo base para la URL
   const urlParams = new URLSearchParams(window.location.search);
   const [activeGroup, setActiveGroup] = useState(() => urlParams.get('grupo') || 'General');
 
-  // Cuando cambias el filtro en Modo Admin Supremo, también actualizamos el grupo base (URL)
   const changeAdminFilter = (newGroup) => {
     setAdminGroupFilter(newGroup);
     if (newGroup !== 'Todos') {
@@ -179,25 +178,19 @@ export default function App() {
   });
 
   const isPreviewMode = showGroupManager && isGroupAdmin;
-  
-  // Contextualiza siempre basado en el activeGroup (si el filtro es Todos, el grupo de creación no se pierde)
   const contextualGroup = isGroupAdmin && adminGroupFilter !== 'Todos' ? adminGroupFilter : (isPreviewMode ? (newGroupConfig.name || 'Vista Previa') : activeGroup);
   const displayGroup = contextualGroup;
 
   const archivedNames = useMemo(() => archivedGroups.map(g => g.name), [archivedGroups]);
 
-  const isContextDeportiva = useMemo(() => {
-     if (isPreviewMode) return newGroupConfig.tipo !== 'Remera Piqué';
-     if (!isGroupAdmin || adminGroupFilter === 'Todos') return urlType !== 'Remera Piqué';
-     const groupOrders = orders.filter(o => o.group_name === contextualGroup);
-     if (groupOrders.length === 0) return true; 
-     return groupOrders.some(o => o.observations && o.observations.includes('[#'));
-  }, [contextualGroup, urlType, orders, isPreviewMode, newGroupConfig.tipo, isGroupAdmin, adminGroupFilter]);
+  // EL CEREBRO: Deduce los detalles visuales basándose en el ADN del grupo (o la URL si es visitante)
+  const savedConfig = groupConfigs[contextualGroup];
+  const displayAge = isPreviewMode ? newGroupConfig.edad : (savedConfig && isGroupAdmin && adminGroupFilter !== 'Todos' ? savedConfig.edad : urlAge);
+  const displayType = isPreviewMode ? newGroupConfig.tipo : (savedConfig && isGroupAdmin && adminGroupFilter !== 'Todos' ? savedConfig.tipo : urlType);
+  const displayFabric = isPreviewMode ? newGroupConfig.tela : (savedConfig && isGroupAdmin && adminGroupFilter !== 'Todos' ? savedConfig.tela : urlFabric);
+  const displayCost = isPreviewMode ? newGroupConfig.costo : (savedConfig && isGroupAdmin && adminGroupFilter !== 'Todos' ? savedConfig.costo : urlCost);
 
-  const displayAge = isPreviewMode ? newGroupConfig.edad : urlAge;
-  const displayType = isPreviewMode ? newGroupConfig.tipo : urlType;
-  const displayFabric = isPreviewMode ? newGroupConfig.tela : urlFabric;
-  const displayCost = isPreviewMode ? newGroupConfig.costo : urlCost;
+  const isContextDeportiva = displayType !== 'Remera Piqué';
 
   const activeSizes = displayAge === 'Infantil' ? SIZES_KIDS : SIZES_ADULTS;
   const isCamisilla = displayType.toLowerCase().includes('camisilla');
@@ -236,6 +229,15 @@ export default function App() {
     fetchOrdersAndSettings();
     trackVisit();
   }, []);
+
+  // Si un visitante entra a un link viejo que no tiene ADN guardado, lo guarda usando los datos de la URL.
+  useEffect(() => {
+    if (!loading && activeGroup !== 'General' && !groupConfigs[activeGroup] && orders.length > 0) {
+      const currentConf = { edad: urlAge, tipo: urlType, tela: urlFabric, costo: urlCost };
+      saveToGlobalSettings(`conf_${activeGroup}`, JSON.stringify(currentConf));
+      setGroupConfigs(prev => ({...prev, [activeGroup]: currentConf}));
+    }
+  }, [loading, activeGroup, urlAge, urlType, urlFabric, urlCost, groupConfigs, orders.length]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -304,6 +306,7 @@ export default function App() {
       const daysElapsed = (now - g.archivedAt) / (1000 * 60 * 60 * 24);
       if (daysElapsed >= 40) {
          await supabaseRequest(`orders?group_name=eq.${g.name}`, 'DELETE');
+         await supabaseRequest(`global_settings?id=eq.conf_${g.name}`, 'DELETE');
          needsRefetch = true;
       } else {
          validArchived.push(g);
@@ -338,6 +341,7 @@ export default function App() {
     ]);
     
     let parsedArchived = [];
+    let parsedConfigs = {};
 
     if (resOrders.data) setOrders(resOrders.data);
     if (resSettings.data) setGroupSettings(resSettings.data);
@@ -355,6 +359,14 @@ export default function App() {
          try { parsedArchived = JSON.parse(archivedObj.value); } catch(e) {}
       }
       setArchivedGroups(parsedArchived);
+
+      // Cargar los "ADN" de todos los grupos
+      resGlobal.data.forEach(item => {
+        if (item.id.startsWith('conf_')) {
+          try { parsedConfigs[item.id.replace('conf_', '')] = JSON.parse(item.value); } catch(e){}
+        }
+      });
+      setGroupConfigs(parsedConfigs);
     }
     
     setLoading(false);
@@ -428,35 +440,35 @@ export default function App() {
     const params = new URLSearchParams();
     params.append('grupo', groupName);
     
-    const groupOrders = orders.filter(o => o.group_name === groupName && !o.deleted);
+    const conf = groupConfigs[groupName];
     let e = urlAge, t = urlType, tela = urlFabric, c = urlCost;
     
     if (groupName === newGroupConfig.name && isPreviewMode) {
        e = newGroupConfig.edad; t = newGroupConfig.tipo; tela = newGroupConfig.tela; c = newGroupConfig.costo;
-    } else if (groupOrders.length > 0) {
-       const isDep = groupOrders.some(o => o.observations && o.observations.includes('[#'));
-       const isKids = groupOrders.some(o => SIZES_KIDS.includes(o.size));
-       e = isKids ? 'Infantil' : 'Adultos';
-       
-       if (isDep) {
-          const isCamisillaOrder = groupOrders.some(o => o.observations && o.observations.toLowerCase().includes('camisilla'));
-          const basePrenda = isCamisillaOrder ? 'Camisilla' : 'Remera';
-          const hasShort = groupOrders.some(o => o.observations && o.observations.includes('Short:') && !o.observations.includes('Short: NO'));
-          const hasMedias = groupOrders.some(o => o.observations && o.observations.includes('Medias: SI'));
+    } else if (conf) {
+       e = conf.edad; t = conf.tipo; tela = conf.tela; c = conf.costo;
+    } else {
+       // Legado
+       const groupOrders = orders.filter(o => o.group_name === groupName && !o.deleted);
+       if (groupOrders.length > 0) {
+          const isDep = groupOrders.some(o => o.observations && o.observations.includes('[#'));
+          const isKids = groupOrders.some(o => SIZES_KIDS.includes(o.size));
+          e = isKids ? 'Infantil' : 'Adultos';
+          if (isDep) {
+             const isCamisillaOrder = groupOrders.some(o => o.observations && o.observations.toLowerCase().includes('camisilla'));
+             const basePrenda = isCamisillaOrder ? 'Camisilla' : 'Remera';
+             const hasShort = groupOrders.some(o => o.observations && o.observations.includes('Short:') && !o.observations.includes('Short: NO'));
+             const hasMedias = groupOrders.some(o => o.observations && o.observations.includes('Medias: SI'));
+             if (hasShort && hasMedias) t = `${basePrenda} + Short + Medias`;
+             else if (hasShort) t = `${basePrenda} + Short`;
+             else t = isCamisillaOrder ? 'Solo Camisilla' : 'Solo Remera';
+          } else t = 'Remera Piqué';
           
-          if (hasShort && hasMedias) t = `${basePrenda} + Short + Medias`;
-          else if (hasShort) t = `${basePrenda} + Short`;
-          else t = isCamisillaOrder ? 'Solo Camisilla' : 'Solo Remera';
-       } else {
-          t = 'Remera Piqué';
-       }
-       
-       const matchCosto = groupOrders[0].observations?.match(/\[Precio:\s*(\d+)\]/);
-       if (matchCosto) {
-          c = parseInt(matchCosto[1]);
-          const options = PRECIOS_BASE[e];
-          for (const tk in options) {
-             if (options[tk][t] === c) { tela = tk; break; }
+          const matchCosto = groupOrders[0].observations?.match(/\[Precio:\s*(\d+)\]/);
+          if (matchCosto) {
+             c = parseInt(matchCosto[1]);
+             const options = PRECIOS_BASE[e];
+             for (const tk in options) { if (options[tk][t] === c) { tela = tk; break; } }
           }
        }
     }
@@ -530,11 +542,20 @@ export default function App() {
     try {
       await supabaseRequest(`orders?group_name=eq.${renameModal.oldName}`, 'PATCH', { group_name: cleanNewName });
       await supabaseRequest(`audit_logs?group_name=eq.${renameModal.oldName}`, 'PATCH', { group_name: cleanNewName });
+      
       const setting = groupSettings.find(g => g.group_name === renameModal.oldName);
       if (setting) {
         await supabaseRequest(`group_settings?group_name=eq.${renameModal.oldName}`, 'DELETE');
         await supabaseRequest('group_settings', 'POST', { group_name: cleanNewName, is_locked: setting.is_locked });
       }
+      
+      // Mover el ADN guardado
+      const oldConf = groupConfigs[renameModal.oldName];
+      if (oldConf) {
+         await saveToGlobalSettings(`conf_${cleanNewName}`, JSON.stringify(oldConf));
+         await supabaseRequest(`global_settings?id=eq.conf_${renameModal.oldName}`, 'DELETE');
+      }
+      
       logAction('Renombró Grupo', `El grupo ${renameModal.oldName} ahora se llama ${cleanNewName}`);
       
       if (adminGroupFilter === renameModal.oldName) {
@@ -664,10 +685,15 @@ export default function App() {
     } catch (err) { setPassChangeError('Error de red al guardar.'); }
   };
 
-  const handleCreateGroup = (e) => {
+  const handleCreateGroup = async (e) => {
     e.preventDefault();
     if (!newGroupConfig.name.trim()) return;
     const cleanName = newGroupConfig.name.trim().replace(/\s+/g, '');
+    
+    // Guardar ADN del nuevo grupo
+    await saveToGlobalSettings(`conf_${cleanName}`, JSON.stringify(newGroupConfig));
+    setGroupConfigs(prev => ({...prev, [cleanName]: newGroupConfig}));
+    
     const link = getGroupLink(cleanName);
     const textArea = document.createElement("textarea"); textArea.value = link; document.body.appendChild(textArea); textArea.select();
     try { document.execCommand('copy'); } catch (err) {}
@@ -1616,7 +1642,7 @@ export default function App() {
                         {isGroupAdmin && adminGroupFilter === 'Todos' && <td className="px-4 py-3 font-bold text-indigo-500">{order.group_name}</td>}
                         <td className={`px-4 py-3 font-medium ${darkMode ? 'text-slate-200' : 'text-neutral-900'}`}>
                           {order.name}
-                          {isAdmin && order.phone && order.phone !== '-' && (
+                          {(isAdmin || isGroupAdmin) && order.phone && order.phone !== '-' && (
                             <div className="mt-1 flex flex-wrap items-center gap-2">
                               <span className={`text-[10px] flex items-center gap-1 ${t.muted}`}><Phone className="w-2.5 h-2.5"/> {order.phone}</span>
                               <a href={getWhatsAppLink(order)} target="_blank" rel="noopener noreferrer" className={`text-[10px] flex items-center gap-1 px-2 py-0.5 rounded font-bold transition-colors cursor-pointer border ${darkMode ? 'bg-green-900/30 text-green-400 border-green-800 hover:bg-green-900/50' : 'bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#075E54] border-[#25D366]/30'}`}>
