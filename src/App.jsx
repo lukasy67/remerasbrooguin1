@@ -101,6 +101,9 @@ export default function App() {
     divide: darkMode ? 'divide-slate-700' : 'divide-neutral-200',
     indigoBg: darkMode ? 'bg-indigo-900/30 border-indigo-800/50' : 'bg-indigo-50 border-indigo-100',
     indigoText: darkMode ? 'text-indigo-300' : 'text-indigo-900',
+    emeraldBg: darkMode ? 'bg-emerald-900/30 text-emerald-400' : 'bg-emerald-50 text-emerald-700',
+    redBg: darkMode ? 'bg-red-900/30 text-red-400' : 'bg-red-50 text-red-700',
+    amberBg: darkMode ? 'bg-amber-900/30 text-amber-400' : 'bg-amber-50 text-amber-700',
     box: darkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-neutral-300 shadow-sm',
     sponsorCard: darkMode ? 'bg-slate-800 border-slate-700 from-slate-900 to-slate-800' : 'bg-white border-neutral-200 from-neutral-100 to-white',
   };
@@ -229,25 +232,34 @@ export default function App() {
   const isCamisilla = displayType.toLowerCase().includes('camisilla');
   const costoMangaLarga = isContextDeportiva ? 15000 : 10000;
 
-  // Manejador centralizado para "Nuevo Grupo" en Supremo (Resuelve precios Piqué automáticos)
-  const handleConfigChange = (e) => {
-    const { name, value } = e.target;
+  // Lógica de Autocompletado del Arancel (Se dispara al cambiar opciones del Nuevo Grupo)
+  useEffect(() => {
     setNewGroupConfig(prev => {
-        const next = { ...prev, [name]: value };
-        if (['tipo', 'edad', 'tela'].includes(name)) {
-            if (next.tipo === 'Remera Piqué') {
-                next.tela = 'Premium';
-                next.costo = 95000;
-            } else {
-                let calcPrice = PRECIOS_BASE[next.edad]?.[next.tela]?.[next.tipo];
-                if (!calcPrice && next.tipo.includes('Camisilla + Short + Medias')) calcPrice = PRECIOS_BASE[next.edad]?.[next.tela]?.['Remera + Short + Medias'];
-                else if (!calcPrice && next.tipo.includes('Camisilla + Short')) calcPrice = PRECIOS_BASE[next.edad]?.[next.tela]?.['Remera + Short'];
-                if (calcPrice) next.costo = calcPrice;
-            }
+      // Regla especial Piqué
+      if (prev.tipo === 'Remera Piqué') {
+        if (prev.tela !== 'Premium' || prev.costo !== 95000) {
+          return { ...prev, tela: 'Premium', costo: 95000 };
         }
-        return next;
+        return prev;
+      }
+      
+      // Auto-calcular costo para las demás opciones
+      let calcPrice = PRECIOS_BASE[prev.edad]?.[prev.tela]?.[prev.tipo];
+      if (!calcPrice && prev.tipo.includes('Camisilla + Short + Medias')) {
+        calcPrice = PRECIOS_BASE[prev.edad]?.[prev.tela]?.['Remera + Short + Medias'];
+      } else if (!calcPrice && prev.tipo.includes('Camisilla + Short')) {
+        calcPrice = PRECIOS_BASE[prev.edad]?.[prev.tela]?.['Remera + Short'];
+      } else if (!calcPrice && prev.tipo.includes('Solo Camisilla')) {
+        calcPrice = PRECIOS_BASE[prev.edad]?.[prev.tela]?.['Solo Remera'];
+      }
+
+      if (calcPrice && prev.costo !== calcPrice) {
+        return { ...prev, costo: calcPrice };
+      }
+      
+      return prev;
     });
-  };
+  }, [newGroupConfig.edad, newGroupConfig.tela, newGroupConfig.tipo]);
 
   const [searchTerm, setSearchTerm] = useState(''); 
   const [showSuccess, setShowSuccess] = useState(false);
@@ -696,22 +708,6 @@ export default function App() {
       alert("¡Contraseña de Administrador cambiada exitosamente!");
       setShowChangePass(false); setMasterPassInput(''); setNewAdminPassInput(''); setPassChangeError('');
     } catch (err) { setPassChangeError('Error de red al guardar.'); }
-  };
-
-  const handleCreateGroup = async (e) => {
-    e.preventDefault();
-    if (!newGroupConfig.name.trim()) return;
-    const cleanName = newGroupConfig.name.trim().replace(/\s+/g, '');
-    
-    await saveToGlobalSettings(`conf_${cleanName}`, JSON.stringify(newGroupConfig));
-    setGroupConfigs(prev => ({...prev, [cleanName]: newGroupConfig}));
-    
-    const link = getGroupLink(cleanName);
-    const textArea = document.createElement("textarea"); textArea.value = link; document.body.appendChild(textArea); textArea.select();
-    try { document.execCommand('copy'); } catch (err) {}
-    document.body.removeChild(textArea);
-    setQrModal({ isOpen: true, link: link, groupName: cleanName });
-    setNewGroupConfig({ ...newGroupConfig, name: '' });
   };
 
   const copyExistingGroupLink = (groupName) => {
@@ -1172,7 +1168,7 @@ export default function App() {
                     <li className="pt-1 mt-1 border-t border-indigo-300/30"><b>👑 Todos los Grupos:</b> Verás un botón extra para acceder a un directorio completo y estadístico de todos los grupos y ventas.</li>
                   )}
                   {isMasterOwner && (
-                    <li className="pt-1 mt-1 border-t border-indigo-300/30"><b>🚀 Dueño Supremo:</b> Tienes acceso al total financiero de toda la empresa, papelera de grupos de 40 días, y al historial silencioso de los administradores.</li>
+                    <li className="pt-1 mt-1 border-t border-indigo-300/30"><b>🚀 Dueño Supremo:</b> Tienes acceso al total financiero de toda la empresa, directorio ordenable, papelera de grupos de 40 días, y al historial silencioso de los administradores.</li>
                   )}
                 </ul>
               </div>
@@ -1311,13 +1307,13 @@ export default function App() {
                       </div>
                       <div>
                         <label className="block text-[10px] uppercase tracking-wider text-indigo-300 mb-1">Rango de Edad</label>
-                        <select value={newGroupConfig.edad} onChange={(e) => setNewGroupConfig({...newGroupConfig, edad: e.target.value})} className={`w-full px-3 py-2 border rounded-lg text-sm outline-none shadow-sm cursor-pointer ${darkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-indigo-800 border-indigo-600 text-white'}`}>
+                        <select value={newGroupConfig.edad} onChange={(e) => handleConfigChange(e)} name="edad" className={`w-full px-3 py-2 border rounded-lg text-sm outline-none shadow-sm cursor-pointer ${darkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-indigo-800 border-indigo-600 text-white'}`}>
                           <option value="Adultos">Adultos</option><option value="Infantil">Infantil</option>
                         </select>
                       </div>
                       <div>
                         <label className="block text-[10px] uppercase tracking-wider text-indigo-300 mb-1">Tipo de Prenda Base</label>
-                        <select value={newGroupConfig.tipo} onChange={(e) => setNewGroupConfig({...newGroupConfig, tipo: e.target.value})} className={`w-full px-3 py-2 border rounded-lg text-sm outline-none shadow-sm cursor-pointer ${darkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-indigo-800 border-indigo-600 text-white'}`}>
+                        <select value={newGroupConfig.tipo} onChange={(e) => handleConfigChange(e)} name="tipo" className={`w-full px-3 py-2 border rounded-lg text-sm outline-none shadow-sm cursor-pointer ${darkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-indigo-800 border-indigo-600 text-white'}`}>
                           <option value="Remera + Short">Remera + Short</option>
                           <option value="Remera + Short + Medias">Remera + Short + Medias</option>
                           <option value="Solo Remera">Solo Remera</option>
@@ -1328,7 +1324,7 @@ export default function App() {
                       </div>
                       <div>
                         <label className="block text-[10px] uppercase tracking-wider text-indigo-300 mb-1">Calidad de Tela</label>
-                        <select value={newGroupConfig.tela} onChange={(e) => setNewGroupConfig({...newGroupConfig, tela: e.target.value})} className={`w-full px-3 py-2 border rounded-lg text-sm outline-none shadow-sm cursor-pointer disabled:opacity-50 ${darkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-indigo-800 border-indigo-600 text-white'}`} disabled={newGroupConfig.tipo === 'Remera Piqué'}>
+                        <select value={newGroupConfig.tela} onChange={(e) => handleConfigChange(e)} name="tela" className={`w-full px-3 py-2 border rounded-lg text-sm outline-none shadow-sm cursor-pointer disabled:opacity-50 ${darkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-indigo-800 border-indigo-600 text-white'}`} disabled={newGroupConfig.tipo === 'Remera Piqué'}>
                           <option value="Premium">Premium</option><option value="Semi-Premium">Semi-Premium</option><option value="Estandard">Estandard</option>
                         </select>
                       </div>
@@ -1336,7 +1332,7 @@ export default function App() {
                     <div className={`flex items-center justify-between border-t pt-4 mt-2 ${darkMode ? 'border-slate-700' : 'border-indigo-800'}`}>
                       <div className="flex items-center gap-3">
                         <label className="text-[10px] uppercase tracking-wider text-indigo-300">Costo Base (Gs):</label>
-                        <input type="number" value={newGroupConfig.costo} onChange={(e) => setNewGroupConfig({...newGroupConfig, costo: e.target.value})} className={`w-32 px-3 py-1.5 border rounded-lg font-bold text-sm shadow-sm outline-none ${darkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-indigo-800 border-indigo-600 text-white'}`} required />
+                        <input type="number" value={newGroupConfig.costo} onChange={(e) => handleConfigChange(e)} name="costo" className={`w-32 px-3 py-1.5 border rounded-lg font-bold text-sm shadow-sm outline-none ${darkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-indigo-800 border-indigo-600 text-white'}`} required />
                       </div>
                       <button type="submit" className="bg-emerald-500 hover:bg-emerald-400 text-neutral-900 px-6 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors shadow-lg">
                         <QrCode className="w-4 h-4" /> Generar Link y Ver QR
