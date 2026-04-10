@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone, Loader2, Layers, Lock, Unlock, X, Eye, EyeOff, Download, FileText, Info, AlertCircle, Search, CheckCircle2, Edit, Filter, Link2, Plus, ShieldAlert, Settings, MessageCircle, DollarSign, TrendingUp, Scissors, History, KeyRound, RefreshCw, BarChart3, ExternalLink, Receipt, Target, QrCode, MapPin, Moon, Sun, ArrowRight, ArrowLeft } from 'lucide-react';
 
 // ==========================================
-// CONFIGURACIÓN DE SUPABASE (CONEXIÓN DIRECTA API REST)
+// CONFIGURACIÓN DE SUPABASE
 // ==========================================
 const supabaseUrl = 'https://waoylkoopzluyhuuhbbc.supabase.co'; 
 const supabaseKey = 'sb_publishable_JYC_sxawUbpXIYycV7HO3A_kiUiFyoy'; 
@@ -10,23 +10,14 @@ const supabaseKey = 'sb_publishable_JYC_sxawUbpXIYycV7HO3A_kiUiFyoy';
 const URL_LOGO_BROOGUIN = 'https://i.postimg.cc/Ff77DPdm/logo.png'; 
 
 const supabaseRequest = async (path, method = 'GET', body = null) => {
-  if (!supabaseUrl || supabaseUrl.includes('TU_URL_AQUI')) {
-    return { data: null, error: 'Configuración pendiente.' };
-  }
-  const headers = {
-    'apikey': supabaseKey,
-    'Authorization': `Bearer ${supabaseKey}`,
-    'Content-Type': 'application/json',
-    'Prefer': 'return=representation'
-  };
+  if (!supabaseUrl || supabaseUrl.includes('TU_URL_AQUI')) return { data: null, error: 'Configuración pendiente.' };
+  const headers = { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
   try {
     const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, { method, headers, body: body ? JSON.stringify(body) : null });
     if (!response.ok) throw new Error(await response.text());
     const data = response.status !== 204 ? await response.json() : null;
     return { data, error: null };
-  } catch (error) {
-    return { data: null, error: error.message };
-  }
+  } catch (error) { return { data: null, error: error.message }; }
 };
 
 const SIZES_ADULTS = ['P', 'M', 'G', 'XG', 'XXL', 'XXXL'];
@@ -45,26 +36,14 @@ const PRECIOS_BASE = {
   }
 };
 
-// ==========================================
-// COMPONENTES AUXILIARES (Tooltips, Animaciones y Parsers)
-// ==========================================
 const HelperTooltip = ({ text, darkMode }) => {
   const [show, setShow] = useState(false);
   return (
     <div className="relative inline-flex items-center align-middle z-30">
-      <button 
-        type="button"
-        onClick={() => setShow(!show)}
-        onBlur={() => setTimeout(() => setShow(false), 200)}
-        className={`rounded-full p-0.5 transition-colors focus:outline-none ${darkMode ? 'text-indigo-400 hover:bg-slate-700' : 'text-indigo-500 hover:bg-indigo-100'}`}
-        title="Más información"
-      >
-        <Info className="w-4 h-4" />
-      </button>
+      <button type="button" onClick={() => setShow(!show)} onBlur={() => setTimeout(() => setShow(false), 200)} className={`rounded-full p-0.5 transition-colors focus:outline-none ${darkMode ? 'text-indigo-400 hover:bg-slate-700' : 'text-indigo-500 hover:bg-indigo-100'}`} title="Más información"><Info className="w-4 h-4" /></button>
       {show && (
         <div className={`absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-56 sm:w-64 p-3 text-xs leading-snug rounded-xl shadow-2xl pointer-events-none font-medium text-center z-50 ${darkMode ? 'bg-slate-700 text-slate-200 border border-slate-600' : 'bg-indigo-900 text-indigo-50 border border-indigo-800'}`}>
-          {text}
-          <div className={`absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent ${darkMode ? 'border-t-slate-700' : 'border-t-indigo-900'}`}></div>
+          {text}<div className={`absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent ${darkMode ? 'border-t-slate-700' : 'border-t-indigo-900'}`}></div>
         </div>
       )}
     </div>
@@ -72,36 +51,18 @@ const HelperTooltip = ({ text, darkMode }) => {
 };
 
 const ANIMATION_THEMES = [
-  { e: ['⚽', '🥅', '🏟️', '👟', '🥇'], a: 'anim-fall' },        
-  { e: ['🏆', '🥇', '🏅', '🌟', '🙌'], a: 'anim-bounce' },      
-  { e: ['🌸', '🌺', '💮', '🍃', '✨'], a: 'anim-float' },       
-  { e: ['💋', '❤️', '💖', '😍', '🌹'], a: 'anim-float' },       
-  { e: ['🔥', '💪', '💯', '💥', '⚡'], a: 'anim-zoom' },        
-  { e: ['🎉', '🎊', '🎈', '✨', '🎁'], a: 'anim-fall' },        
-  { e: ['🚀', '🌕', '⭐', '☄️', '🛸'], a: 'anim-rise' },        
-  { e: ['⭐', '🌟', '✨', '💫', '🤩'], a: 'anim-fall' },        
-  { e: ['💎', '💸', '💰', '🤑', '🪙'], a: 'anim-fall' },        
-  { e: ['🏀', '🏐', '🎾', '🏓', '🎯'], a: 'anim-bounce' }       
+  { e: ['⚽', '🥅', '🏟️', '👟', '🥇'], a: 'anim-fall' }, { e: ['🏆', '🥇', '🏅', '🌟', '🙌'], a: 'anim-bounce' }, { e: ['🌸', '🌺', '💮', '🍃', '✨'], a: 'anim-float' }, { e: ['💋', '❤️', '💖', '😍', '🌹'], a: 'anim-float' }, { e: ['🔥', '💪', '💯', '💥', '⚡'], a: 'anim-zoom' }, { e: ['🎉', '🎊', '🎈', '✨', '🎁'], a: 'anim-fall' }, { e: ['🚀', '🌕', '⭐', '☄️', '🛸'], a: 'anim-rise' }, { e: ['⭐', '🌟', '✨', '💫', '🤩'], a: 'anim-fall' }, { e: ['💎', '💸', '💰', '🤑', '🪙'], a: 'anim-fall' }, { e: ['🏀', '🏐', '🎾', '🏓', '🎯'], a: 'anim-bounce' }
 ];
 
 const SuccessAnimation = ({ themeIndex }) => {
   const theme = ANIMATION_THEMES[themeIndex] || ANIMATION_THEMES[0];
-  const particles = Array.from({ length: 40 });
-
   return (
     <div className="fixed inset-0 pointer-events-none z-[9999] overflow-hidden">
-      {particles.map((_, i) => {
-        const left = Math.random() * 100;
-        const delay = Math.random() * 1.5;
-        const duration = 2 + Math.random() * 3;
-        const size = 1.5 + Math.random() * 2;
-        const emoji = theme.e[Math.floor(Math.random() * theme.e.length)];
-        return (
-          <div key={i} className="absolute" style={{ left: `${left}vw`, fontSize: `${size}rem`, animation: `${theme.a} ${duration}s ease-in-out ${delay}s forwards`, opacity: 0 }}>
-            {emoji}
-          </div>
-        );
-      })}
+      {Array.from({ length: 40 }).map((_, i) => (
+        <div key={i} className="absolute" style={{ left: `${Math.random() * 100}vw`, fontSize: `${1.5 + Math.random() * 2}rem`, animation: `${theme.a} ${2 + Math.random() * 3}s ease-in-out ${Math.random() * 1.5}s forwards`, opacity: 0 }}>
+          {theme.e[Math.floor(Math.random() * theme.e.length)]}
+        </div>
+      ))}
     </div>
   );
 };
@@ -111,7 +72,6 @@ const formatDate = (timestamp) => {
   return new Date(timestamp).toLocaleString('es-PY', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
 };
 
-// Función para extraer detalles bonitos de la observación
 const extractDetails = (obs) => {
   if (!obs) return { details: '', rest: '' };
   const match = obs.match(/(\[#.*?\])/);
@@ -141,9 +101,6 @@ export default function App() {
     divide: darkMode ? 'divide-slate-700' : 'divide-neutral-200',
     indigoBg: darkMode ? 'bg-indigo-900/30 border-indigo-800/50' : 'bg-indigo-50 border-indigo-100',
     indigoText: darkMode ? 'text-indigo-300' : 'text-indigo-900',
-    emeraldBg: darkMode ? 'bg-emerald-900/30 text-emerald-400' : 'bg-emerald-50 text-emerald-700',
-    redBg: darkMode ? 'bg-red-900/30 text-red-400' : 'bg-red-50 text-red-700',
-    amberBg: darkMode ? 'bg-amber-900/30 text-amber-400' : 'bg-amber-50 text-amber-700',
     box: darkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-neutral-300 shadow-sm',
     sponsorCard: darkMode ? 'bg-slate-800 border-slate-700 from-slate-900 to-slate-800' : 'bg-white border-neutral-200 from-neutral-100 to-white',
   };
@@ -195,11 +152,23 @@ export default function App() {
   const [undoDeleteId, setUndoDeleteId] = useState(null);
   const [archivedGroups, setArchivedGroups] = useState([]);
   const [cleanupRun, setCleanupRun] = useState(false);
-  
   const [groupSort, setGroupSort] = useState({ key: 'lastOrder', direction: 'desc' });
 
+  // NUEVO: Estado global que siempre guarda el grupo base para la URL
   const urlParams = new URLSearchParams(window.location.search);
-  const urlGroup = urlParams.get('grupo') || 'General';
+  const [activeGroup, setActiveGroup] = useState(() => urlParams.get('grupo') || 'General');
+
+  // Cuando cambias el filtro en Modo Admin Supremo, también actualizamos el grupo base (URL)
+  const changeAdminFilter = (newGroup) => {
+    setAdminGroupFilter(newGroup);
+    if (newGroup !== 'Todos') {
+      setActiveGroup(newGroup);
+      const newUrl = new URL(window.location);
+      newUrl.searchParams.set('grupo', newGroup);
+      window.history.pushState({}, '', newUrl);
+    }
+  };
+
   const urlAge = urlParams.get('edad') || 'Adultos';
   const urlType = urlParams.get('tipo') || 'Remera Piqué';
   const urlFabric = urlParams.get('tela') || 'Estandard';
@@ -210,7 +179,9 @@ export default function App() {
   });
 
   const isPreviewMode = showGroupManager && isGroupAdmin;
-  const contextualGroup = isGroupAdmin && adminGroupFilter !== 'Todos' ? adminGroupFilter : (isPreviewMode ? (newGroupConfig.name || 'Vista Previa') : urlGroup);
+  
+  // Contextualiza siempre basado en el activeGroup (si el filtro es Todos, el grupo de creación no se pierde)
+  const contextualGroup = isGroupAdmin && adminGroupFilter !== 'Todos' ? adminGroupFilter : (isPreviewMode ? (newGroupConfig.name || 'Vista Previa') : activeGroup);
   const displayGroup = contextualGroup;
 
   const archivedNames = useMemo(() => archivedGroups.map(g => g.name), [archivedGroups]);
@@ -452,7 +423,6 @@ export default function App() {
     return [...new Set([...groupsFromSettings, ...groupsFromOrders])].filter(Boolean).filter(g => !archivedNames.includes(g));
   }, [groupSettings, orders, archivedNames]);
 
-  // FUNCIÓN MAESTRA PARA GENERAR ENLACES EXACTOS
   const getGroupLink = (groupName) => {
     const baseUrl = window.location.origin + window.location.pathname;
     const params = new URLSearchParams();
@@ -566,7 +536,16 @@ export default function App() {
         await supabaseRequest('group_settings', 'POST', { group_name: cleanNewName, is_locked: setting.is_locked });
       }
       logAction('Renombró Grupo', `El grupo ${renameModal.oldName} ahora se llama ${cleanNewName}`);
-      if (adminGroupFilter === renameModal.oldName) setAdminGroupFilter(cleanNewName);
+      
+      if (adminGroupFilter === renameModal.oldName) {
+        changeAdminFilter(cleanNewName);
+      } else if (activeGroup === renameModal.oldName) {
+        setActiveGroup(cleanNewName);
+        const newUrl = new URL(window.location);
+        newUrl.searchParams.set('grupo', cleanNewName);
+        window.history.pushState({}, '', newUrl);
+      }
+      
       setRenameModal({ isOpen: false, oldName: '', newName: '' });
       alert(`¡Grupo renombrado exitosamente a "${cleanNewName}"! \nGenerar nuevo link si se estaba compartiendo.`);
       await fetchOrdersAndSettings();
@@ -580,7 +559,7 @@ export default function App() {
     setArchivedGroups(newArchived);
     await saveToGlobalSettings('archived_groups', JSON.stringify(newArchived));
     logAction('Archivó Grupo', `El grupo ${groupName} fue movido a la papelera`);
-    if (adminGroupFilter === groupName) setAdminGroupFilter('Todos');
+    if (adminGroupFilter === groupName) changeAdminFilter('Todos');
     fetchOrdersAndSettings();
   };
 
@@ -759,13 +738,6 @@ export default function App() {
     logAction('Restauró Pedido', `Desde papelera`); fetchOrdersAndSettings();
   };
 
-  const handlePermanentDelete = async (id) => {
-    if (!isGroupAdmin) return;
-    if(!confirm("¿Estás seguro de eliminar esto permanentemente?")) return;
-    await supabaseRequest(`orders?id=eq.${id}`, 'DELETE');
-    logAction('Borro Permanente', `Destruyó pedido`); fetchOrdersAndSettings();
-  };
-
   const activeOrders = useMemo(() => {
     let filtered = orders.filter(o => !o.deleted && !archivedNames.includes(o.group_name || 'General'));
     if (!isGroupAdmin) filtered = filtered.filter(o => (o.group_name || 'General') === displayGroup);
@@ -847,9 +819,8 @@ export default function App() {
 
   const progressPercent = totalRevenue === 0 ? 0 : Math.round((totalCollected / totalRevenue) * 100);
 
-  // NUEVA FUNCIÓN PARA FILTRAR DESDE EL DIRECTORIO MAESTRO
   const handleFilterFromDirectory = (groupName) => {
-    setAdminGroupFilter(groupName);
+    changeAdminFilter(groupName);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -1157,11 +1128,13 @@ export default function App() {
                       <li className="pt-1 mt-1 border-t border-indigo-300/30"><b>👑 Creador de Enlaces:</b> Genera links personalizados con precios bloqueados para cada colegio.</li>
                       <li><b>👑 Hojas de Corte:</b> Exporta un PDF resumido especial solo para el taller de costura.</li>
                       <li><b>👑 Mover Pedidos:</b> Al "Editar" un pedido, ahora puedes cambiarlo de grupo si el cliente se equivocó.</li>
-                      <li><b>👑 Todos los Grupos:</b> Verás un botón extra para acceder a un directorio completo y estadístico de todos los grupos y ventas.</li>
                     </>
                   )}
+                  {isCreator && (
+                    <li className="pt-1 mt-1 border-t border-indigo-300/30"><b>👑 Todos los Grupos:</b> Verás un botón extra para acceder a un directorio completo y estadístico de todos los grupos y ventas.</li>
+                  )}
                   {isMasterOwner && (
-                    <li className="pt-1 mt-1 border-t border-indigo-300/30"><b>🚀 Dueño Supremo:</b> Tienes acceso al total financiero de toda la empresa, directorio ordenable, papelera de grupos de 40 días, y al historial silencioso de los administradores.</li>
+                    <li className="pt-1 mt-1 border-t border-indigo-300/30"><b>🚀 Dueño Supremo:</b> Tienes acceso al total financiero de toda la empresa, papelera de grupos de 40 días, y al historial silencioso de los administradores.</li>
                   )}
                 </ul>
               </div>
@@ -1230,7 +1203,7 @@ export default function App() {
                   <div className={`flex items-center gap-1 p-2 rounded-lg border ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-indigo-50 border-indigo-100'}`}>
                     <Filter className="w-4 h-4 text-indigo-500 ml-1" />
                     <HelperTooltip darkMode={darkMode} text="Filtra la lista de pedidos de abajo para ver la de otros grupos o la de 'Todos'." />
-                    <select value={adminGroupFilter} onChange={(e) => setAdminGroupFilter(e.target.value)} className={`bg-transparent border-none text-sm font-bold outline-none cursor-pointer max-w-[150px] truncate ml-1 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
+                    <select value={adminGroupFilter} onChange={(e) => changeAdminFilter(e.target.value)} className={`bg-transparent border-none text-sm font-bold outline-none cursor-pointer max-w-[150px] truncate ml-1 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
                       {availableGroups.map(g => (<option key={g} value={g}>{g === 'Todos' ? 'Todos los Grupos' : `Grupo: ${g}`}</option>))}
                     </select>
                     
