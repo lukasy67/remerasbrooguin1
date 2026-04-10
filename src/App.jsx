@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone, Loader2, Layers, Lock, Unlock, X, Eye, EyeOff, Download, FileText, Info, AlertCircle, Search, CheckCircle2, Edit, Filter, Link2, Plus, ShieldAlert, Settings, MessageCircle, DollarSign, TrendingUp, Scissors, History, KeyRound, RefreshCw } from 'lucide-react';
+import { Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone, Loader2, Layers, Lock, Unlock, X, Eye, EyeOff, Download, FileText, Info, AlertCircle, Search, CheckCircle2, Edit, Filter, Link2, Plus, ShieldAlert, Settings, MessageCircle, DollarSign, TrendingUp, Scissors, History, KeyRound, RefreshCw, BarChart3, ExternalLink, Receipt, Target, QrCode } from 'lucide-react';
 
 // ==========================================
 // CONFIGURACIÓN DE SUPABASE (CONEXIÓN DIRECTA API REST)
@@ -7,30 +7,21 @@ import { Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone, Loader2, L
 const supabaseUrl = 'https://waoylkoopzluyhuuhbbc.supabase.co'; 
 const supabaseKey = 'sb_publishable_JYC_sxawUbpXIYycV7HO3A_kiUiFyoy'; 
 
+const URL_LOGO_BROOGUIN = 'https://i.postimg.cc/Ff77DPdm/logo.png'; 
+
 const supabaseRequest = async (path, method = 'GET', body = null) => {
   if (!supabaseUrl || supabaseUrl.includes('TU_URL_AQUI')) {
-    return { data: null, error: 'Configuración de Supabase pendiente.' };
+    return { data: null, error: 'Configuración pendiente.' };
   }
-  
   const headers = {
     'apikey': supabaseKey,
     'Authorization': `Bearer ${supabaseKey}`,
     'Content-Type': 'application/json',
     'Prefer': 'return=representation'
   };
-
   try {
-    const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : null
-    });
-    
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(errText);
-    }
-    
+    const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, { method, headers, body: body ? JSON.stringify(body) : null });
+    if (!response.ok) throw new Error(await response.text());
     const data = response.status !== 204 ? await response.json() : null;
     return { data, error: null };
   } catch (error) {
@@ -39,7 +30,6 @@ const supabaseRequest = async (path, method = 'GET', body = null) => {
 };
 // ==========================================
 
-// CONSTANTES Y PRECIOS DEL PDF OFICIAL
 const SIZES_ADULTS = ['P', 'M', 'G', 'XG', 'XXL', 'XXXL'];
 const SIZES_KIDS = ['2', '4', '6', '8', '10', '12', '14', '16'];
 
@@ -61,9 +51,6 @@ export default function App() {
   const [groupSettings, setGroupSettings] = useState([]); 
   const [loading, setLoading] = useState(true);
   
-  // ==========================================
-  // ESTADOS DEL PANEL DE ADMINISTRACIÓN
-  // ==========================================
   const [adminGroupFilter, setAdminGroupFilter] = useState('Todos');
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
@@ -71,19 +58,19 @@ export default function App() {
   const [pinError, setPinError] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   
-  // Contraseñas Dinámicas y Maestras
   const [currentAdminPassword, setCurrentAdminPassword] = useState('brooguin2025'); 
-  const GROUP_SECRET = 'remeras'; 
-  const MASTER_AUTHORIZATION = 'alucas123'; // Clave para cambiar contraseña
+  const MASTER_AUTHORIZATION = 'alucas123'; 
 
-  const [isGroupAdmin, setIsGroupAdmin] = useState(false); // Admin Supremo
+  // RAMIFICACIÓN DEL MODO SUPREMO
+  const [isGroupAdmin, setIsGroupAdmin] = useState(false); // Nivel 1: Creador de links ('remeras')
+  const [isMasterOwner, setIsMasterOwner] = useState(false); // Nivel 2: Dueño Total ('lukasy67')
+  
   const [showGroupAuth, setShowGroupAuth] = useState(false);
   const [groupPin, setGroupPin] = useState('');
   const [groupPinError, setGroupPinError] = useState(false);
   const [showGroupPassword, setShowGroupPassword] = useState(false);
   const [showGroupManager, setShowGroupManager] = useState(false);
 
-  // Estados de Configuración y Auditoría
   const [paymentModal, setPaymentModal] = useState({ isOpen: false, order: null, amount: 0 });
   const [showChangePass, setShowChangePass] = useState(false);
   const [masterPassInput, setMasterPassInput] = useState('');
@@ -92,10 +79,13 @@ export default function App() {
   
   const [showAuditLogs, setShowAuditLogs] = useState(false);
   const [auditLogsData, setAuditLogsData] = useState([]);
+  
+  // MODAL PARA CÓDIGO QR
+  const [qrModal, setQrModal] = useState({ isOpen: false, link: '', groupName: '' });
 
-  // ==========================================
-  // LECTURA DE URL Y PREVISUALIZACIÓN EN VIVO
-  // ==========================================
+  // MÉTRICAS DE TRÁFICO
+  const [siteMetrics, setSiteMetrics] = useState({ visits: 0, sponsorClicks: 0 });
+
   const urlParams = new URLSearchParams(window.location.search);
   const urlGroup = urlParams.get('grupo') || 'General';
   const urlAge = urlParams.get('edad') || 'Adultos';
@@ -135,9 +125,6 @@ export default function App() {
     }
   }, [newGroupConfig.edad, newGroupConfig.tela, newGroupConfig.tipo]);
 
-  // ==========================================
-  // ESTADOS DEL FORMULARIO
-  // ==========================================
   const [showInfo, setShowInfo] = useState(false);
   const [searchTerm, setSearchTerm] = useState(''); 
   const [showSuccess, setShowSuccess] = useState(false);
@@ -157,16 +144,49 @@ export default function App() {
     }));
   }, [displayAge, displayType]);
 
+  // Carga inicial y Tracker de Visitas
   useEffect(() => {
     fetchOrdersAndSettings();
+    trackVisit();
   }, []);
+
+  const trackVisit = async () => {
+    if (!sessionStorage.getItem('brooguin_visited')) {
+      sessionStorage.setItem('brooguin_visited', 'true');
+      const res = await supabaseRequest('global_settings?id=eq.page_visits', 'GET');
+      let currentVisits = 0;
+      if (res.data && res.data.length > 0) {
+        currentVisits = parseInt(res.data[0].value) || 0;
+        await supabaseRequest('global_settings?id=eq.page_visits', 'PATCH', { value: (currentVisits + 1).toString() });
+      } else {
+        await supabaseRequest('global_settings', 'POST', { id: 'page_visits', value: '1' });
+      }
+    }
+  };
+
+  const handleSponsorClick = async () => {
+    const currentClicks = siteMetrics.sponsorClicks;
+    setSiteMetrics(prev => ({ ...prev, sponsorClicks: currentClicks + 1 }));
+    
+    // Registro silencioso en base de datos
+    const res = await supabaseRequest('global_settings?id=eq.sponsor_clicks', 'GET');
+    if (res.data && res.data.length > 0) {
+      await supabaseRequest('global_settings?id=eq.sponsor_clicks', 'PATCH', { value: (currentClicks + 1).toString() });
+    } else {
+      await supabaseRequest('global_settings', 'POST', { id: 'sponsor_clicks', value: '1' });
+    }
+
+    // Redirección a tu WhatsApp
+    const msg = "Hola quiero ser sponsor de la página de Brooguin";
+    window.open(`https://wa.me/595984948834?text=${encodeURIComponent(msg)}`, '_blank');
+  };
 
   const fetchOrdersAndSettings = async () => {
     setLoading(true);
     const [resOrders, resSettings, resGlobal] = await Promise.all([
       supabaseRequest('orders?select=*&order=created_at.desc'),
       supabaseRequest('group_settings?select=*'),
-      supabaseRequest('global_settings?select=*') // Leer contraseña global
+      supabaseRequest('global_settings?select=*') 
     ]);
     
     if (resOrders.data) setOrders(resOrders.data);
@@ -175,21 +195,23 @@ export default function App() {
     if (resGlobal.data) {
       const passObj = resGlobal.data.find(s => s.id === 'admin_password');
       if (passObj) setCurrentAdminPassword(passObj.value);
+
+      const visitsObj = resGlobal.data.find(s => s.id === 'page_visits');
+      const clicksObj = resGlobal.data.find(s => s.id === 'sponsor_clicks');
+      setSiteMetrics({
+        visits: visitsObj ? parseInt(visitsObj.value) : 0,
+        sponsorClicks: clicksObj ? parseInt(clicksObj.value) : 0
+      });
     }
     
     setLoading(false);
   };
 
-  // SISTEMA DE AUDITORÍA (HISTORIAL SILENCIOSO)
   const logAction = async (action, details) => {
-    const actor = isGroupAdmin ? 'Admin Supremo' : 'Admin Normal';
+    const actor = isMasterOwner ? 'Dueño Supremo' : isGroupAdmin ? 'Admin Creador' : 'Admin de Grupo';
     try {
-      await supabaseRequest('audit_logs', 'POST', {
-        action,
-        details: `${details} (Por: ${actor})`,
-        group_name: displayGroup
-      });
-    } catch (err) { console.error("Error logging action", err); }
+      await supabaseRequest('audit_logs', 'POST', { action, details: `${details} (Por: ${actor})`, group_name: displayGroup });
+    } catch (err) {}
   };
 
   const fetchAuditLogs = async () => {
@@ -304,9 +326,7 @@ export default function App() {
       }
       logAction(newStatus ? 'Cerró Lista' : 'Reabrió Lista', `Afectó al grupo ${displayGroup}`);
       await fetchOrdersAndSettings();
-    } catch (err) {
-      console.error(err); alert("Error al bloquear la lista.");
-    }
+    } catch (err) { alert("Error al bloquear la lista."); }
   };
 
   const handleOpenPayment = (order) => {
@@ -330,17 +350,32 @@ export default function App() {
         amount_paid: amount, paymentStatus: newStatus 
       });
       logAction('Actualizó Pago', `De ${paymentModal.order.name} a ${amount} Gs.`);
-      setPaymentModal({ isOpen: false, order: null, amount: 0 });
+      
+      const updatedOrder = {...paymentModal.order, amount_paid: amount, paymentStatus: newStatus};
+      setPaymentModal({ isOpen: true, order: updatedOrder, amount: amount, isSaved: true }); 
+      
       fetchOrdersAndSettings();
-    } catch (err) {
-      alert("Error guardando el pago");
-    }
+    } catch (err) { alert("Error guardando el pago"); }
   };
 
   const getWhatsAppLink = (order) => {
     let phone = order.phone.replace(/\D/g, '');
     if (phone.startsWith('0')) phone = '595' + phone.substring(1);
     const msg = `Hola *${order.name}*! Te escribo por tu pedido de indumentaria para el grupo/equipo *${order.group_name || 'General'}*.\n\nPor favor, avisame si está todo correcto para avanzar o si te falta abonar. ¡Gracias!`;
+    return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+  };
+
+  const getReceiptLink = (order) => {
+    let phone = order.phone.replace(/\D/g, '');
+    if (phone.startsWith('0')) phone = '595' + phone.substring(1);
+    
+    const fins = getOrderFinancials(order);
+    const shortText = order.observations?.includes('Short:') ? ' + Short' : '';
+    const mediasText = order.observations?.includes('Medias: SI') ? ' + Medias' : '';
+    const desc = `${order.size} ${order.gender[0]} ${shortText}${mediasText}`;
+
+    const msg = `🧾 *RECIBO VIRTUAL - BROOGUIN SPORT* 🦊\n\n¡Hola *${order.name}*! Confirmamos el registro de tu pago.\n\n*Detalles del Pedido:*\nGrupo: ${order.group_name || 'General'}\nPrenda: ${desc} (x${order.quantity})\n\n*Estado de Cuenta:*\nTotal del Pedido: ${new Intl.NumberFormat('es-PY').format(fins.total)} Gs.\n💰 *Pagado hasta ahora: ${new Intl.NumberFormat('es-PY').format(fins.paid)} Gs.*\n⚠️ *Saldo Pendiente: ${new Intl.NumberFormat('es-PY').format(fins.balance)} Gs.*\n\n¡Gracias por tu confianza!`;
+    
     return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
   };
 
@@ -357,39 +392,35 @@ export default function App() {
 
   const handleAdminLogin = () => {
     if (adminPin === currentAdminPassword) { 
-      setIsAdmin(true); 
-      setAdminGroupFilter(displayGroup); 
-      setShowAdminLogin(false); 
-      setPinError(false); 
-      setAdminPin(''); 
-      setShowPassword(false); 
-    } 
-    else setPinError(true);
+      setIsAdmin(true); setAdminGroupFilter(displayGroup); setShowAdminLogin(false); setPinError(false); setAdminPin(''); setShowPassword(false); 
+    } else setPinError(true);
   };
   
   const handleGroupAuth = () => {
-    if (groupPin === GROUP_SECRET) { setIsGroupAdmin(true); setShowGroupAuth(false); setShowGroupManager(true); setGroupPin(''); setGroupPinError(false); setShowGroupPassword(false); } 
-    else setGroupPinError(true);
+    if (groupPin === 'remeras') { 
+       setIsGroupAdmin(true); 
+       setIsMasterOwner(false); 
+       setShowGroupAuth(false); setShowGroupManager(true); setGroupPin(''); setGroupPinError(false); setShowGroupPassword(false); 
+    } else if (groupPin === 'lukasy67') {
+       setIsGroupAdmin(true); 
+       setIsMasterOwner(true); 
+       setShowGroupAuth(false); setShowGroupManager(true); setGroupPin(''); setGroupPinError(false); setShowGroupPassword(false); 
+    } else {
+       setGroupPinError(true);
+    }
   };
 
   const handleChangePasswordSubmit = async () => {
-    if (masterPassInput !== MASTER_AUTHORIZATION) {
-      setPassChangeError('Clave de autorización incorrecta.'); return;
-    }
-    if (!newAdminPassInput || newAdminPassInput.length < 4) {
-      setPassChangeError('La nueva contraseña debe ser más larga.'); return;
-    }
+    if (masterPassInput !== MASTER_AUTHORIZATION) { setPassChangeError('Clave de autorización incorrecta.'); return; }
+    if (!newAdminPassInput || newAdminPassInput.length < 4) { setPassChangeError('La nueva contraseña debe ser más larga.'); return; }
     
     try {
       await supabaseRequest('global_settings?id=eq.admin_password', 'PATCH', { value: newAdminPassInput });
       setCurrentAdminPassword(newAdminPassInput);
       logAction('Cambió Clave Admin', 'Nueva clave configurada');
       alert("¡Contraseña de Administrador cambiada exitosamente!");
-      setShowChangePass(false);
-      setMasterPassInput(''); setNewAdminPassInput(''); setPassChangeError('');
-    } catch (err) {
-      setPassChangeError('Error de red al guardar.');
-    }
+      setShowChangePass(false); setMasterPassInput(''); setNewAdminPassInput(''); setPassChangeError('');
+    } catch (err) { setPassChangeError('Error de red al guardar.'); }
   };
 
   const handleCreateGroup = (e) => {
@@ -400,11 +431,14 @@ export default function App() {
     const params = new URLSearchParams();
     params.append('grupo', cleanName); params.append('edad', newGroupConfig.edad); params.append('tipo', newGroupConfig.tipo); params.append('tela', newGroupConfig.tela); params.append('costo', newGroupConfig.costo);
     const link = `${baseUrl}?${params.toString()}`;
+    
     const textArea = document.createElement("textarea"); textArea.value = link; document.body.appendChild(textArea); textArea.select();
     try { document.execCommand('copy'); } catch (err) {}
     document.body.removeChild(textArea);
+    
+    // Muestra el código QR al crear
+    setQrModal({ isOpen: true, link: link, groupName: cleanName });
     setNewGroupConfig({ ...newGroupConfig, name: '' });
-    alert(`Grupo "${cleanName}" configurado.\nEnlace copiado al portapapeles.`);
   };
 
   const copyExistingGroupLink = (groupName) => {
@@ -413,59 +447,51 @@ export default function App() {
     params.set('grupo', groupName);
     const link = `${baseUrl}?${params.toString()}`;
     
-    const textArea = document.createElement("textarea"); 
-    textArea.value = link; 
-    document.body.appendChild(textArea); 
-    textArea.select();
+    const textArea = document.createElement("textarea"); textArea.value = link; document.body.appendChild(textArea); textArea.select();
     try { document.execCommand('copy'); } catch (err) {}
     document.body.removeChild(textArea);
     
-    alert(`Enlace copiado para el grupo: ${groupName}`);
+    // Muestra el código QR al copiar
+    setQrModal({ isOpen: true, link: link, groupName: groupName });
+  };
+
+  const handleShareCurrentGroup = () => {
+    const baseUrl = window.location.origin + window.location.pathname;
+    const params = new URLSearchParams(window.location.search);
+    params.set('grupo', displayGroup);
+    const link = `${baseUrl}?${params.toString()}`;
+    setQrModal({ isOpen: true, link: link, groupName: displayGroup });
   };
 
   const handleEditClick = (order) => {
     setFormData({
-      ...formData,
-      name: order.name,
-      phone: order.phone === '-' ? '' : (order.phone || ''),
-      size: order.size,
-      gender: order.gender,
-      quantity: order.quantity,
-      longSleeve: order.longSleeve || false,
-      observations: order.observations || ''
+      ...formData, name: order.name, phone: order.phone === '-' ? '' : (order.phone || ''), size: order.size, gender: order.gender, quantity: order.quantity, longSleeve: order.longSleeve || false, observations: order.observations || ''
     });
-    setEditingId(order.id);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setEditingId(order.id); window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setFormData({ 
-        name: '', phone: '', size: activeSizes[0], gender: 'Femenino', quantity: 1, longSleeve: false, observations: '',
-        playerName: '', playerNumber: '', isGoalkeeper: false, includeShort: displayType.includes('Short'), shortSize: activeSizes[0], femaleShortType: 'Standard', includeSocks: displayType.includes('Medias')
-    });
+    setFormData({ name: '', phone: '', size: activeSizes[0], gender: 'Femenino', quantity: 1, longSleeve: false, observations: '', playerName: '', playerNumber: '', isGoalkeeper: false, includeShort: displayType.includes('Short'), shortSize: activeSizes[0], femaleShortType: 'Standard', includeSocks: displayType.includes('Medias')});
   };
 
   const handleDelete = async (id) => {
     if (!isAdmin) return;
     await supabaseRequest(`orders?id=eq.${id}`, 'PATCH', { deleted: true });
-    logAction('Eliminó Pedido', `Envió pedido ${id} a papelera`);
-    fetchOrdersAndSettings();
+    logAction('Eliminó Pedido', `Envió pedido ${id} a papelera`); fetchOrdersAndSettings();
   };
 
   const handleRestore = async (id) => {
     if (!isAdmin) return;
     await supabaseRequest(`orders?id=eq.${id}`, 'PATCH', { deleted: false });
-    logAction('Restauró Pedido', `Restauró pedido ${id}`);
-    fetchOrdersAndSettings();
+    logAction('Restauró Pedido', `Restauró pedido ${id}`); fetchOrdersAndSettings();
   };
 
   const handlePermanentDelete = async (id) => {
     if (!isAdmin) return;
     if(!confirm("¿Estás seguro de eliminar esto permanentemente?")) return;
     await supabaseRequest(`orders?id=eq.${id}`, 'DELETE');
-    logAction('Borro Permanente', `Destruyó pedido ${id}`);
-    fetchOrdersAndSettings();
+    logAction('Borro Permanente', `Destruyó pedido ${id}`); fetchOrdersAndSettings();
   };
 
   const activeOrders = useMemo(() => {
@@ -534,41 +560,29 @@ export default function App() {
     return items;
   }, [activeOrders, activeSizes]);
 
-  // --- EXPORTACIÓN ---
+  // BARRA DE PROGRESO DE PAGOS (Basada en Recaudación Financiera)
+  const progressPercent = totalRevenue === 0 ? 0 : Math.round((totalCollected / totalRevenue) * 100);
+
   const handleExportCSV = () => {
     let csv = "\uFEFF"; 
     csv += `RESUMEN PARA CONFECCION - VISTA: ${isGroupAdmin ? adminGroupFilter : displayGroup}\n`;
     csv += "Talle Remera;Femenino;Masculino;Unisex;Total\n";
-    summaryBySize.forEach(item => {
-      csv += `${item.size};${item.fem || '-'};${item.masc || '-'};${item.uni || '-'};${item.total}\n`;
-    });
+    summaryBySize.forEach(item => { csv += `${item.size};${item.fem || '-'};${item.masc || '-'};${item.uni || '-'};${item.total}\n`; });
     csv += `\nTOTAL REMERAS;;;; ${totalGarments}\n`;
-    
     if (Object.keys(shortsSummary).length > 0 || totalSocks > 0) {
-      csv += `\nEXTRAS DEPORTIVOS\n`;
-      csv += `Item;Talle;Total\n`;
-      Object.entries(shortsSummary).forEach(([size, qty]) => {
-        csv += `Short;${size};${qty}\n`;
-      });
+      csv += `\nEXTRAS DEPORTIVOS\nItem;Talle;Total\n`;
+      Object.entries(shortsSummary).forEach(([size, qty]) => { csv += `Short;${size};${qty}\n`; });
       if (totalSocks > 0) csv += `Medias;-;${totalSocks}\n`;
     }
-
     csv += `\nTOTAL A RECAUDAR;;;; ${new Intl.NumberFormat('es-PY').format(totalRevenue)} Gs\n\n`;
-
-    csv += "LISTA DE PEDIDOS\n";
-    csv += "Grupo;Cliente;Telefono;Talle;Genero;Manga;Cantidad;Estado de Pago;Observaciones;Fecha\n";
+    csv += "LISTA DE PEDIDOS\nGrupo;Cliente;Telefono;Talle;Genero;Manga;Cantidad;Estado de Pago;Observaciones;Fecha\n";
     activeOrders.forEach(o => {
       csv += `"${o.group_name || 'General'}";"${o.name}";"${o.phone || '-'}";"${o.size}";"${o.gender}";"${o.longSleeve ? 'Larga' : 'Corta'}";${o.quantity};"${o.paymentStatus || 'Pendiente'}";"${o.observations || ''}";"${formatDate(o.created_at)}"\n`;
     });
-
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `Pedidos_${isGroupAdmin ? adminGroupFilter : displayGroup}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const link = document.createElement('a'); link.href = url; link.setAttribute('download', `Pedidos_${isGroupAdmin ? adminGroupFilter : displayGroup}.csv`);
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
   const handleExportPDF = () => {
@@ -596,104 +610,41 @@ export default function App() {
           
           <h2>Resumen para Confección (Remeras)</h2>
           <table>
-            <thead>
-              <tr>
-                <th>Talle</th>
-                <th class="text-center">Femenino</th>
-                <th class="text-center">Masculino</th>
-                <th class="text-center">Unisex</th>
-                <th class="text-right">Total</th>
-              </tr>
-            </thead>
+            <thead><tr><th>Talle</th><th class="text-center">Femenino</th><th class="text-center">Masculino</th><th class="text-center">Unisex</th><th class="text-right">Total</th></tr></thead>
             <tbody>
     `;
-    
     summaryBySize.forEach(item => {
-      if (item.total > 0) {
-        html += `<tr>
-          <td class="font-bold">${item.size}</td>
-          <td class="text-center">${item.fem || '-'}</td>
-          <td class="text-center">${item.masc || '-'}</td>
-          <td class="text-center">${item.uni || '-'}</td>
-          <td class="text-right font-bold">${item.total}</td>
-        </tr>`;
-      }
+      if (item.total > 0) html += `<tr><td class="font-bold">${item.size}</td><td class="text-center">${item.fem || '-'}</td><td class="text-center">${item.masc || '-'}</td><td class="text-center">${item.uni || '-'}</td><td class="text-right font-bold">${item.total}</td></tr>`;
     });
-
     html += `
             </tbody>
             <tfoot>
-              <tr class="summary-total" style="background-color: #ecfdf5;">
-                <td colspan="4" class="text-right font-bold">Total Remeras:</td>
-                <td class="text-right font-bold">${totalGarments}</td>
-              </tr>
-              <tr class="summary-total" style="background-color: #e0e7ff;">
-                <td colspan="4" class="text-right font-bold">Recaudación Total Calculada:</td>
-                <td class="text-right font-bold">${new Intl.NumberFormat('es-PY').format(totalRevenue)} Gs</td>
-              </tr>
+              <tr class="summary-total" style="background-color: #ecfdf5;"><td colspan="4" class="text-right font-bold">Total Remeras:</td><td class="text-right font-bold">${totalGarments}</td></tr>
+              <tr class="summary-total" style="background-color: #e0e7ff;"><td colspan="4" class="text-right font-bold">Recaudación Total Calculada:</td><td class="text-right font-bold">${new Intl.NumberFormat('es-PY').format(totalRevenue)} Gs</td></tr>
             </tfoot>
           </table>
     `;
-
     if (Object.keys(shortsSummary).length > 0 || totalSocks > 0) {
-      html += `
-          <h2>Extras Deportivos</h2>
-          <table style="width: 50%;">
-            <thead><tr><th>Item</th><th>Talle / Tipo</th><th class="text-right">Total</th></tr></thead>
-            <tbody>
-      `;
-      Object.entries(shortsSummary).forEach(([size, qty]) => {
-        html += `<tr><td>Short</td><td class="font-bold">${size}</td><td class="text-right">${qty}</td></tr>`;
-      });
+      html += `<h2>Extras Deportivos</h2><table style="width: 50%;"><thead><tr><th>Item</th><th>Talle / Tipo</th><th class="text-right">Total</th></tr></thead><tbody>`;
+      Object.entries(shortsSummary).forEach(([size, qty]) => { html += `<tr><td>Short</td><td class="font-bold">${size}</td><td class="text-right">${qty}</td></tr>`; });
       if (totalSocks > 0) html += `<tr><td>Par de Medias</td><td class="font-bold">-</td><td class="text-right">${totalSocks}</td></tr>`;
       html += `</tbody></table>`;
     }
-
     html += `
           <h2>Lista de Pedidos Detallada</h2>
           <table>
-            <thead>
-              <tr>
-                ${isGroupAdmin && adminGroupFilter === 'Todos' ? '<th>Grupo</th>' : ''}
-                <th>Cliente</th>
-                <th>Talle</th>
-                <th>Género</th>
-                <th>Cant.</th>
-                <th>Estado</th>
-                <th>Datos Adicionales</th>
-              </tr>
-            </thead>
+            <thead><tr>${isGroupAdmin && adminGroupFilter === 'Todos' ? '<th>Grupo</th>' : ''}<th>Cliente</th><th>Talle</th><th>Género</th><th>Cant.</th><th>Estado</th><th>Datos Adicionales</th></tr></thead>
             <tbody>
     `;
-
     activeOrders.forEach(o => {
-      html += `
-        <tr>
-          ${isGroupAdmin && adminGroupFilter === 'Todos' ? `<td>${o.group_name || 'General'}</td>` : ''}
-          <td>${o.name} <br><small>${o.phone || ''}</small></td>
-          <td>${o.size}</td>
-          <td>${o.gender} ${o.longSleeve ? '(ML)' : ''}</td>
-          <td>${o.quantity}</td>
-          <td>${o.paymentStatus || 'Pendiente'}</td>
-          <td><small>${o.observations ? o.observations.replace(/\[Precio:\s*\d+\]/, '') : '-'}</small></td>
-        </tr>
-      `;
+      html += `<tr>${isGroupAdmin && adminGroupFilter === 'Todos' ? `<td>${o.group_name || 'General'}</td>` : ''}<td>${o.name} <br><small>${o.phone || ''}</small></td><td>${o.size}</td><td>${o.gender} ${o.longSleeve ? '(ML)' : ''}</td><td>${o.quantity}</td><td>${o.paymentStatus || 'Pendiente'}</td><td><small>${o.observations ? o.observations.replace(/\[Precio:\s*\d+\]/, '') : '-'}</small></td></tr>`;
     });
-
-    html += `
-            </tbody>
-          </table>
-          <script>window.onload = () => { window.print(); window.onafterprint = () => window.close(); }</script>
-        </body>
-      </html>
-    `;
-    printWindow.document.write(html);
-    printWindow.document.close();
+    html += `</tbody></table><script>window.onload = () => { window.print(); window.onafterprint = () => window.close(); }</script></body></html>`;
+    printWindow.document.write(html); printWindow.document.close();
   };
 
   const handleExportHojaCorte = () => {
     const printWindow = window.open('', '_blank');
-    
     const cortesRemera = {};
     activeOrders.forEach(o => {
       const tipoManga = o.longSleeve ? 'MANGA LARGA' : 'Manga Corta';
@@ -705,10 +656,7 @@ export default function App() {
     activeOrders.forEach(o => {
        if (o.observations?.includes('Short:') && !o.observations?.includes('Short: NO')) {
           const match = o.observations.match(/Short:\s*([^|]+)/);
-          if (match) {
-             const sSize = match[1].trim();
-             cortesShort[sSize] = (cortesShort[sSize] || 0) + o.quantity;
-          }
+          if (match) cortesShort[match[1].trim()] = (cortesShort[match[1].trim()] || 0) + o.quantity;
        }
     });
 
@@ -735,87 +683,72 @@ export default function App() {
             <span><strong>Fecha de impresión:</strong> ${new Date().toLocaleDateString()}</span>
             <span><strong>Prenda Base:</strong> ${displayType} (${displayFabric})</span>
           </div>
-          
           <h2>1. CONFECCIÓN DE REMERAS</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Especificación de Corte (Talle - Género - Manga)</th>
-                <th class="qty">Cant.</th>
-              </tr>
-            </thead>
+          <table><thead><tr><th>Especificación de Corte (Talle - Género - Manga)</th><th class="qty">Cant.</th></tr></thead>
             <tbody>
-              ${Object.entries(cortesRemera).sort().map(([desc, cant]) => `
-                <tr>
-                  <td class="item-desc">${desc}</td>
-                  <td class="qty">${cant}</td>
-                </tr>
-              `).join('')}
+              ${Object.entries(cortesRemera).sort().map(([desc, cant]) => `<tr><td class="item-desc">${desc}</td><td class="qty">${cant}</td></tr>`).join('')}
             </tbody>
           </table>
     `;
-
     if (Object.keys(cortesShort).length > 0) {
-      html += `
-          <h2>2. CONFECCIÓN DE SHORTS</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Especificación de Corte (Talle y Diseño)</th>
-                <th class="qty">Cant.</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${Object.entries(cortesShort).sort().map(([desc, cant]) => `
-                <tr>
-                  <td class="item-desc">Short Talle ${desc}</td>
-                  <td class="qty">${cant}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-      `;
+      html += `<h2>2. CONFECCIÓN DE SHORTS</h2><table><thead><tr><th>Especificación de Corte (Talle y Diseño)</th><th class="qty">Cant.</th></tr></thead>
+            <tbody>${Object.entries(cortesShort).sort().map(([desc, cant]) => `<tr><td class="item-desc">Short Talle ${desc}</td><td class="qty">${cant}</td></tr>`).join('')}</tbody></table>`;
     }
-
     if (totalSocks > 0) {
-      html += `
-          <h2>3. MEDIAS</h2>
-          <table>
-            <tbody>
-              <tr>
-                <td class="item-desc">Total de Pares de Medias a preparar</td>
-                <td class="qty">${totalSocks}</td>
-              </tr>
-            </tbody>
-          </table>
-      `;
+      html += `<h2>3. MEDIAS</h2><table><tbody><tr><td class="item-desc">Total de Pares de Medias a preparar</td><td class="qty">${totalSocks}</td></tr></tbody></table>`;
     }
+    html += `<script>window.onload = () => { window.print(); window.onafterprint = () => window.close(); }</script></body></html>`;
+    printWindow.document.write(html); printWindow.document.close();
+  };
 
-    html += `
-          <script>window.onload = () => { window.print(); window.onafterprint = () => window.close(); }</script>
-        </body>
-      </html>
-    `;
-    printWindow.document.write(html);
-    printWindow.document.close();
+  const formatDate = (timestamp) => {
+    if (!timestamp) return '-';
+    return new Date(timestamp).toLocaleString('es-PY', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
   };
 
   return (
     <div className="min-h-screen bg-neutral-100 text-neutral-800 font-sans p-4 md:p-8 transition-colors duration-500">
+      
+      {/* Botón Flotante de Asistencia (WhatsApp) */}
+      <a href="https://wa.me/595984948834" target="_blank" rel="noopener noreferrer" className="fixed bottom-6 left-6 bg-[#25D366] text-white p-3.5 rounded-full shadow-2xl hover:bg-[#20bd5a] transition-all transform hover:scale-110 z-50 flex items-center justify-center group border-2 border-white/20">
+        <MessageCircle className="w-6 h-6" />
+        <span className="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-[150px] transition-all duration-300 ease-in-out font-bold text-sm ml-0 group-hover:ml-2">
+          Asistencia
+        </span>
+      </a>
+
       <div className="max-w-6xl mx-auto space-y-6">
         
+        {/* ESPACIO SPONSOR LOCAL (Interactivo a tu WhatsApp) */}
+        <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden flex items-center justify-center relative cursor-pointer hover:shadow-md transition-shadow group" onClick={handleSponsorClick} title="¡Anúnciate Aquí!">
+           <div className="absolute inset-0 bg-gradient-to-r from-neutral-100 to-white opacity-50"></div>
+           <div className="p-3 text-center z-10 flex items-center gap-3">
+             <div className="w-10 h-10 bg-neutral-200 rounded-full flex items-center justify-center text-neutral-400 font-black text-xs border border-dashed border-neutral-400 group-hover:border-indigo-400 group-hover:text-indigo-400 transition-colors">LOGO</div>
+             <div className="text-left">
+               <p className="text-[10px] uppercase tracking-widest text-neutral-400 font-bold mb-0.5">Espacio Sponsor Local</p>
+               <p className="text-sm font-black text-neutral-800 flex items-center gap-1 group-hover:text-indigo-600 transition-colors">Tu Marca Aquí <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" /></p>
+             </div>
+           </div>
+        </div>
+
         {/* Header Adaptativo */}
         <header className="bg-indigo-900 text-white p-6 rounded-2xl shadow-lg flex flex-col md:flex-row items-start md:items-center gap-6 text-left relative overflow-hidden transition-all duration-500">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
           
           <div className="flex items-center gap-4 z-10">
-            <Shirt className="w-12 h-12 text-indigo-300 flex-shrink-0" />
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">BROOGUIN SPORT</h1>
-              <p className="text-indigo-200 text-sm mt-1 font-medium tracking-wide">
-                {isDeportiva ? 'Indumentaria Deportiva' : 'Uniformes Institucionales'}
-              </p>
-            </div>
+            <a href="https://www.instagram.com/brooguin_santani?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 hover:opacity-80 transition-opacity" title="Visítanos en Instagram">
+              {URL_LOGO_BROOGUIN ? (
+                <img src={URL_LOGO_BROOGUIN} alt="Brooguin Sport Logo" className="w-20 h-20 object-contain bg-white rounded-xl p-1.5 shadow-md" />
+              ) : (
+                <Shirt className="w-16 h-16 text-indigo-300 flex-shrink-0" />
+              )}
+              <div>
+                <h1 className="text-3xl sm:text-4xl font-black tracking-tight drop-shadow-md">BROOGUIN SPORT</h1>
+                <p className="text-indigo-200 text-sm mt-1 font-medium tracking-wide">
+                  {isDeportiva ? 'Indumentaria Deportiva' : 'Uniformes Institucionales'}
+                </p>
+              </div>
+            </a>
           </div>
           
           <div className="flex-1 flex flex-col sm:flex-row gap-4 w-full md:w-auto md:justify-end z-10">
@@ -836,9 +769,9 @@ export default function App() {
                  </span>
                  <span className="text-lg font-black text-white truncate max-w-[150px] block" title={displayGroup}>{displayGroup}</span>
                </div>
-               <div className={`${isPreviewMode ? 'bg-emerald-700' : 'bg-indigo-700'} p-2 rounded-lg ml-2`}>
-                 {isPreviewMode ? <Eye className="w-5 h-5 text-emerald-200" /> : <Link2 className="w-5 h-5 text-indigo-300" />}
-               </div>
+               <button onClick={handleShareCurrentGroup} className={`${isPreviewMode ? 'bg-emerald-700 hover:bg-emerald-600' : 'bg-indigo-700 hover:bg-indigo-600'} p-2 rounded-lg ml-2 flex gap-1 transition-colors cursor-pointer`} title="Compartir grupo y ver QR">
+                 {isPreviewMode ? <Eye className="w-5 h-5 text-emerald-200" /> : <QrCode className="w-5 h-5 text-indigo-300" />}
+               </button>
             </div>
           </div>
         </header>
@@ -856,6 +789,12 @@ export default function App() {
               </div>
               
               <div className="flex flex-wrap gap-2 items-center">
+                {!isGroupAdmin && (
+                  <button onClick={() => setShowChangePass(true)} className="flex items-center gap-2 bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-200 transition-all">
+                    <KeyRound className="w-4 h-4" /> Cambiar Clave
+                  </button>
+                )}
+
                 {!isGroupAdmin ? (
                   <button onClick={() => setShowGroupAuth(true)} className="flex items-center gap-2 bg-neutral-800 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-neutral-900 transition-all">
                     <ShieldAlert className="w-4 h-4" /> Modo Supremo
@@ -882,21 +821,20 @@ export default function App() {
                   </>
                 )}
 
-                {/* Filtro Restringido: Solo el Supremo puede ver "Todos los Grupos". El Admin normal está atado a su grupo. */}
                 {isGroupAdmin ? (
                   <div className="flex items-center gap-2 bg-indigo-50 p-2 rounded-lg border border-indigo-100">
                     <Filter className="w-4 h-4 text-indigo-600" />
                     <select value={adminGroupFilter} onChange={(e) => setAdminGroupFilter(e.target.value)} className="bg-transparent border-none text-sm font-bold text-indigo-900 outline-none cursor-pointer">
                       {availableGroups.map(g => (<option key={g} value={g}>{g === 'Todos' ? 'Todos los Grupos' : `Grupo: ${g}`}</option>))}
                     </select>
-                    {/* Botón para copiar enlace del grupo existente filtrado */}
                     {adminGroupFilter !== 'Todos' && (
                       <button 
                         onClick={() => copyExistingGroupLink(adminGroupFilter)} 
-                        className="ml-1 p-1.5 bg-indigo-200 text-indigo-700 hover:bg-indigo-600 hover:text-white rounded transition-colors"
-                        title="Copiar enlace de este grupo"
+                        className="ml-1 p-1.5 bg-indigo-200 text-indigo-700 hover:bg-indigo-600 hover:text-white rounded transition-colors flex items-center gap-1" 
+                        title="Copiar enlace y ver QR"
                       >
                         <Link2 className="w-4 h-4" />
+                        <QrCode className="w-4 h-4" />
                       </button>
                     )}
                   </div>
@@ -909,28 +847,36 @@ export default function App() {
               </div>
             </div>
 
-            {/* MODO SUPREMO: DASHBOARD Y CREADOR CON EXPLICACIONES DIDÁCTICAS */}
+            {/* MODO SUPREMO: DASHBOARD Y CREADOR */}
             {showGroupManager && isGroupAdmin && (
               <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
                 
-                {/* DASHBOARD FINANCIERO GLOBAL */}
-                <div className="bg-neutral-900 p-5 rounded-xl border border-neutral-700 shadow-inner text-white">
-                  <div className="flex flex-col md:flex-row gap-6">
-                    <div className="flex-1">
-                      <h4 className="text-sm font-bold text-neutral-400 mb-1 flex items-center gap-2"><TrendingUp className="w-4 h-4" /> Dashboard Financiero Global</h4>
-                      <p className="text-[11px] text-neutral-500 mb-4 italic">💡 Muestra la sumatoria de plata y prendas de <b>TODOS</b> los colegios/equipos registrados juntos. Ideal para ver la salud general del negocio.</p>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div><p className="text-[10px] uppercase text-neutral-500">Recaudación Total</p><p className="text-xl font-black text-emerald-400">{new Intl.NumberFormat('es-PY').format(globalStats.collected)} Gs.</p></div>
-                        <div><p className="text-[10px] uppercase text-neutral-500">Deuda Pendiente</p><p className="text-xl font-black text-amber-400">{new Intl.NumberFormat('es-PY').format(globalStats.debt)} Gs.</p></div>
+                {/* DASHBOARD FINANCIERO GLOBAL Y MÉTRICAS DE TRÁFICO (SOLO PARA DUEÑO MASTER 'lukasy67') */}
+                {isMasterOwner && (
+                  <div className="bg-neutral-900 p-5 rounded-xl border border-neutral-700 shadow-inner text-white">
+                    <div className="flex flex-col md:flex-row gap-6">
+                      <div className="flex-1">
+                        <h4 className="text-sm font-bold text-neutral-400 mb-1 flex items-center gap-2"><TrendingUp className="w-4 h-4" /> Dashboard Financiero Global</h4>
+                        <p className="text-[11px] text-neutral-500 mb-4 italic">💡 Sumatoria de plata y prendas de <b>TODOS</b> los colegios/equipos registrados juntos.</p>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div><p className="text-[10px] uppercase text-neutral-500">Recaudación Total</p><p className="text-xl font-black text-emerald-400">{new Intl.NumberFormat('es-PY').format(globalStats.collected)} Gs.</p></div>
+                          <div><p className="text-[10px] uppercase text-neutral-500">Deuda Pendiente</p><p className="text-xl font-black text-amber-400">{new Intl.NumberFormat('es-PY').format(globalStats.debt)} Gs.</p></div>
+                        </div>
+                      </div>
+                      <div className="w-px bg-neutral-700 hidden md:block"></div>
+                      <div className="flex-1 flex flex-col justify-center">
+                        <div className="flex justify-between text-sm mb-1 border-b border-neutral-800 pb-1"><span className="text-neutral-400">Total Esperado:</span><span className="font-bold">{new Intl.NumberFormat('es-PY').format(globalStats.expected)} Gs.</span></div>
+                        <div className="flex justify-between text-sm mb-4 border-b border-neutral-800 pb-1"><span className="text-neutral-400">Total Prendas Generales:</span><span className="font-bold">{globalStats.items}</span></div>
+                        
+                        <h4 className="text-[10px] font-bold text-neutral-400 mb-2 flex items-center gap-1 uppercase tracking-wider"><BarChart3 className="w-3 h-3" /> Métricas de Tráfico (Sponsors)</h4>
+                        <div className="grid grid-cols-2 gap-2 bg-neutral-800/50 p-2 rounded-lg">
+                           <div><p className="text-[10px] text-neutral-400">Visitas a la Web</p><p className="text-sm font-bold text-white">{siteMetrics.visits}</p></div>
+                           <div><p className="text-[10px] text-neutral-400">Clics en Auspiciantes</p><p className="text-sm font-bold text-blue-400">{siteMetrics.sponsorClicks}</p></div>
+                        </div>
                       </div>
                     </div>
-                    <div className="w-px bg-neutral-700 hidden md:block"></div>
-                    <div className="flex-1 flex flex-col justify-center">
-                      <div className="flex justify-between text-sm mb-1"><span className="text-neutral-400">Total Esperado:</span><span className="font-bold">{new Intl.NumberFormat('es-PY').format(globalStats.expected)} Gs.</span></div>
-                      <div className="flex justify-between text-sm"><span className="text-neutral-400">Total Prendas Generales:</span><span className="font-bold">{globalStats.items}</span></div>
-                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="bg-indigo-900 p-5 rounded-xl border border-indigo-700 shadow-inner text-white">
                   <h4 className="text-sm font-bold text-emerald-300 mb-1 flex items-center gap-2"><Eye className="w-4 h-4" /> Creador de Enlaces Parametrizados (Vista en Vivo)</h4>
@@ -972,7 +918,7 @@ export default function App() {
                         <input type="number" value={newGroupConfig.costo} onChange={(e) => setNewGroupConfig({...newGroupConfig, costo: e.target.value})} className="w-32 px-3 py-1.5 rounded-lg bg-indigo-800 border-indigo-600 text-white font-bold text-sm outline-none" required />
                       </div>
                       <button type="submit" className="bg-emerald-500 hover:bg-emerald-400 text-neutral-900 px-6 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors shadow-lg">
-                        <Link2 className="w-4 h-4" /> Generar y Copiar Link
+                        <QrCode className="w-4 h-4" /> Generar Link y Ver QR
                       </button>
                     </div>
                   </form>
@@ -1152,6 +1098,28 @@ export default function App() {
 
           {/* Columna Listado y Resumen */}
           <div className="lg:col-span-2 space-y-6">
+            
+            {/* BARRA DE PROGRESO DE PAGOS (Basada en Recaudación Financiera) */}
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-neutral-200 flex flex-col justify-center">
+               <div className="flex justify-between items-end mb-2">
+                 <h3 className="text-sm font-bold text-indigo-900 flex items-center gap-2">
+                   <Target className="w-5 h-5 text-emerald-500" /> Progreso de Recaudación
+                 </h3>
+                 <span className="text-xs font-black text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-md">{progressPercent}%</span>
+               </div>
+               
+               <div className="w-full bg-neutral-100 rounded-full h-3.5 mb-2 overflow-hidden border border-neutral-200">
+                 <div className="bg-gradient-to-r from-emerald-400 to-emerald-600 h-3.5 rounded-full transition-all duration-1000 ease-out flex items-center justify-end px-2" style={{ width: `${progressPercent}%` }}>
+                 </div>
+               </div>
+               
+               <p className="text-xs text-neutral-500 text-center font-medium">
+                 {progressPercent === 0 && "¡Sé el primero en aportar a la meta del equipo!"}
+                 {progressPercent > 0 && progressPercent < 100 && `¡El equipo se está armando! Llevamos recaudados ${new Intl.NumberFormat('es-PY').format(totalCollected)} Gs de ${new Intl.NumberFormat('es-PY').format(totalRevenue)} Gs.`}
+                 {progressPercent === 100 && totalRevenue > 0 && "¡Meta financiera 100% alcanzada! El pedido está listo para producción."}
+               </p>
+            </div>
+
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-neutral-200">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
                  
@@ -1410,8 +1378,8 @@ export default function App() {
           </div>
         )}
 
-        {/* Modal Pago (Gestor Señas) */}
-        {paymentModal.isOpen && (
+        {/* Modal Pago (Gestor Señas) Y BOTÓN DE RECIBO WHATSAPP */}
+        {paymentModal.isOpen && paymentModal.order && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
              <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in">
                 <div className="flex justify-between items-center mb-4">
@@ -1427,7 +1395,20 @@ export default function App() {
                   type="number" value={paymentModal.amount} onChange={(e) => setPaymentModal({...paymentModal, amount: e.target.value})} 
                   className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-lg text-center mb-4" 
                 />
-                <button onClick={savePayment} className="w-full bg-emerald-500 text-neutral-900 font-black py-3 rounded-xl hover:bg-emerald-400 transition-all">Guardar Pago</button>
+                
+                {/* Si ya guardó el pago o quiere hacerlo todo junto */}
+                <div className="space-y-2">
+                  <button onClick={savePayment} className="w-full bg-emerald-500 text-neutral-900 font-black py-3 rounded-xl hover:bg-emerald-400 transition-all shadow-md">
+                    Guardar Pago en el Sistema
+                  </button>
+                  
+                  {/* BOTÓN NUEVO: GENERADOR DE RECIBO VIRTUAL */}
+                  {paymentModal.isSaved && (
+                    <a href={getReceiptLink(paymentModal.order)} target="_blank" rel="noopener noreferrer" className="w-full bg-[#25D366] text-white font-bold py-3 rounded-xl hover:bg-[#20bd5a] transition-all shadow-md flex items-center justify-center gap-2">
+                      <Receipt className="w-4 h-4" /> Enviar Recibo por WhatsApp
+                    </a>
+                  )}
+                </div>
              </div>
           </div>
         )}
@@ -1487,7 +1468,7 @@ export default function App() {
             <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-bold text-indigo-900 flex items-center gap-2"><ShieldAlert className="w-5 h-5 text-red-500" /> Modo Supremo</h3>
-                <button onClick={() => {setShowGroupAuth(false); setGroupPinError(false); setGroupPin(''); setShowGroupPassword(false);}} className="text-neutral-400 hover:text-neutral-600"><X className="w-5 h-5" /></button>
+                <button onClick={() => {setShowGroupAuth(false); setGroupPinError(false); setGroupPin(''); setShowGroupPassword(false); setIsMasterOwner(false);}} className="text-neutral-400 hover:text-neutral-600"><X className="w-5 h-5" /></button>
               </div>
               <div className="relative mb-4">
                 <input type={showGroupPassword ? "text" : "password"} value={groupPin} onChange={(e) => setGroupPin(e.target.value)} placeholder="Contraseña Maestra" onKeyDown={(e) => e.key === 'Enter' && handleGroupAuth()} className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-red-500 outline-none pr-12" />
@@ -1498,6 +1479,46 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {/* NUEVO: Modal Código QR */}
+        {qrModal.isOpen && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[80] p-4 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in text-center">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold text-indigo-900 flex items-center gap-2"><QrCode className="w-5 h-5 text-indigo-600" /> Compartir Grupo</h3>
+                <button onClick={() => setQrModal({isOpen: false, link: '', groupName: ''})} className="text-neutral-400 hover:text-neutral-600"><X className="w-5 h-5" /></button>
+              </div>
+              <p className="text-sm text-neutral-600 mb-4">Comparte este código con tu equipo para que ingresen directo al grupo <strong>{qrModal.groupName}</strong>.</p>
+              
+              <div className="bg-neutral-100 p-4 rounded-xl flex justify-center mb-4 border border-neutral-200">
+                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrModal.link)}&margin=10`} alt="QR Code" className="rounded-lg shadow-sm" />
+              </div>
+              
+              <div className="flex gap-2 mb-4">
+                <a 
+                  href={`https://wa.me/?text=${encodeURIComponent(`¡Hola! Haz tu pedido de indumentaria para el grupo *${qrModal.groupName}* aquí:\n\n${qrModal.link}`)}`}
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex-1 bg-[#25D366] text-white font-bold py-2 px-3 rounded-xl hover:bg-[#20bd5a] transition-all flex items-center justify-center gap-2 text-sm shadow-sm"
+                >
+                  <MessageCircle className="w-4 h-4" /> Enviar
+                </a>
+                <button 
+                  onClick={() => {
+                    const textArea = document.createElement("textarea"); textArea.value = qrModal.link; document.body.appendChild(textArea); textArea.select();
+                    try { document.execCommand('copy'); alert("¡Enlace copiado al portapapeles!"); } catch (err) {} document.body.removeChild(textArea);
+                  }}
+                  className="flex-1 bg-indigo-100 text-indigo-700 font-bold py-2 px-3 rounded-xl hover:bg-indigo-200 transition-all flex items-center justify-center gap-2 text-sm shadow-sm"
+                >
+                  <Link2 className="w-4 h-4" /> Copiar
+                </button>
+              </div>
+              
+              <button onClick={() => setQrModal({isOpen: false, link: '', groupName: ''})} className="w-full bg-neutral-800 text-white font-bold py-2 rounded-xl hover:bg-neutral-900 transition-all text-sm">Cerrar Ventana</button>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );
