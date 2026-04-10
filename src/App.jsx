@@ -110,7 +110,7 @@ export default function App() {
 
   const [orders, setOrders] = useState([]);
   const [groupSettings, setGroupSettings] = useState([]); 
-  const [groupConfigs, setGroupConfigs] = useState({}); // "ADN invisible" de los grupos
+  const [groupConfigs, setGroupConfigs] = useState({}); 
   const [loading, setLoading] = useState(true);
   
   const [adminGroupFilter, setAdminGroupFilter] = useState('Todos');
@@ -121,10 +121,6 @@ export default function App() {
   const [showPassword, setShowPassword] = useState(false);
   const [showAdminLegend, setShowAdminLegend] = useState(false);
   
-  const [currentDelegateName, setCurrentDelegateName] = useState('');
-  const [inputDelegate, setInputDelegate] = useState('');
-  const [availableDelegates, setAvailableDelegates] = useState([]);
-
   const [currentAdminPassword, setCurrentAdminPassword] = useState('brooguin2025'); 
   const MASTER_AUTHORIZATION = 'alucas123'; 
 
@@ -187,13 +183,11 @@ export default function App() {
   const archivedNames = useMemo(() => archivedGroups.map(g => g.name), [archivedGroups]);
 
   // EL CEREBRO: Deduce los detalles visuales basándose en el ADN del grupo (o la URL si es visitante)
-  // Al cambiar el dropdown (o cargar la página), el sistema moldea todo el formulario
   const activeGroupConfig = useMemo(() => {
     if (isPreviewMode) return newGroupConfig;
     const conf = groupConfigs[contextualGroup];
     if (conf) return conf;
 
-    // Si no tiene ADN, infiere del historial (Legado) o de la URL
     const groupOrders = orders.filter(o => o.group_name === contextualGroup && !o.deleted);
     let e = urlAge, t = urlType, tela = urlFabric, c = urlCost;
     if (groupOrders.length > 0) {
@@ -222,10 +216,10 @@ export default function App() {
     return { edad: e, tipo: t, tela: tela, costo: c };
   }, [contextualGroup, groupConfigs, orders, isPreviewMode, newGroupConfig, urlAge, urlType, urlFabric, urlCost]);
 
-  const displayAge = activeGroupConfig.edad;
-  const displayType = activeGroupConfig.tipo;
-  const displayFabric = activeGroupConfig.tela;
-  const displayCost = activeGroupConfig.costo;
+  const displayAge = activeGroupConfig?.edad || 'Adultos';
+  const displayType = activeGroupConfig?.tipo || 'Remera Piqué';
+  const displayFabric = activeGroupConfig?.tela || 'Estandard';
+  const displayCost = activeGroupConfig?.costo || 85000;
 
   const isContextDeportiva = displayType !== 'Remera Piqué';
   const activeSizes = displayAge === 'Infantil' ? SIZES_KIDS : SIZES_ADULTS;
@@ -294,20 +288,6 @@ export default function App() {
     }
   }, [isAdmin, isGroupAdmin, isMasterOwner, isCreator]);
 
-  useEffect(() => {
-    if (showAdminLogin) {
-      const fetchDelegates = async () => {
-        const res = await supabaseRequest(`global_settings?id=eq.delegates_${displayGroup}`);
-        if (res.data && res.data.length > 0) {
-          try { setAvailableDelegates(JSON.parse(res.data[0].value)); } catch(e) {}
-        } else {
-          setAvailableDelegates([]);
-        }
-      };
-      fetchDelegates();
-    }
-  }, [showAdminLogin, displayGroup]);
-
   const saveToGlobalSettings = async (id, value) => {
     const res = await supabaseRequest(`global_settings?id=eq.${id}`);
     if (res.data && res.data.length > 0) await supabaseRequest(`global_settings?id=eq.${id}`, 'PATCH', { value });
@@ -334,7 +314,6 @@ export default function App() {
     const now = Date.now();
     let needsRefetch = false;
 
-    // Limpieza de Pedidos Borrados (+48 horas)
     for (const o of ordersData) {
       if (o.deleted) {
         const delMatch = o.observations?.match(/\[DEL:(\d+)\]/);
@@ -347,7 +326,6 @@ export default function App() {
       }
     }
 
-    // Limpieza de Grupos Archivados (+40 días)
     const validArchived = [];
     for (const g of archivedGroupsData) {
       const daysElapsed = (now - g.archivedAt) / (1000 * 60 * 60 * 24);
@@ -423,7 +401,6 @@ export default function App() {
     let actor = 'Admin Normal';
     if (isMasterOwner) actor = 'Dueño Supremo';
     else if (isCreator) actor = 'Admin Creador';
-    else if (currentDelegateName) actor = `Delegado: ${currentDelegateName}`;
     
     try {
       await supabaseRequest('audit_logs', 'POST', { action, details: `${details} (Por: ${actor})`, group_name: displayGroup });
@@ -665,18 +642,10 @@ export default function App() {
   };
 
   const handleAdminLogin = async () => {
-    if (!inputDelegate.trim()) { alert("Por favor, ingresa tu Nombre de Referencia."); return; }
     if (adminPin === currentAdminPassword) { 
       setIsAdmin(true); 
       setAdminGroupFilter(displayGroup); 
-      setCurrentDelegateName(inputDelegate.trim());
-
-      if (!availableDelegates.includes(inputDelegate.trim())) {
-        const newDelegates = [...availableDelegates, inputDelegate.trim()];
-        setAvailableDelegates(newDelegates);
-        await saveToGlobalSettings(`delegates_${displayGroup}`, JSON.stringify(newDelegates));
-      }
-      setShowAdminLogin(false); setPinError(false); setAdminPin(''); setShowPassword(false); setInputDelegate('');
+      setShowAdminLogin(false); setPinError(false); setAdminPin(''); setShowPassword(false); 
     } else { setPinError(true); }
   };
   
@@ -766,13 +735,6 @@ export default function App() {
     logAction('Restauró Pedido', `Desde papelera`); fetchOrdersAndSettings();
   };
 
-  const handlePermanentDelete = async (id) => {
-    if (!isGroupAdmin) return; // SOLO ADMIN SUPREMO PUEDE ELIMINAR PERMANENTEMENTE
-    if(!confirm("¿Estás seguro de eliminar esto permanentemente?")) return;
-    await supabaseRequest(`orders?id=eq.${id}`, 'DELETE');
-    logAction('Borro Permanente', `Destruyó pedido`); fetchOrdersAndSettings();
-  };
-
   const activeOrders = useMemo(() => {
     let filtered = orders.filter(o => !o.deleted && !archivedNames.includes(o.group_name || 'General'));
     if (!isGroupAdmin) filtered = filtered.filter(o => (o.group_name || 'General') === displayGroup);
@@ -844,8 +806,8 @@ export default function App() {
        .filter(g => !archivedNames.includes(g.name))
        .sort((a, b) => {
         let valA = a[groupSort.key]; let valB = b[groupSort.key];
-        if (groupSort.key === 'name') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); } 
-        else { valA = new Date(valA).getTime(); valB = new Date(valB).getTime(); }
+        if (groupSort.key === 'name') { valA = (valA || '').toLowerCase(); valB = (valB || '').toLowerCase(); } 
+        else { valA = valA ? new Date(valA).getTime() : 0; valB = valB ? new Date(valB).getTime() : 0; }
         if (valA < valB) return groupSort.direction === 'asc' ? -1 : 1;
         if (valA > valB) return groupSort.direction === 'asc' ? 1 : -1;
         return 0;
@@ -1182,7 +1144,7 @@ export default function App() {
                   <h3 className={`font-bold text-sm flex items-center gap-1 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
                     Panel de Administración 
                   </h3>
-                  <p className={`text-xs ${t.muted}`}>Bienvenido/a {currentDelegateName || 'Admin'}. Herramientas exclusivas habilitadas.</p>
+                  <p className={`text-xs ${t.muted}`}>Herramientas exclusivas habilitadas.</p>
                 </div>
               </div>
               
@@ -1214,7 +1176,6 @@ export default function App() {
                       <History className="w-4 h-4" /> {showAuditLogs ? 'Ocultar Historial' : 'Historial'}
                     </button>
                     
-                    {/* Botón de Todos los Grupos disponible para AMBOS (lukasy67 y marseo) */}
                     {isCreator && (
                       <button 
                         onClick={() => { 
@@ -1906,9 +1867,6 @@ export default function App() {
                           </td>
                           <td className="py-2 text-right">
                              <button onClick={() => handleRestore(o)} className={`font-bold px-2 py-1 rounded transition-colors ${darkMode ? 'text-indigo-400 hover:bg-slate-700' : 'text-indigo-600 hover:bg-indigo-50'}`}>Restaurar</button>
-                             {isGroupAdmin && (
-                                <button onClick={() => handlePermanentDelete(o.id)} className={`px-2 py-1 rounded transition-colors ${darkMode ? 'text-red-400 hover:bg-slate-700' : 'text-red-400 hover:bg-red-50'}`}>Eliminar Ya</button>
-                             )}
                           </td>
                         </tr>
                       )
@@ -2028,17 +1986,6 @@ export default function App() {
               <div className="flex justify-between items-center mb-4">
                 <h3 className={`font-bold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}><Lock className="w-5 h-5" /> Iniciar Sesión</h3>
                 <button onClick={() => setShowAdminLogin(false)} className={`${t.muted} hover:text-slate-200`}><X className="w-5 h-5" /></button>
-              </div>
-              
-              <div className="mb-4">
-                <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${t.muted}`}>Tu Nombre (Referencia de Auditoría)</label>
-                <div className="relative">
-                  <input type="text" value={inputDelegate} onChange={(e) => setInputDelegate(e.target.value)} list="delegates-list" placeholder="Ej. Lucas López" className={`w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm ${t.input}`} />
-                  <datalist id="delegates-list">
-                    {availableDelegates.map(d => <option key={d} value={d} />)}
-                  </datalist>
-                </div>
-                <p className={`text-[9px] mt-1 ${t.muted}`}>Tus movimientos quedarán registrados a este nombre.</p>
               </div>
 
               <div className="relative mb-4">
