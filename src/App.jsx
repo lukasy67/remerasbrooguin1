@@ -407,6 +407,22 @@ export default function App() {
     alert(`Grupo "${cleanName}" configurado.\nEnlace copiado al portapapeles.`);
   };
 
+  const copyExistingGroupLink = (groupName) => {
+    const baseUrl = window.location.origin + window.location.pathname;
+    const params = new URLSearchParams(window.location.search);
+    params.set('grupo', groupName);
+    const link = `${baseUrl}?${params.toString()}`;
+    
+    const textArea = document.createElement("textarea"); 
+    textArea.value = link; 
+    document.body.appendChild(textArea); 
+    textArea.select();
+    try { document.execCommand('copy'); } catch (err) {}
+    document.body.removeChild(textArea);
+    
+    alert(`Enlace copiado para el grupo: ${groupName}`);
+  };
+
   const handleEditClick = (order) => {
     setFormData({
       ...formData,
@@ -839,13 +855,7 @@ export default function App() {
                 </div>
               </div>
               
-              <div className="flex flex-wrap gap-2">
-                {!isGroupAdmin && (
-                  <button onClick={() => setShowChangePass(true)} className="flex items-center gap-2 bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-200 transition-all">
-                    <KeyRound className="w-4 h-4" /> Cambiar Clave
-                  </button>
-                )}
-
+              <div className="flex flex-wrap gap-2 items-center">
                 {!isGroupAdmin ? (
                   <button onClick={() => setShowGroupAuth(true)} className="flex items-center gap-2 bg-neutral-800 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-neutral-900 transition-all">
                     <ShieldAlert className="w-4 h-4" /> Modo Supremo
@@ -879,6 +889,16 @@ export default function App() {
                     <select value={adminGroupFilter} onChange={(e) => setAdminGroupFilter(e.target.value)} className="bg-transparent border-none text-sm font-bold text-indigo-900 outline-none cursor-pointer">
                       {availableGroups.map(g => (<option key={g} value={g}>{g === 'Todos' ? 'Todos los Grupos' : `Grupo: ${g}`}</option>))}
                     </select>
+                    {/* Botón para copiar enlace del grupo existente filtrado */}
+                    {adminGroupFilter !== 'Todos' && (
+                      <button 
+                        onClick={() => copyExistingGroupLink(adminGroupFilter)} 
+                        className="ml-1 p-1.5 bg-indigo-200 text-indigo-700 hover:bg-indigo-600 hover:text-white rounded transition-colors"
+                        title="Copiar enlace de este grupo"
+                      >
+                        <Link2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 bg-indigo-50 px-4 py-2 rounded-lg border border-indigo-100">
@@ -1412,7 +1432,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Modal de Login Admin */}
+        {/* Modal de Login Admin (CON BOTÓN DE CAMBIO DE CLAVE) */}
         {showAdminLogin && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
             <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in">
@@ -1425,7 +1445,17 @@ export default function App() {
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-neutral-500"><EyeOff className="w-5 h-5" /></button>
               </div>
               {pinError && <p className="text-xs text-red-500 mb-3 mt-[-10px]">Contraseña incorrecta.</p>}
-              <button onClick={handleAdminLogin} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-all">Ingresar</button>
+              
+              <button onClick={handleAdminLogin} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-all mb-4">Ingresar</button>
+
+              <div className="border-t border-neutral-200 pt-3">
+                <button 
+                  onClick={() => { setShowAdminLogin(false); setShowChangePass(true); }} 
+                  className="w-full text-xs text-indigo-600 font-bold hover:text-indigo-800 transition-colors flex items-center justify-center gap-1"
+                >
+                  <KeyRound className="w-3 h-3" /> Cambiar Clave de Administrador
+                </button>
+              </div>
             </div>
           </div>
         )}
