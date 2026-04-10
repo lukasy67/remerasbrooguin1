@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone, Loader2, Layers, Lock, Unlock, X, Eye, EyeOff, Download, FileText, Info, AlertCircle, Search, CheckCircle2, Edit, Filter, Link2, Plus, ShieldAlert, Settings, MessageCircle, DollarSign, TrendingUp, Scissors } from 'lucide-react';
+import { Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone, Loader2, Layers, Lock, Unlock, X, Eye, EyeOff, Download, FileText, Info, AlertCircle, Search, CheckCircle2, Edit, Filter, Link2, Plus, ShieldAlert, Settings, MessageCircle, DollarSign, TrendingUp, Scissors, History, KeyRound } from 'lucide-react';
 
 // ==========================================
 // CONFIGURACIÓN DE SUPABASE (CONEXIÓN DIRECTA API REST)
@@ -70,19 +70,28 @@ export default function App() {
   const [adminPin, setAdminPin] = useState('');
   const [pinError, setPinError] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-
-  const ADMIN_SECRET = 'brooguin2025';
+  
+  // Contraseñas Dinámicas y Maestras
+  const [currentAdminPassword, setCurrentAdminPassword] = useState('brooguin2025'); 
   const GROUP_SECRET = 'remeras'; 
+  const MASTER_AUTHORIZATION = 'alucas123'; // Clave para cambiar contraseña
 
-  const [isGroupAdmin, setIsGroupAdmin] = useState(false);
+  const [isGroupAdmin, setIsGroupAdmin] = useState(false); // Admin Supremo
   const [showGroupAuth, setShowGroupAuth] = useState(false);
   const [groupPin, setGroupPin] = useState('');
   const [groupPinError, setGroupPinError] = useState(false);
   const [showGroupPassword, setShowGroupPassword] = useState(false);
   const [showGroupManager, setShowGroupManager] = useState(false);
 
-  // Estados Modal Pagos
+  // Estados de Configuración y Auditoría
   const [paymentModal, setPaymentModal] = useState({ isOpen: false, order: null, amount: 0 });
+  const [showChangePass, setShowChangePass] = useState(false);
+  const [masterPassInput, setMasterPassInput] = useState('');
+  const [newAdminPassInput, setNewAdminPassInput] = useState('');
+  const [passChangeError, setPassChangeError] = useState('');
+  
+  const [showAuditLogs, setShowAuditLogs] = useState(false);
+  const [auditLogsData, setAuditLogsData] = useState([]);
 
   // ==========================================
   // LECTURA DE URL Y PREVISUALIZACIÓN EN VIVO
@@ -154,14 +163,38 @@ export default function App() {
 
   const fetchOrdersAndSettings = async () => {
     setLoading(true);
-    const [resOrders, resSettings] = await Promise.all([
+    const [resOrders, resSettings, resGlobal] = await Promise.all([
       supabaseRequest('orders?select=*&order=created_at.desc'),
-      supabaseRequest('group_settings?select=*')
+      supabaseRequest('group_settings?select=*'),
+      supabaseRequest('global_settings?select=*') // Leer contraseña global
     ]);
     
     if (resOrders.data) setOrders(resOrders.data);
     if (resSettings.data) setGroupSettings(resSettings.data);
+    
+    if (resGlobal.data) {
+      const passObj = resGlobal.data.find(s => s.id === 'admin_password');
+      if (passObj) setCurrentAdminPassword(passObj.value);
+    }
+    
     setLoading(false);
+  };
+
+  // SISTEMA DE AUDITORÍA (HISTORIAL SILENCIOSO)
+  const logAction = async (action, details) => {
+    const actor = isGroupAdmin ? 'Admin Supremo' : 'Admin Normal';
+    try {
+      await supabaseRequest('audit_logs', 'POST', {
+        action,
+        details: `${details} (Por: ${actor})`,
+        group_name: displayGroup
+      });
+    } catch (err) { console.error("Error logging action", err); }
+  };
+
+  const fetchAuditLogs = async () => {
+    const { data } = await supabaseRequest('audit_logs?select=*&order=created_at.desc');
+    if (data) setAuditLogsData(data);
   };
 
   const currentGroupSettings = groupSettings.find(g => g.group_name === displayGroup);
@@ -238,11 +271,13 @@ export default function App() {
       if (editingId) {
         const { error } = await supabaseRequest(`orders?id=eq.${editingId}`, 'PATCH', orderData);
         if (error) throw new Error(error);
+        logAction('Editó Pedido', `Editó a ${orderData.name}`);
         setSuccessMessage('¡Pedido Actualizado!'); setEditingId(null);
       } else {
         const newOrder = { ...orderData, paymentStatus: 'Pendiente', deleted: false, amount_paid: 0 };
         const { error } = await supabaseRequest('orders', 'POST', newOrder);
         if (error) throw new Error(error);
+        if (isAdmin) logAction('Agregó Pedido Manual', `Agregó a ${orderData.name}`);
         setSuccessMessage('¡Pedido Registrado!');
       }
       await fetchOrdersAndSettings(); 
@@ -267,6 +302,7 @@ export default function App() {
       } else {
         await supabaseRequest('group_settings', 'POST', { group_name: displayGroup, is_locked: newStatus });
       }
+      logAction(newStatus ? 'Cerró Lista' : 'Reabrió Lista', `Afectó al grupo ${displayGroup}`);
       await fetchOrdersAndSettings();
     } catch (err) {
       console.error(err); alert("Error al bloquear la lista.");
@@ -293,6 +329,7 @@ export default function App() {
       await supabaseRequest(`orders?id=eq.${paymentModal.order.id}`, 'PATCH', { 
         amount_paid: amount, paymentStatus: newStatus 
       });
+      logAction('Actualizó Pago', `De ${paymentModal.order.name} a ${amount} Gs.`);
       setPaymentModal({ isOpen: false, order: null, amount: 0 });
       fetchOrdersAndSettings();
     } catch (err) {
@@ -319,13 +356,40 @@ export default function App() {
   };
 
   const handleAdminLogin = () => {
-    if (adminPin === ADMIN_SECRET) { setIsAdmin(true); setShowAdminLogin(false); setPinError(false); setAdminPin(''); setShowPassword(false); } 
+    if (adminPin === currentAdminPassword) { 
+      setIsAdmin(true); 
+      setAdminGroupFilter(displayGroup); // SELECCIONA EL GRUPO ACTUAL AUTOMÁTICAMENTE
+      setShowAdminLogin(false); 
+      setPinError(false); 
+      setAdminPin(''); 
+      setShowPassword(false); 
+    } 
     else setPinError(true);
   };
   
   const handleGroupAuth = () => {
     if (groupPin === GROUP_SECRET) { setIsGroupAdmin(true); setShowGroupAuth(false); setShowGroupManager(true); setGroupPin(''); setGroupPinError(false); setShowGroupPassword(false); } 
     else setGroupPinError(true);
+  };
+
+  const handleChangePasswordSubmit = async () => {
+    if (masterPassInput !== MASTER_AUTHORIZATION) {
+      setPassChangeError('Clave de autorización incorrecta.'); return;
+    }
+    if (!newAdminPassInput || newAdminPassInput.length < 4) {
+      setPassChangeError('La nueva contraseña debe ser más larga.'); return;
+    }
+    
+    try {
+      await supabaseRequest('global_settings?id=eq.admin_password', 'PATCH', { value: newAdminPassInput });
+      setCurrentAdminPassword(newAdminPassInput);
+      logAction('Cambió Clave Admin', 'Nueva clave configurada');
+      alert("¡Contraseña de Administrador cambiada exitosamente!");
+      setShowChangePass(false);
+      setMasterPassInput(''); setNewAdminPassInput(''); setPassChangeError('');
+    } catch (err) {
+      setPassChangeError('Error de red al guardar.');
+    }
   };
 
   const handleCreateGroup = (e) => {
@@ -369,12 +433,14 @@ export default function App() {
   const handleDelete = async (id) => {
     if (!isAdmin) return;
     await supabaseRequest(`orders?id=eq.${id}`, 'PATCH', { deleted: true });
+    logAction('Eliminó Pedido', `Envió pedido ${id} a papelera`);
     fetchOrdersAndSettings();
   };
 
   const handleRestore = async (id) => {
     if (!isAdmin) return;
     await supabaseRequest(`orders?id=eq.${id}`, 'PATCH', { deleted: false });
+    logAction('Restauró Pedido', `Restauró pedido ${id}`);
     fetchOrdersAndSettings();
   };
 
@@ -382,17 +448,28 @@ export default function App() {
     if (!isAdmin) return;
     if(!confirm("¿Estás seguro de eliminar esto permanentemente?")) return;
     await supabaseRequest(`orders?id=eq.${id}`, 'DELETE');
+    logAction('Borro Permanente', `Destruyó pedido ${id}`);
     fetchOrdersAndSettings();
   };
 
+  // FILTRADO ESTRICTO DE VISUALIZACIÓN
   const activeOrders = useMemo(() => {
     let filtered = orders.filter(o => !o.deleted);
-    if (!isAdmin) filtered = filtered.filter(o => (o.group_name || 'General') === displayGroup);
-    else if (adminGroupFilter !== 'Todos') filtered = filtered.filter(o => (o.group_name || 'General') === adminGroupFilter);
+    // Si NO es Admin Supremo, está atado al grupo actual
+    if (!isGroupAdmin) {
+       filtered = filtered.filter(o => (o.group_name || 'General') === displayGroup);
+    } else {
+       // Si es Admin Supremo, puede usar el Filtro de "Todos" u otros
+       if (adminGroupFilter !== 'Todos') filtered = filtered.filter(o => (o.group_name || 'General') === adminGroupFilter);
+    }
     return filtered;
-  }, [orders, isAdmin, displayGroup, adminGroupFilter]);
+  }, [orders, isGroupAdmin, displayGroup, adminGroupFilter]);
 
-  const deletedOrders = useMemo(() => orders.filter(o => o.deleted), [orders]);
+  const deletedOrders = useMemo(() => {
+    let filtered = orders.filter(o => o.deleted);
+    if (!isGroupAdmin) filtered = filtered.filter(o => (o.group_name || 'General') === displayGroup);
+    return filtered;
+  }, [orders, isGroupAdmin, displayGroup]);
 
   const availableGroups = useMemo(() => ['Todos', ...new Set(orders.filter(o => !o.deleted).map(o => o.group_name || 'General'))], [orders]);
 
@@ -450,7 +527,7 @@ export default function App() {
   // --- EXPORTACIÓN ---
   const handleExportCSV = () => {
     let csv = "\uFEFF"; 
-    csv += `RESUMEN PARA CONFECCION - VISTA: ${isAdmin ? adminGroupFilter : displayGroup}\n`;
+    csv += `RESUMEN PARA CONFECCION - VISTA: ${isGroupAdmin ? adminGroupFilter : displayGroup}\n`;
     csv += "Talle Remera;Femenino;Masculino;Unisex;Total\n";
     summaryBySize.forEach(item => {
       csv += `${item.size};${item.fem || '-'};${item.masc || '-'};${item.uni || '-'};${item.total}\n`;
@@ -478,7 +555,7 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `Pedidos_${isAdmin ? adminGroupFilter : displayGroup}.csv`);
+    link.setAttribute('download', `Pedidos_${isGroupAdmin ? adminGroupFilter : displayGroup}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -489,7 +566,7 @@ export default function App() {
     let html = `
       <html>
         <head>
-          <title>Pedidos - ${isAdmin && adminGroupFilter !== 'Todos' ? adminGroupFilter : displayGroup}</title>
+          <title>Pedidos - ${isGroupAdmin && adminGroupFilter !== 'Todos' ? adminGroupFilter : displayGroup}</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
             h1 { color: #312e81; font-size: 24px; text-align: center; margin-bottom: 5px; }
@@ -505,7 +582,7 @@ export default function App() {
         </head>
         <body>
           <h1>BROOGUIN SPORT - Reporte de Pedidos</h1>
-          <p class="date">Vista: ${isAdmin ? adminGroupFilter : displayGroup} | ${new Date().toLocaleString()}</p>
+          <p class="date">Vista: ${isGroupAdmin ? adminGroupFilter : displayGroup} | ${new Date().toLocaleString()}</p>
           
           <h2>Resumen para Confección (Remeras)</h2>
           <table>
@@ -567,7 +644,7 @@ export default function App() {
           <table>
             <thead>
               <tr>
-                ${isAdmin && adminGroupFilter === 'Todos' ? '<th>Grupo</th>' : ''}
+                ${isGroupAdmin && adminGroupFilter === 'Todos' ? '<th>Grupo</th>' : ''}
                 <th>Cliente</th>
                 <th>Talle</th>
                 <th>Género</th>
@@ -582,7 +659,7 @@ export default function App() {
     activeOrders.forEach(o => {
       html += `
         <tr>
-          ${isAdmin && adminGroupFilter === 'Todos' ? `<td>${o.group_name || 'General'}</td>` : ''}
+          ${isGroupAdmin && adminGroupFilter === 'Todos' ? `<td>${o.group_name || 'General'}</td>` : ''}
           <td>${o.name} <br><small>${o.phone || ''}</small></td>
           <td>${o.size}</td>
           <td>${o.gender} ${o.longSleeve ? '(ML)' : ''}</td>
@@ -604,11 +681,9 @@ export default function App() {
     printWindow.document.close();
   };
 
-  // --- EXPORTACIÓN DE HOJA DE CORTE PARA TALLER ---
   const handleExportHojaCorte = () => {
     const printWindow = window.open('', '_blank');
     
-    // Contabilizar remeras exactas (Talle + Género + Manga)
     const cortesRemera = {};
     activeOrders.forEach(o => {
       const tipoManga = o.longSleeve ? 'MANGA LARGA' : 'Manga Corta';
@@ -616,7 +691,6 @@ export default function App() {
       cortesRemera[key] = (cortesRemera[key] || 0) + o.quantity;
     });
 
-    // Contabilizar shorts exactos
     const cortesShort = {};
     activeOrders.forEach(o => {
        if (o.observations?.includes('Short:') && !o.observations?.includes('Short: NO')) {
@@ -631,7 +705,7 @@ export default function App() {
     let html = `
       <html>
         <head>
-          <title>Hoja de Corte - ${isAdmin && adminGroupFilter !== 'Todos' ? adminGroupFilter : displayGroup}</title>
+          <title>Hoja de Corte - ${isGroupAdmin && adminGroupFilter !== 'Todos' ? adminGroupFilter : displayGroup}</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 20px; color: #000; }
             h1 { font-size: 26px; text-align: center; margin-bottom: 5px; text-transform: uppercase; border-bottom: 3px solid #000; padding-bottom: 10px; }
@@ -646,7 +720,7 @@ export default function App() {
           </style>
         </head>
         <body>
-          <h1>HOJA DE CORTE DE TALLER: ${isAdmin && adminGroupFilter !== 'Todos' ? adminGroupFilter : displayGroup}</h1>
+          <h1>HOJA DE CORTE DE TALLER: ${isGroupAdmin && adminGroupFilter !== 'Todos' ? adminGroupFilter : displayGroup}</h1>
           <div class="meta">
             <span><strong>Fecha de impresión:</strong> ${new Date().toLocaleDateString()}</span>
             <span><strong>Prenda Base:</strong> ${displayType} (${displayFabric})</span>
@@ -772,22 +846,41 @@ export default function App() {
               </div>
               
               <div className="flex flex-wrap gap-2">
+                {!isGroupAdmin && (
+                  <button onClick={() => setShowChangePass(true)} className="flex items-center gap-2 bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-200 transition-all">
+                    <KeyRound className="w-4 h-4" /> Cambiar Clave
+                  </button>
+                )}
+
                 {!isGroupAdmin ? (
                   <button onClick={() => setShowGroupAuth(true)} className="flex items-center gap-2 bg-neutral-800 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-neutral-900 transition-all">
                     <ShieldAlert className="w-4 h-4" /> Modo Supremo
                   </button>
                 ) : (
-                  <button onClick={() => setShowGroupManager(!showGroupManager)} className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-700 transition-all">
-                    <Settings className="w-4 h-4" /> {showGroupManager ? 'Ocultar Opciones Supremas' : 'Herramientas Supremas'}
-                  </button>
+                  <>
+                    <button onClick={() => { setShowAuditLogs(true); fetchAuditLogs(); }} className="flex items-center gap-2 bg-purple-100 text-purple-700 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-purple-200 transition-all">
+                      <History className="w-4 h-4" /> Historial de Actividad
+                    </button>
+                    <button onClick={() => setShowGroupManager(!showGroupManager)} className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-700 transition-all">
+                      <Settings className="w-4 h-4" /> {showGroupManager ? 'Ocultar Opciones Supremas' : 'Herramientas Supremas'}
+                    </button>
+                  </>
                 )}
 
-                <div className="flex items-center gap-2 bg-indigo-50 p-2 rounded-lg border border-indigo-100">
-                  <Filter className="w-4 h-4 text-indigo-600" />
-                  <select value={adminGroupFilter} onChange={(e) => setAdminGroupFilter(e.target.value)} className="bg-transparent border-none text-sm font-bold text-indigo-900 outline-none cursor-pointer">
-                    {availableGroups.map(g => (<option key={g} value={g}>{g === 'Todos' ? 'Todos los Grupos' : `Grupo: ${g}`}</option>))}
-                  </select>
-                </div>
+                {/* Filtro Restringido: Solo el Supremo puede ver "Todos los Grupos". El Admin normal está atado a su grupo. */}
+                {isGroupAdmin ? (
+                  <div className="flex items-center gap-2 bg-indigo-50 p-2 rounded-lg border border-indigo-100">
+                    <Filter className="w-4 h-4 text-indigo-600" />
+                    <select value={adminGroupFilter} onChange={(e) => setAdminGroupFilter(e.target.value)} className="bg-transparent border-none text-sm font-bold text-indigo-900 outline-none cursor-pointer">
+                      {availableGroups.map(g => (<option key={g} value={g}>{g === 'Todos' ? 'Todos los Grupos' : `Grupo: ${g}`}</option>))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 bg-indigo-50 px-4 py-2 rounded-lg border border-indigo-100">
+                     <Layers className="w-4 h-4 text-indigo-600" />
+                     <span className="text-sm font-bold text-indigo-900">Filtro bloqueado: {displayGroup}</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1065,7 +1158,7 @@ export default function App() {
                   <table className="min-w-full divide-y divide-neutral-200 text-xs">
                     <thead className="bg-neutral-50">
                   <tr>
-                    {isAdmin && adminGroupFilter === 'Todos' && <th className="px-4 py-3 text-left">Grupo</th>}
+                    {isGroupAdmin && adminGroupFilter === 'Todos' && <th className="px-4 py-3 text-left">Grupo</th>}
                     <th className="px-4 py-3 text-left">Cliente</th>
                     <th className="px-4 py-3 text-left">Prenda</th>
                     <th className="px-4 py-3 text-left">Estado / Pago</th>
@@ -1079,7 +1172,7 @@ export default function App() {
                     
                     return (
                       <tr key={order.id} className="hover:bg-neutral-50">
-                        {isAdmin && adminGroupFilter === 'Todos' && <td className="px-4 py-3 font-bold text-indigo-600">{order.group_name}</td>}
+                        {isGroupAdmin && adminGroupFilter === 'Todos' && <td className="px-4 py-3 font-bold text-indigo-600">{order.group_name}</td>}
                         <td className="px-4 py-3 font-medium text-neutral-900">
                           {order.name}
                           {(isAdmin || isGroupAdmin) && order.phone && order.phone !== '-' && (
@@ -1288,6 +1381,70 @@ export default function App() {
           </div>
         )}
 
+        {/* Modal de Cambio de Clave Admin */}
+        {showChangePass && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-4 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold text-indigo-900 flex items-center gap-2"><KeyRound className="w-5 h-5 text-indigo-600" /> Cambiar Contraseña</h3>
+                <button onClick={() => {setShowChangePass(false); setPassChangeError('');}} className="text-neutral-400 hover:text-neutral-600"><X className="w-5 h-5" /></button>
+              </div>
+              <p className="text-xs text-neutral-500 mb-4">Para cambiar la clave de acceso debes ingresar la Clave Maestra de autorización.</p>
+              
+              <div className="space-y-3 mb-4">
+                <input type="password" value={masterPassInput} onChange={(e) => setMasterPassInput(e.target.value)} placeholder="Clave Maestra de Autorización" className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
+                <input type="text" value={newAdminPassInput} onChange={(e) => setNewAdminPassInput(e.target.value)} placeholder="Nueva Contraseña" className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold text-indigo-900" />
+              </div>
+
+              {passChangeError && <p className="text-xs text-red-500 mb-3 font-bold">{passChangeError}</p>}
+              <button onClick={handleChangePasswordSubmit} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-all">Guardar Nueva Contraseña</button>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Historial de Auditoría (Solo Supremo) */}
+        {showAuditLogs && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[70] p-4 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl p-6 w-full max-w-3xl shadow-2xl animate-in zoom-in max-h-[85vh] flex flex-col">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold text-indigo-900 flex items-center gap-2"><History className="w-5 h-5 text-purple-600" /> Historial de Actividad (Auditoría)</h3>
+                <button onClick={() => setShowAuditLogs(false)} className="text-neutral-400 hover:text-neutral-600"><X className="w-5 h-5" /></button>
+              </div>
+              <p className="text-xs text-neutral-500 mb-4">Registro invisible de todos los movimientos realizados por los administradores en el sistema.</p>
+              
+              <div className="overflow-y-auto flex-1 border border-neutral-200 rounded-lg">
+                 <table className="min-w-full text-xs text-left">
+                    <thead className="bg-neutral-100 sticky top-0">
+                       <tr>
+                          <th className="p-3 font-bold text-neutral-600">Fecha y Hora</th>
+                          <th className="p-3 font-bold text-neutral-600">Grupo</th>
+                          <th className="p-3 font-bold text-neutral-600">Acción</th>
+                          <th className="p-3 font-bold text-neutral-600">Detalles de la Acción</th>
+                       </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-100">
+                       {auditLogsData.length === 0 ? (
+                         <tr><td colSpan="4" className="p-4 text-center text-neutral-400">No hay registros de actividad aún.</td></tr>
+                       ) : (
+                         auditLogsData.map(log => (
+                           <tr key={log.id} className="hover:bg-neutral-50">
+                              <td className="p-3 text-neutral-500 whitespace-nowrap">{new Date(log.created_at).toLocaleString()}</td>
+                              <td className="p-3 font-bold text-indigo-600">{log.group_name}</td>
+                              <td className="p-3 font-bold">{log.action}</td>
+                              <td className="p-3 text-neutral-600">{log.details}</td>
+                           </tr>
+                         ))
+                       )}
+                    </tbody>
+                 </table>
+              </div>
+              <div className="mt-4 flex justify-end">
+                <button onClick={() => {fetchAuditLogs()}} className="text-indigo-600 text-sm font-bold flex items-center gap-1 hover:text-indigo-800"><RefreshCw className="w-4 h-4"/> Refrescar Datos</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Modal de Acceso Modo Supremo */}
         {showGroupAuth && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
@@ -1300,6 +1457,7 @@ export default function App() {
                 <input type={showGroupPassword ? "text" : "password"} value={groupPin} onChange={(e) => setGroupPin(e.target.value)} placeholder="Contraseña Maestra" onKeyDown={(e) => e.key === 'Enter' && handleGroupAuth()} className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-red-500 outline-none pr-12" />
                 <button type="button" onClick={() => setShowGroupPassword(!showGroupPassword)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-neutral-500"><EyeOff className="w-5 h-5" /></button>
               </div>
+              {groupPinError && <p className="text-xs text-red-500 mb-3 mt-[-10px]">Contraseña incorrecta.</p>}
               <button onClick={handleGroupAuth} className="w-full bg-neutral-900 text-white font-bold py-3 rounded-xl hover:bg-black transition-all">Activar Modo Supremo</button>
             </div>
           </div>
