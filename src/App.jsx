@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone, Loader2, Layers, Lock, Unlock, X, Eye, EyeOff, Download, FileText, Info, AlertCircle, Search, CheckCircle2, Edit, Filter, Link2, Plus, ShieldAlert, Settings, MessageCircle, DollarSign, TrendingUp, Scissors, History, KeyRound, RefreshCw, BarChart3, ExternalLink, Receipt, Target, QrCode, MapPin, Moon, Sun } from 'lucide-react';
+import { Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone, Loader2, Layers, Lock, Unlock, X, Eye, EyeOff, Download, FileText, Info, AlertCircle, Search, CheckCircle2, Edit, Filter, Link2, Plus, ShieldAlert, Settings, MessageCircle, DollarSign, TrendingUp, Scissors, History, KeyRound, RefreshCw, BarChart3, ExternalLink, Receipt, Target, QrCode, MapPin, Moon, Sun, ArrowRight, ArrowLeft } from 'lucide-react';
 
 // ==========================================
 // CONFIGURACIÓN DE SUPABASE (CONEXIÓN DIRECTA API REST)
@@ -47,19 +47,42 @@ const PRECIOS_BASE = {
 };
 
 // ==========================================
-// SISTEMA DE ANIMACIONES (10 TEMÁTICAS)
+// COMPONENTES AUXILIARES (Tooltips, Animaciones y Parsers)
 // ==========================================
+const HelperTooltip = ({ text, darkMode }) => {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative inline-flex items-center align-middle z-30">
+      <button 
+        type="button"
+        onClick={() => setShow(!show)}
+        onBlur={() => setTimeout(() => setShow(false), 200)}
+        className={`rounded-full p-0.5 transition-colors focus:outline-none ${darkMode ? 'text-indigo-400 hover:bg-slate-700' : 'text-indigo-500 hover:bg-indigo-100'}`}
+        title="Más información"
+      >
+        <Info className="w-4 h-4" />
+      </button>
+      {show && (
+        <div className={`absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-56 sm:w-64 p-3 text-xs leading-snug rounded-xl shadow-2xl pointer-events-none font-medium text-center z-50 ${darkMode ? 'bg-slate-700 text-slate-200 border border-slate-600' : 'bg-indigo-900 text-indigo-50 border border-indigo-800'}`}>
+          {text}
+          <div className={`absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent ${darkMode ? 'border-t-slate-700' : 'border-t-indigo-900'}`}></div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ANIMATION_THEMES = [
-  { e: ['⚽', '🥅', '🏟️', '👟', '🥇'], a: 'anim-fall' },        // 0: Festejo de Gol
-  { e: ['🏆', '🥇', '🏅', '🌟', '🙌'], a: 'anim-bounce' },      // 1: Campeones
-  { e: ['🌸', '🌺', '💮', '🍃', '✨'], a: 'anim-float' },       // 2: Lluvia de Flores
-  { e: ['💋', '❤️', '💖', '😍', '🌹'], a: 'anim-float' },       // 3: Femenino / Besos
-  { e: ['🔥', '💪', '💯', '💥', '⚡'], a: 'anim-zoom' },        // 4: Fuego y Pasión
-  { e: ['🎉', '🎊', '🎈', '✨', '🎁'], a: 'anim-fall' },        // 5: Confeti Clásico
-  { e: ['🚀', '🌕', '⭐', '☄️', '🛸'], a: 'anim-rise' },        // 6: Cohetes
-  { e: ['⭐', '🌟', '✨', '💫', '🤩'], a: 'anim-fall' },        // 7: Lluvia de Estrellas
-  { e: ['💎', '💸', '💰', '🤑', '🪙'], a: 'anim-fall' },        // 8: Diamantes y Éxito
-  { e: ['🏀', '🏐', '🎾', '🏓', '🎯'], a: 'anim-bounce' }       // 9: Multideportes
+  { e: ['⚽', '🥅', '🏟️', '👟', '🥇'], a: 'anim-fall' },        
+  { e: ['🏆', '🥇', '🏅', '🌟', '🙌'], a: 'anim-bounce' },      
+  { e: ['🌸', '🌺', '💮', '🍃', '✨'], a: 'anim-float' },       
+  { e: ['💋', '❤️', '💖', '😍', '🌹'], a: 'anim-float' },       
+  { e: ['🔥', '💪', '💯', '💥', '⚡'], a: 'anim-zoom' },        
+  { e: ['🎉', '🎊', '🎈', '✨', '🎁'], a: 'anim-fall' },        
+  { e: ['🚀', '🌕', '⭐', '☄️', '🛸'], a: 'anim-rise' },        
+  { e: ['⭐', '🌟', '✨', '💫', '🤩'], a: 'anim-fall' },        
+  { e: ['💎', '💸', '💰', '🤑', '🪙'], a: 'anim-fall' },        
+  { e: ['🏀', '🏐', '🎾', '🏓', '🎯'], a: 'anim-bounce' }       
 ];
 
 const SuccessAnimation = ({ themeIndex }) => {
@@ -74,18 +97,8 @@ const SuccessAnimation = ({ themeIndex }) => {
         const duration = 2 + Math.random() * 3;
         const size = 1.5 + Math.random() * 2;
         const emoji = theme.e[Math.floor(Math.random() * theme.e.length)];
-
         return (
-          <div
-            key={i}
-            className="absolute"
-            style={{
-              left: `${left}vw`,
-              fontSize: `${size}rem`,
-              animation: `${theme.a} ${duration}s ease-in-out ${delay}s forwards`,
-              opacity: 0,
-            }}
-          >
+          <div key={i} className="absolute" style={{ left: `${left}vw`, fontSize: `${size}rem`, animation: `${theme.a} ${duration}s ease-in-out ${delay}s forwards`, opacity: 0 }}>
             {emoji}
           </div>
         );
@@ -94,11 +107,29 @@ const SuccessAnimation = ({ themeIndex }) => {
   );
 };
 
+const formatDate = (timestamp) => {
+  if (!timestamp) return '-';
+  return new Date(timestamp).toLocaleString('es-PY', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+};
+
+// Función para extraer detalles bonitos de la observación
+const extractDetails = (obs) => {
+  if (!obs) return { details: '', rest: '' };
+  const match = obs.match(/(\[#.*?\])/);
+  if (match) {
+      const details = match[1];
+      const rest = obs.replace(match[1], '').replace(/\[Precio:.*?\]/, '').trim();
+      return { details, rest: rest.startsWith('Obs:') ? rest.substring(4).trim() : rest };
+  }
+  return { details: '', rest: obs.replace(/\[Precio:.*?\]/, '').trim() };
+}
+
+// ==========================================
+// APLICACIÓN PRINCIPAL
+// ==========================================
 export default function App() {
-  // MODO OSCURO
   const [darkMode, setDarkMode] = useState(false);
 
-  // PALETA DINÁMICA MEJORADA (Ahora los inputs son súper visibles)
   const t = {
     page: darkMode ? 'bg-slate-900 text-slate-200' : 'bg-neutral-100 text-neutral-800',
     card: darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-neutral-200',
@@ -128,12 +159,18 @@ export default function App() {
   const [adminPin, setAdminPin] = useState('');
   const [pinError, setPinError] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showAdminLegend, setShowAdminLegend] = useState(false);
   
+  const [currentDelegateName, setCurrentDelegateName] = useState('');
+  const [inputDelegate, setInputDelegate] = useState('');
+  const [availableDelegates, setAvailableDelegates] = useState([]);
+
   const [currentAdminPassword, setCurrentAdminPassword] = useState('brooguin2025'); 
   const MASTER_AUTHORIZATION = 'alucas123'; 
 
   const [isGroupAdmin, setIsGroupAdmin] = useState(false);
   const [isMasterOwner, setIsMasterOwner] = useState(false); 
+  const [isCreator, setIsCreator] = useState(false); // Para habilitar "Todos los grupos" a marseo y lukasy67
   
   const [showGroupAuth, setShowGroupAuth] = useState(false);
   const [groupPin, setGroupPin] = useState('');
@@ -141,7 +178,7 @@ export default function App() {
   const [showGroupPassword, setShowGroupPassword] = useState(false);
   const [showGroupManager, setShowGroupManager] = useState(false);
 
-  const [paymentModal, setPaymentModal] = useState({ isOpen: false, order: null, amount: 0 });
+  const [paymentModal, setPaymentModal] = useState({ isOpen: false, order: null, amount: 0, isSaved: false });
   const [showChangePass, setShowChangePass] = useState(false);
   const [masterPassInput, setMasterPassInput] = useState('');
   const [newAdminPassInput, setNewAdminPassInput] = useState('');
@@ -154,9 +191,13 @@ export default function App() {
   const [renameModal, setRenameModal] = useState({ isOpen: false, oldName: '', newName: '' });
 
   const [siteMetrics, setSiteMetrics] = useState({ visits: 0, sponsorClicks: 0 });
-  
-  // Animación State
   const [activeAnimationTheme, setActiveAnimationTheme] = useState(null);
+  
+  const [undoDeleteId, setUndoDeleteId] = useState(null);
+  const [archivedGroups, setArchivedGroups] = useState([]);
+  const [cleanupRun, setCleanupRun] = useState(false);
+  
+  const [groupSort, setGroupSort] = useState({ key: 'lastOrder', direction: 'desc' });
 
   const urlParams = new URLSearchParams(window.location.search);
   const urlGroup = urlParams.get('grupo') || 'General';
@@ -170,16 +211,27 @@ export default function App() {
   });
 
   const isPreviewMode = showGroupManager && isGroupAdmin;
-  const displayGroup = isPreviewMode ? (newGroupConfig.name || 'Vista Previa') : urlGroup;
+  const contextualGroup = isGroupAdmin && adminGroupFilter !== 'Todos' ? adminGroupFilter : (isPreviewMode ? (newGroupConfig.name || 'Vista Previa') : urlGroup);
+  const displayGroup = contextualGroup;
+
+  const archivedNames = useMemo(() => archivedGroups.map(g => g.name), [archivedGroups]);
+
+  const isContextDeportiva = useMemo(() => {
+     if (isPreviewMode) return newGroupConfig.tipo !== 'Remera Piqué';
+     if (!isGroupAdmin || adminGroupFilter === 'Todos') return urlType !== 'Remera Piqué';
+     const groupOrders = orders.filter(o => o.group_name === contextualGroup);
+     if (groupOrders.length === 0) return true; 
+     return groupOrders.some(o => o.observations && o.observations.includes('[#'));
+  }, [contextualGroup, urlType, orders, isPreviewMode, newGroupConfig.tipo, isGroupAdmin, adminGroupFilter]);
+
   const displayAge = isPreviewMode ? newGroupConfig.edad : urlAge;
   const displayType = isPreviewMode ? newGroupConfig.tipo : urlType;
   const displayFabric = isPreviewMode ? newGroupConfig.tela : urlFabric;
   const displayCost = isPreviewMode ? newGroupConfig.costo : urlCost;
 
   const activeSizes = displayAge === 'Infantil' ? SIZES_KIDS : SIZES_ADULTS;
-  const isDeportiva = displayType !== 'Remera Piqué';
   const isCamisilla = displayType.toLowerCase().includes('camisilla');
-  const costoMangaLarga = isDeportiva ? 15000 : 10000;
+  const costoMangaLarga = isContextDeportiva ? 15000 : 10000;
 
   useEffect(() => {
     if (newGroupConfig.tipo === 'Remera Piqué') {
@@ -187,17 +239,11 @@ export default function App() {
       return; 
     }
     let calcPrice = PRECIOS_BASE[newGroupConfig.edad]?.[newGroupConfig.tela]?.[newGroupConfig.tipo];
-    if (!calcPrice && newGroupConfig.tipo.includes('Camisilla + Short + Medias')) {
-      calcPrice = PRECIOS_BASE[newGroupConfig.edad]?.[newGroupConfig.tela]?.['Remera + Short + Medias'];
-    } else if (!calcPrice && newGroupConfig.tipo.includes('Camisilla + Short')) {
-      calcPrice = PRECIOS_BASE[newGroupConfig.edad]?.[newGroupConfig.tela]?.['Remera + Short'];
-    }
-    if (calcPrice) {
-      setNewGroupConfig(prev => ({ ...prev, costo: calcPrice }));
-    }
+    if (!calcPrice && newGroupConfig.tipo.includes('Camisilla + Short + Medias')) calcPrice = PRECIOS_BASE[newGroupConfig.edad]?.[newGroupConfig.tela]?.['Remera + Short + Medias'];
+    else if (!calcPrice && newGroupConfig.tipo.includes('Camisilla + Short')) calcPrice = PRECIOS_BASE[newGroupConfig.edad]?.[newGroupConfig.tela]?.['Remera + Short'];
+    if (calcPrice) setNewGroupConfig(prev => ({ ...prev, costo: calcPrice }));
   }, [newGroupConfig.edad, newGroupConfig.tela, newGroupConfig.tipo]);
 
-  const [showInfo, setShowInfo] = useState(false);
   const [searchTerm, setSearchTerm] = useState(''); 
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -205,21 +251,49 @@ export default function App() {
 
   const [formData, setFormData] = useState({
     name: '', phone: '', size: activeSizes[0], gender: 'Femenino', quantity: 1, longSleeve: false, observations: '',
-    playerName: '', playerNumber: '', isGoalkeeper: false, includeShort: displayType.includes('Short'), shortSize: activeSizes[0], femaleShortType: 'Standard', includeSocks: displayType.includes('Medias')
+    playerName: '', playerNumber: '', isGoalkeeper: false, includeShort: displayType.includes('Short'), shortSize: activeSizes[0], femaleShortType: 'Standard', includeSocks: displayType.includes('Medias'), originalGroup: '', group_name: '' 
   });
 
   const allowLongSleeve = !isCamisilla || formData.isGoalkeeper; 
 
   useEffect(() => {
-    setFormData(prev => ({ 
-      ...prev, size: activeSizes[0], shortSize: activeSizes[0], includeShort: displayType.includes('Short'), includeSocks: displayType.includes('Medias')
-    }));
-  }, [displayAge, displayType]);
+    if (!editingId) {
+      setFormData(prev => ({ ...prev, size: activeSizes[0], shortSize: activeSizes[0], includeShort: displayType.includes('Short'), includeSocks: displayType.includes('Medias') }));
+    }
+  }, [displayAge, displayType, activeSizes, editingId]);
 
   useEffect(() => {
     fetchOrdersAndSettings();
     trackVisit();
   }, []);
+
+  useEffect(() => {
+    if (isAdmin) {
+      setShowAdminLegend(true);
+      const timer = setTimeout(() => setShowAdminLegend(false), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [isAdmin, isGroupAdmin, isMasterOwner, isCreator]);
+
+  useEffect(() => {
+    if (showAdminLogin) {
+      const fetchDelegates = async () => {
+        const res = await supabaseRequest(`global_settings?id=eq.delegates_${displayGroup}`);
+        if (res.data && res.data.length > 0) {
+          try { setAvailableDelegates(JSON.parse(res.data[0].value)); } catch(e) {}
+        } else {
+          setAvailableDelegates([]);
+        }
+      };
+      fetchDelegates();
+    }
+  }, [showAdminLogin, displayGroup]);
+
+  const saveToGlobalSettings = async (id, value) => {
+    const res = await supabaseRequest(`global_settings?id=eq.${id}`);
+    if (res.data && res.data.length > 0) await supabaseRequest(`global_settings?id=eq.${id}`, 'PATCH', { value });
+    else await supabaseRequest('global_settings', 'POST', { id, value });
+  };
 
   const trackVisit = async () => {
     if (!sessionStorage.getItem('brooguin_visited')) {
@@ -235,17 +309,54 @@ export default function App() {
     }
   };
 
+  const performAutoCleanups = async (ordersData, archivedGroupsData) => {
+    if (cleanupRun) return;
+    setCleanupRun(true);
+    const now = Date.now();
+    let needsRefetch = false;
+
+    // Limpieza de Pedidos Borrados (+48 horas)
+    for (const o of ordersData) {
+      if (o.deleted) {
+        const delMatch = o.observations?.match(/\[DEL:(\d+)\]/);
+        const delTime = delMatch ? parseInt(delMatch[1]) : new Date(o.created_at).getTime();
+        const hoursElapsed = (now - delTime) / (1000 * 60 * 60);
+        if (hoursElapsed >= 48) {
+          await supabaseRequest(`orders?id=eq.${o.id}`, 'DELETE');
+          needsRefetch = true;
+        }
+      }
+    }
+
+    // Limpieza de Grupos Archivados (+40 días)
+    const validArchived = [];
+    for (const g of archivedGroupsData) {
+      const daysElapsed = (now - g.archivedAt) / (1000 * 60 * 60 * 24);
+      if (daysElapsed >= 40) {
+         await supabaseRequest(`orders?group_name=eq.${g.name}`, 'DELETE');
+         needsRefetch = true;
+      } else {
+         validArchived.push(g);
+      }
+    }
+
+    if (validArchived.length !== archivedGroupsData.length) {
+       await saveToGlobalSettings('archived_groups', JSON.stringify(validArchived));
+       setArchivedGroups(validArchived);
+    }
+
+    if (needsRefetch) {
+      fetchOrdersAndSettings(); 
+    }
+  };
+
   const handleSponsorClick = async () => {
     const currentClicks = siteMetrics.sponsorClicks;
     setSiteMetrics(prev => ({ ...prev, sponsorClicks: currentClicks + 1 }));
     const res = await supabaseRequest('global_settings?id=eq.sponsor_clicks', 'GET');
-    if (res.data && res.data.length > 0) {
-      await supabaseRequest('global_settings?id=eq.sponsor_clicks', 'PATCH', { value: (currentClicks + 1).toString() });
-    } else {
-      await supabaseRequest('global_settings', 'POST', { id: 'sponsor_clicks', value: '1' });
-    }
-    const msg = "Hola quiero ser sponsor de la página de Brooguin";
-    window.open(`https://wa.me/595984948834?text=${encodeURIComponent(msg)}`, '_blank');
+    if (res.data && res.data.length > 0) await supabaseRequest('global_settings?id=eq.sponsor_clicks', 'PATCH', { value: (currentClicks + 1).toString() });
+    else await supabaseRequest('global_settings', 'POST', { id: 'sponsor_clicks', value: '1' });
+    window.open(`https://wa.me/595984948834?text=${encodeURIComponent("Hola quiero ser sponsor de la página de Brooguin")}`, '_blank');
   };
 
   const fetchOrdersAndSettings = async () => {
@@ -256,6 +367,8 @@ export default function App() {
       supabaseRequest('global_settings?select=*') 
     ]);
     
+    let parsedArchived = [];
+
     if (resOrders.data) setOrders(resOrders.data);
     if (resSettings.data) setGroupSettings(resSettings.data);
     
@@ -265,17 +378,25 @@ export default function App() {
 
       const visitsObj = resGlobal.data.find(s => s.id === 'page_visits');
       const clicksObj = resGlobal.data.find(s => s.id === 'sponsor_clicks');
-      setSiteMetrics({
-        visits: visitsObj ? parseInt(visitsObj.value) : 0,
-        sponsorClicks: clicksObj ? parseInt(clicksObj.value) : 0
-      });
+      setSiteMetrics({ visits: visitsObj ? parseInt(visitsObj.value) : 0, sponsorClicks: clicksObj ? parseInt(clicksObj.value) : 0 });
+      
+      const archivedObj = resGlobal.data.find(s => s.id === 'archived_groups');
+      if (archivedObj) {
+         try { parsedArchived = JSON.parse(archivedObj.value); } catch(e) {}
+      }
+      setArchivedGroups(parsedArchived);
     }
     
     setLoading(false);
+    performAutoCleanups(resOrders.data || [], parsedArchived);
   };
 
   const logAction = async (action, details) => {
-    const actor = isMasterOwner ? 'Dueño Supremo' : isGroupAdmin ? 'Admin Creador' : 'Admin de Grupo';
+    let actor = 'Admin Normal';
+    if (isMasterOwner) actor = 'Dueño Supremo';
+    else if (isCreator) actor = 'Admin Creador';
+    else if (currentDelegateName) actor = `Delegado: ${currentDelegateName}`;
+    
     try {
       await supabaseRequest('audit_logs', 'POST', { action, details: `${details} (Por: ${actor})`, group_name: displayGroup });
     } catch (err) {}
@@ -308,7 +429,7 @@ export default function App() {
 
   const calculateCurrentTotal = () => {
     let unitPrice = displayCost; 
-    if (isDeportiva) {
+    if (isContextDeportiva) {
        const matrix = PRECIOS_BASE[displayAge]?.[displayFabric];
        if (matrix) {
           if (formData.includeShort && formData.includeSocks) unitPrice = matrix['Remera + Short + Medias'] || (displayCost + 60000);
@@ -326,23 +447,23 @@ export default function App() {
 
   const currentOrderTotal = calculateCurrentTotal();
 
+  const allGroupNames = useMemo(() => {
+    const groupsFromSettings = groupSettings.map(g => g.group_name);
+    const groupsFromOrders = orders.map(o => o.group_name || 'General');
+    return [...new Set([...groupsFromSettings, ...groupsFromOrders])].filter(Boolean).filter(g => !archivedNames.includes(g));
+  }, [groupSettings, orders, archivedNames]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name.trim() || formData.quantity < 1) {
-      alert("Por favor completa el nombre y la cantidad obligatorios."); return;
-    }
-    
-    if (!/^09\d{8}$/.test(formData.phone.trim())) {
-      alert("El número de teléfono debe tener 10 dígitos y empezar con 09 (Ej: 0984948834). Corrige para proceder."); return;
-    }
+    if (!formData.name.trim() || formData.quantity < 1) { alert("Completa el nombre y cantidad."); return; }
+    if (!/^09\d{8}$/.test(formData.phone.trim())) { alert("Teléfono debe tener 10 dígitos y empezar con 09."); return; }
 
     let prefix = '';
     const currentUnitPrice = calculateCurrentTotal() / (parseInt(formData.quantity) || 1);
 
     if (!editingId) {
-      if (isDeportiva) {
-        const shortFormat = formData.includeShort 
-          ? `${formData.shortSize}${formData.gender === 'Femenino' ? ' ('+formData.femaleShortType+')' : ''}` : 'NO';
+      if (isContextDeportiva) {
+        const shortFormat = formData.includeShort ? `${formData.shortSize}${formData.gender === 'Femenino' ? ' ('+formData.femaleShortType+')' : ''}` : 'NO';
         prefix = `[#${formData.playerNumber || 'S/N'} | ${formData.playerName?.toUpperCase() || 'SIN NOMBRE'} | Short: ${shortFormat} | Medias: ${formData.includeSocks ? 'SI' : 'NO'} | Arquero: ${formData.isGoalkeeper ? 'SI' : 'NO'}] `;
       }
       prefix += `[Precio: ${currentUnitPrice}] `;
@@ -351,9 +472,8 @@ export default function App() {
     const finalObservations = editingId ? formData.observations : `${prefix}${formData.observations ? 'Obs: ' + formData.observations : ''}`.trim();
 
     const orderData = {
-      name: formData.name, phone: formData.phone || '-', size: formData.size, gender: formData.gender,
-      quantity: parseInt(formData.quantity, 10), longSleeve: allowLongSleeve ? formData.longSleeve : false,
-      observations: finalObservations, group_name: displayGroup 
+      name: formData.name, phone: formData.phone || '-', size: formData.size, gender: formData.gender, quantity: parseInt(formData.quantity, 10), longSleeve: allowLongSleeve ? formData.longSleeve : false,
+      observations: finalObservations, group_name: editingId ? (isCreator ? formData.group_name : formData.originalGroup) : contextualGroup 
     };
 
     try {
@@ -368,22 +488,15 @@ export default function App() {
         if (error) throw new Error(error);
         if (isAdmin) logAction('Agregó Pedido Manual', `Agregó a ${orderData.name}`);
         setSuccessMessage('¡Pedido Registrado!');
-        
-        // TRIGER ANIMATION
         setActiveAnimationTheme(Math.floor(Math.random() * 10));
       }
       await fetchOrdersAndSettings(); 
       setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 4000);
-      setTimeout(() => setActiveAnimationTheme(null), 5000); // Clear animation after 5s
+      setTimeout(() => setShowSuccess(false), 5000); 
+      setTimeout(() => setActiveAnimationTheme(null), 5000); 
 
-      setFormData({ 
-        name: '', phone: '', size: activeSizes[0], gender: 'Femenino', quantity: 1, longSleeve: false, observations: '',
-        playerName: '', playerNumber: '', isGoalkeeper: false, includeShort: displayType.includes('Short'), shortSize: activeSizes[0], femaleShortType: 'Standard', includeSocks: displayType.includes('Medias')
-      });
-    } catch (error) {
-      console.error("Error al guardar:", error); alert("Hubo un error al procesar tu solicitud.");
-    }
+      setFormData({ name: '', phone: '', size: activeSizes[0], gender: 'Femenino', quantity: 1, longSleeve: false, observations: '', playerName: '', playerNumber: '', isGoalkeeper: false, includeShort: displayType.includes('Short'), shortSize: activeSizes[0], femaleShortType: 'Standard', includeSocks: displayType.includes('Medias'), originalGroup: '', group_name: '' });
+    } catch (error) { alert("Hubo un error al procesar tu solicitud."); }
   };
 
   const toggleGroupLock = async () => {
@@ -391,11 +504,8 @@ export default function App() {
     const newStatus = !isGroupLocked;
     try {
       const exists = groupSettings.find(g => g.group_name === displayGroup);
-      if (exists) {
-        await supabaseRequest(`group_settings?group_name=eq.${displayGroup}`, 'PATCH', { is_locked: newStatus });
-      } else {
-        await supabaseRequest('group_settings', 'POST', { group_name: displayGroup, is_locked: newStatus });
-      }
+      if (exists) await supabaseRequest(`group_settings?group_name=eq.${displayGroup}`, 'PATCH', { is_locked: newStatus });
+      else await supabaseRequest('group_settings', 'POST', { group_name: displayGroup, is_locked: newStatus });
       logAction(newStatus ? 'Cerró Lista' : 'Reabrió Lista', `Afectó al grupo ${displayGroup}`);
       await fetchOrdersAndSettings();
     } catch (err) { alert("Error al bloquear la lista."); }
@@ -404,54 +514,73 @@ export default function App() {
   const handleRenameGroupSubmit = async () => {
     if (!renameModal.newName.trim() || renameModal.newName === renameModal.oldName) return;
     const cleanNewName = renameModal.newName.trim().replace(/\s+/g, '');
-    
     setLoading(true);
     try {
       await supabaseRequest(`orders?group_name=eq.${renameModal.oldName}`, 'PATCH', { group_name: cleanNewName });
       await supabaseRequest(`audit_logs?group_name=eq.${renameModal.oldName}`, 'PATCH', { group_name: cleanNewName });
-      
       const setting = groupSettings.find(g => g.group_name === renameModal.oldName);
       if (setting) {
         await supabaseRequest(`group_settings?group_name=eq.${renameModal.oldName}`, 'DELETE');
         await supabaseRequest('group_settings', 'POST', { group_name: cleanNewName, is_locked: setting.is_locked });
       }
-      
       logAction('Renombró Grupo', `El grupo ${renameModal.oldName} ahora se llama ${cleanNewName}`);
-      
       if (adminGroupFilter === renameModal.oldName) setAdminGroupFilter(cleanNewName);
-      
       setRenameModal({ isOpen: false, oldName: '', newName: '' });
-      alert(`¡Grupo renombrado exitosamente a "${cleanNewName}"! \nSi estabas compartiendo este enlace, deberás generar uno nuevo.`);
+      alert(`¡Grupo renombrado exitosamente a "${cleanNewName}"! \nGenerar nuevo link si se estaba compartiendo.`);
       await fetchOrdersAndSettings();
-    } catch (err) { alert("Error al renombrar el grupo. Intenta nuevamente."); }
+    } catch (err) { alert("Error al renombrar el grupo."); }
     setLoading(false);
+  };
+
+  const handleArchiveGroup = async (groupName) => {
+    if(!confirm(`¿Mover el grupo "${groupName}" a la papelera?\nSe conservarán sus datos por 40 días antes de eliminarse para siempre.`)) return;
+    const newArchived = [...archivedGroups, { name: groupName, archivedAt: Date.now() }];
+    setArchivedGroups(newArchived);
+    await saveToGlobalSettings('archived_groups', JSON.stringify(newArchived));
+    logAction('Archivó Grupo', `El grupo ${groupName} fue movido a la papelera`);
+    if (adminGroupFilter === groupName) setAdminGroupFilter('Todos');
+    fetchOrdersAndSettings();
+  };
+
+  const handleRestoreGroup = async (groupName) => {
+    const newArchived = archivedGroups.filter(g => g.name !== groupName);
+    setArchivedGroups(newArchived);
+    await saveToGlobalSettings('archived_groups', JSON.stringify(newArchived));
+    logAction('Restauró Grupo', `El grupo ${groupName} fue restaurado de la papelera`);
+    fetchOrdersAndSettings();
+  };
+
+  const handlePermanentDeleteGroup = async (groupName) => {
+    if(!confirm(`ATENCIÓN: Estás a punto de eliminar el grupo "${groupName}" y todos sus pedidos para siempre. ¿Estás seguro?`)) return;
+    setLoading(true);
+    await supabaseRequest(`orders?group_name=eq.${groupName}`, 'DELETE');
+    const newArchived = archivedGroups.filter(g => g.name !== groupName);
+    setArchivedGroups(newArchived);
+    await saveToGlobalSettings('archived_groups', JSON.stringify(newArchived));
+    logAction('Eliminó Grupo Permanentemente', `Destruyó el grupo ${groupName}`);
+    fetchOrdersAndSettings();
   };
 
   const handleOpenPayment = (order) => {
     if (!isAdmin) return;
     const total = getUnitPrice(order) * order.quantity;
     const amount = order.amount_paid ?? (order.paymentStatus === 'Pagado' ? total : 0);
-    setPaymentModal({ isOpen: true, order, amount: amount });
+    setPaymentModal({ isOpen: true, order, amount: amount, isSaved: false });
   };
 
   const savePayment = async () => {
     if (!isAdmin || !paymentModal.order) return;
     const amount = parseInt(paymentModal.amount) || 0;
     const total = getUnitPrice(paymentModal.order) * paymentModal.order.quantity;
-    
     let newStatus = 'Pendiente';
     if (amount > 0 && amount < total) newStatus = 'Señado';
     if (amount >= total) newStatus = 'Pagado';
 
     try {
-      await supabaseRequest(`orders?id=eq.${paymentModal.order.id}`, 'PATCH', { 
-        amount_paid: amount, paymentStatus: newStatus 
-      });
+      await supabaseRequest(`orders?id=eq.${paymentModal.order.id}`, 'PATCH', { amount_paid: amount, paymentStatus: newStatus });
       logAction('Actualizó Pago', `De ${paymentModal.order.name} a ${amount} Gs.`);
-      
       const updatedOrder = {...paymentModal.order, amount_paid: amount, paymentStatus: newStatus};
       setPaymentModal({ isOpen: true, order: updatedOrder, amount: amount, isSaved: true }); 
-      
       fetchOrdersAndSettings();
     } catch (err) { alert("Error guardando el pago"); }
   };
@@ -466,14 +595,11 @@ export default function App() {
   const getReceiptLink = (order) => {
     let phone = order.phone.replace(/\D/g, '');
     if (phone.startsWith('0')) phone = '595' + phone.substring(1);
-    
     const fins = getOrderFinancials(order);
     const shortText = order.observations?.includes('Short:') ? ' + Short' : '';
     const mediasText = order.observations?.includes('Medias: SI') ? ' + Medias' : '';
     const desc = `${order.size} ${order.gender[0]} ${shortText}${mediasText}`;
-
     const msg = `🧾 *RECIBO VIRTUAL - BROOGUIN SPORT* 🦊\n\n¡Hola *${order.name}*! Confirmamos el registro de tu pago.\n\n*Detalles del Pedido:*\nGrupo: ${order.group_name || 'General'}\nPrenda: ${desc} (x${order.quantity})\n\n*Estado de Cuenta:*\nTotal del Pedido: ${new Intl.NumberFormat('es-PY').format(fins.total)} Gs.\n💰 *Pagado hasta ahora: ${new Intl.NumberFormat('es-PY').format(fins.paid)} Gs.*\n⚠️ *Saldo Pendiente: ${new Intl.NumberFormat('es-PY').format(fins.balance)} Gs.*\n\n¡Gracias por tu confianza!`;
-    
     return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
   };
 
@@ -488,17 +614,29 @@ export default function App() {
     return { total, paid, balance: total - paid };
   };
 
-  const handleAdminLogin = () => {
+  const handleAdminLogin = async () => {
+    if (!inputDelegate.trim()) { alert("Por favor, ingresa tu Nombre de Referencia."); return; }
     if (adminPin === currentAdminPassword) { 
-      setIsAdmin(true); setAdminGroupFilter(displayGroup); setShowAdminLogin(false); setPinError(false); setAdminPin(''); setShowPassword(false); 
-    } else setPinError(true);
+      setIsAdmin(true); 
+      setAdminGroupFilter(displayGroup); 
+      setCurrentDelegateName(inputDelegate.trim());
+
+      if (!availableDelegates.includes(inputDelegate.trim())) {
+        const newDelegates = [...availableDelegates, inputDelegate.trim()];
+        setAvailableDelegates(newDelegates);
+        await saveToGlobalSettings(`delegates_${displayGroup}`, JSON.stringify(newDelegates));
+      }
+      setShowAdminLogin(false); setPinError(false); setAdminPin(''); setShowPassword(false); setInputDelegate('');
+    } else { setPinError(true); }
   };
   
   const handleGroupAuth = () => {
-    if (groupPin === 'remeras') { 
-       setIsGroupAdmin(true); setIsMasterOwner(false); setShowGroupAuth(false); setShowGroupManager(true); setGroupPin(''); setGroupPinError(false); setShowGroupPassword(false); 
+    if (groupPin === 'marseo') { 
+       setIsGroupAdmin(true); setIsMasterOwner(false); setIsCreator(true);
+       setShowGroupAuth(false); setShowGroupManager(true); setGroupPin(''); setGroupPinError(false); setShowGroupPassword(false); 
     } else if (groupPin === 'lukasy67') {
-       setIsGroupAdmin(true); setIsMasterOwner(true); setShowGroupAuth(false); setShowGroupManager(true); setGroupPin(''); setGroupPinError(false); setShowGroupPassword(false); 
+       setIsGroupAdmin(true); setIsMasterOwner(true); setIsCreator(true);
+       setShowGroupAuth(false); setShowGroupManager(true); setGroupPin(''); setGroupPinError(false); setShowGroupPassword(false); 
     } else {
        setGroupPinError(true);
     }
@@ -507,9 +645,8 @@ export default function App() {
   const handleChangePasswordSubmit = async () => {
     if (masterPassInput !== MASTER_AUTHORIZATION) { setPassChangeError('Clave de autorización incorrecta.'); return; }
     if (!newAdminPassInput || newAdminPassInput.length < 4) { setPassChangeError('La nueva contraseña debe ser más larga.'); return; }
-    
     try {
-      await supabaseRequest('global_settings?id=eq.admin_password', 'PATCH', { value: newAdminPassInput });
+      await saveToGlobalSettings('admin_password', newAdminPassInput);
       setCurrentAdminPassword(newAdminPassInput);
       logAction('Cambió Clave Admin', 'Nueva clave configurada');
       alert("¡Contraseña de Administrador cambiada exitosamente!");
@@ -525,11 +662,9 @@ export default function App() {
     const params = new URLSearchParams();
     params.append('grupo', cleanName); params.append('edad', newGroupConfig.edad); params.append('tipo', newGroupConfig.tipo); params.append('tela', newGroupConfig.tela); params.append('costo', newGroupConfig.costo);
     const link = `${baseUrl}?${params.toString()}`;
-    
     const textArea = document.createElement("textarea"); textArea.value = link; document.body.appendChild(textArea); textArea.select();
     try { document.execCommand('copy'); } catch (err) {}
     document.body.removeChild(textArea);
-    
     setQrModal({ isOpen: true, link: link, groupName: cleanName });
     setNewGroupConfig({ ...newGroupConfig, name: '' });
   };
@@ -539,11 +674,9 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     params.set('grupo', groupName);
     const link = `${baseUrl}?${params.toString()}`;
-    
     const textArea = document.createElement("textarea"); textArea.value = link; document.body.appendChild(textArea); textArea.select();
     try { document.execCommand('copy'); } catch (err) {}
     document.body.removeChild(textArea);
-    
     setQrModal({ isOpen: true, link: link, groupName: groupName });
   };
 
@@ -556,50 +689,78 @@ export default function App() {
   };
 
   const handleEditClick = (order) => {
+    let pName = ''; let pNum = '';
+    if (order.observations && order.observations.includes('[#')) {
+      const matchName = order.observations.match(/\|\s*([^|]+)\s*\|/);
+      if (matchName) pName = matchName[1].trim() === 'SIN NOMBRE' ? '' : matchName[1].trim();
+      const matchNum = order.observations.match(/\[#([^|]+)\|/);
+      if (matchNum) pNum = matchNum[1].trim() === 'S/N' ? '' : matchNum[1].trim();
+    }
     setFormData({
-      ...formData, name: order.name, phone: order.phone === '-' ? '' : (order.phone || ''), size: order.size, gender: order.gender, quantity: order.quantity, longSleeve: order.longSleeve || false, observations: order.observations || ''
+      ...formData, name: order.name, phone: order.phone === '-' ? '' : (order.phone || ''), size: order.size, gender: order.gender, quantity: order.quantity, longSleeve: order.longSleeve || false, observations: order.observations || '',
+      originalGroup: order.group_name, group_name: order.group_name, playerName: pName, playerNumber: pNum
     });
     setEditingId(order.id); window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setFormData({ name: '', phone: '', size: activeSizes[0], gender: 'Femenino', quantity: 1, longSleeve: false, observations: '', playerName: '', playerNumber: '', isGoalkeeper: false, includeShort: displayType.includes('Short'), shortSize: activeSizes[0], femaleShortType: 'Standard', includeSocks: displayType.includes('Medias')});
+    setFormData({ name: '', phone: '', size: activeSizes[0], gender: 'Femenino', quantity: 1, longSleeve: false, observations: '', playerName: '', playerNumber: '', isGoalkeeper: false, includeShort: displayType.includes('Short'), shortSize: activeSizes[0], femaleShortType: 'Standard', includeSocks: displayType.includes('Medias'), originalGroup: '', group_name: ''});
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (order) => {
     if (!isAdmin) return;
-    await supabaseRequest(`orders?id=eq.${id}`, 'PATCH', { deleted: true });
-    logAction('Eliminó Pedido', `Envió pedido ${id} a papelera`); fetchOrdersAndSettings();
+    const delTime = Date.now();
+    const newObs = (order.observations || '') + ` [DEL:${delTime}]`;
+    await supabaseRequest(`orders?id=eq.${order.id}`, 'PATCH', { deleted: true, observations: newObs });
+    logAction('Eliminó Pedido', `Envió pedido a papelera`); 
+    fetchOrdersAndSettings();
+    setUndoDeleteId(order.id);
+    setTimeout(() => { setUndoDeleteId(current => current === order.id ? null : current); }, 4000);
   };
 
-  const handleRestore = async (id) => {
+  const handleUndoDelete = async () => {
+    if (!undoDeleteId) return;
+    const orderToRestore = orders.find(o => o.id === undoDeleteId);
+    if (!orderToRestore) return;
+    const newObs = (orderToRestore.observations || '').replace(/\s*\[DEL:\d+\]/g, '');
+    await supabaseRequest(`orders?id=eq.${undoDeleteId}`, 'PATCH', { deleted: false, observations: newObs });
+    logAction('Deshizo Eliminación', `Restauró pedido`);
+    fetchOrdersAndSettings();
+    setUndoDeleteId(null);
+  };
+
+  const handleRestore = async (order) => {
     if (!isAdmin) return;
-    await supabaseRequest(`orders?id=eq.${id}`, 'PATCH', { deleted: false });
-    logAction('Restauró Pedido', `Restauró pedido ${id}`); fetchOrdersAndSettings();
+    const newObs = (order.observations || '').replace(/\s*\[DEL:\d+\]/g, '');
+    await supabaseRequest(`orders?id=eq.${order.id}`, 'PATCH', { deleted: false, observations: newObs });
+    logAction('Restauró Pedido', `Desde papelera`); fetchOrdersAndSettings();
   };
 
   const handlePermanentDelete = async (id) => {
     if (!isAdmin) return;
     if(!confirm("¿Estás seguro de eliminar esto permanentemente?")) return;
     await supabaseRequest(`orders?id=eq.${id}`, 'DELETE');
-    logAction('Borro Permanente', `Destruyó pedido ${id}`); fetchOrdersAndSettings();
+    logAction('Borro Permanente', `Destruyó pedido`); fetchOrdersAndSettings();
   };
 
   const activeOrders = useMemo(() => {
-    let filtered = orders.filter(o => !o.deleted);
+    let filtered = orders.filter(o => !o.deleted && !archivedNames.includes(o.group_name || 'General'));
     if (!isGroupAdmin) filtered = filtered.filter(o => (o.group_name || 'General') === displayGroup);
     else if (adminGroupFilter !== 'Todos') filtered = filtered.filter(o => (o.group_name || 'General') === adminGroupFilter);
     return filtered;
-  }, [orders, isGroupAdmin, displayGroup, adminGroupFilter]);
+  }, [orders, isGroupAdmin, displayGroup, adminGroupFilter, archivedNames]);
 
   const deletedOrders = useMemo(() => {
-    let filtered = orders.filter(o => o.deleted);
+    let filtered = orders.filter(o => o.deleted && !archivedNames.includes(o.group_name || 'General'));
     if (!isGroupAdmin) filtered = filtered.filter(o => (o.group_name || 'General') === displayGroup);
     return filtered;
-  }, [orders, isGroupAdmin, displayGroup]);
+  }, [orders, isGroupAdmin, displayGroup, archivedNames]);
 
-  const availableGroups = useMemo(() => ['Todos', ...new Set(orders.filter(o => !o.deleted).map(o => o.group_name || 'General'))], [orders]);
+  const availableGroups = useMemo(() => {
+    return ['Todos', ...new Set(orders.filter(o => !o.deleted).map(o => o.group_name || 'General'))]
+      .filter(g => g === 'Todos' || !archivedNames.includes(g));
+  }, [orders, archivedNames]);
 
   const summaryBySize = useMemo(() => {
     return activeSizes.map(size => {
@@ -627,30 +788,40 @@ export default function App() {
   const totalCollected = activeOrders.reduce((sum, order) => sum + getOrderFinancials(order).paid, 0);
 
   const globalStats = useMemo(() => {
-    const allActive = orders.filter(o => !o.deleted);
+    const allActive = orders.filter(o => !o.deleted && !archivedNames.includes(o.group_name || 'General'));
     let expected = 0; let collected = 0;
     allActive.forEach(o => {
       const fins = getOrderFinancials(o);
       expected += fins.total; collected += fins.paid;
     });
     return { items: allActive.length, expected, collected, debt: expected - collected };
+  }, [orders, archivedNames]);
+
+  const groupStatsList = useMemo(() => {
+    const stats = {};
+    orders.filter(o => !o.deleted).forEach(o => {
+      const g = o.group_name || 'General';
+      if (!stats[g]) { stats[g] = { name: g, count: 0, firstOrder: o.created_at, lastOrder: o.created_at, revenue: 0 }; }
+      stats[g].count += o.quantity;
+      stats[g].revenue += getUnitPrice(o) * o.quantity;
+      if (new Date(o.created_at) < new Date(stats[g].firstOrder)) stats[g].firstOrder = o.created_at;
+      if (new Date(o.created_at) > new Date(stats[g].lastOrder)) stats[g].lastOrder = o.created_at;
+    });
+    return Object.values(stats);
   }, [orders]);
 
-  const compactSummaryItems = useMemo(() => {
-    const items = [];
-    activeSizes.forEach(size => {
-      const sizeOrders = activeOrders.filter(o => o.size === size);
-      ['Femenino', 'Masculino', 'Unisex'].forEach(gen => {
-        const shortCount = sizeOrders.filter(o => o.gender === gen && !o.longSleeve).reduce((sum, o) => sum + o.quantity, 0);
-        const longCount = sizeOrders.filter(o => o.gender === gen && o.longSleeve).reduce((sum, o) => sum + o.quantity, 0);
-        const genLabel = gen === 'Femenino' ? 'Fem' : gen === 'Masculino' ? 'Masc' : 'Uni';
-        
-        if (shortCount > 0) items.push({ size, gender: genLabel, isLong: false, total: shortCount });
-        if (longCount > 0) items.push({ size, gender: genLabel, isLong: true, total: longCount });
-      });
-    });
-    return items;
-  }, [activeOrders, activeSizes]);
+  const sortedGroupStats = useMemo(() => {
+     return [...groupStatsList]
+       .filter(g => !archivedNames.includes(g.name))
+       .sort((a, b) => {
+        let valA = a[groupSort.key]; let valB = b[groupSort.key];
+        if (groupSort.key === 'name') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); } 
+        else { valA = new Date(valA).getTime(); valB = new Date(valB).getTime(); }
+        if (valA < valB) return groupSort.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return groupSort.direction === 'asc' ? 1 : -1;
+        return 0;
+     });
+  }, [groupStatsList, groupSort, archivedNames]);
 
   const progressPercent = totalRevenue === 0 ? 0 : Math.round((totalCollected / totalRevenue) * 100);
 
@@ -792,45 +963,27 @@ export default function App() {
     printWindow.document.write(html); printWindow.document.close();
   };
 
-  const formatDate = (timestamp) => {
-    if (!timestamp) return '-';
-    return new Date(timestamp).toLocaleString('es-PY', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
-  };
-
   return (
-    <div className={`min-h-screen font-sans p-4 md:p-8 transition-colors duration-500 ${t.page}`}>
+    <div className={`min-h-screen font-sans p-4 md:p-8 transition-colors duration-500 relative ${t.page}`}>
       
-      {/* INYECTAMOS LOS KEYFRAMES PARA LAS ANIMACIONES AQUÍ */}
-      <style>
-        {`
-          @keyframes anim-fall {
-            0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
-            100% { transform: translateY(110vh) rotate(360deg); opacity: 0; }
-          }
-          @keyframes anim-float {
-            0% { transform: translateY(110vh) scale(0.5); opacity: 0; }
-            50% { opacity: 1; transform: translateY(50vh) scale(1.2); }
-            100% { transform: translateY(-10vh) scale(1); opacity: 0; }
-          }
-          @keyframes anim-bounce {
-            0% { transform: translateY(110vh); }
-            50% { transform: translateY(30vh); }
-            100% { transform: translateY(110vh); }
-          }
-          @keyframes anim-zoom {
-            0% { transform: scale(0); opacity: 0; }
-            50% { transform: scale(1.5); opacity: 1; }
-            100% { transform: scale(1); opacity: 0; }
-          }
-          @keyframes anim-rise {
-            0% { transform: translateY(110vh) rotate(0deg); opacity: 1; }
-            100% { transform: translateY(-10vh) rotate(-360deg); opacity: 0; }
-          }
-        `}
-      </style>
-
-      {/* RENDERIZADOR DE ANIMACIÓN DE ÉXITO */}
       {activeAnimationTheme !== null && <SuccessAnimation themeIndex={activeAnimationTheme} />}
+
+      {/* Botón Flotante "?" (Ayuda de Administración) */}
+      {isAdmin && !showAdminLegend && (
+        <button onClick={() => setShowAdminLegend(true)} className="fixed bottom-24 right-6 bg-indigo-600 text-white w-12 h-12 rounded-full shadow-2xl flex items-center justify-center hover:bg-indigo-700 transition-all transform hover:scale-110 z-40 animate-in fade-in" title="Ver herramientas de administración">
+           <span className="text-xl font-bold">?</span>
+        </button>
+      )}
+
+      {/* Botón Flotante Deshacer Eliminación */}
+      {undoDeleteId && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-5 z-[100] border border-slate-700">
+          <span className="text-sm font-medium">Pedido movido a la papelera.</span>
+          <button onClick={handleUndoDelete} className="bg-slate-700 hover:bg-slate-600 text-emerald-400 px-4 py-2 rounded-lg text-xs font-bold transition-colors">
+            Deshacer
+          </button>
+        </div>
+      )}
 
       {/* Botón Flotante de Asistencia (WhatsApp) */}
       <a href="https://wa.me/595984948834" target="_blank" rel="noopener noreferrer" className="fixed bottom-6 left-6 bg-[#25D366] text-white p-3.5 rounded-full shadow-2xl hover:bg-[#20bd5a] transition-all transform hover:scale-110 z-50 flex items-center justify-center group border-2 border-white/20">
@@ -842,7 +995,7 @@ export default function App() {
 
       <div className="max-w-6xl mx-auto space-y-6">
         
-        {/* ESPACIO SPONSOR LOCAL (Interactivo a tu WhatsApp) */}
+        {/* ESPACIO SPONSOR LOCAL */}
         <div className={`rounded-xl shadow-sm overflow-hidden flex items-center justify-center relative cursor-pointer hover:shadow-md transition-all group border bg-gradient-to-r ${t.sponsorCard}`} onClick={handleSponsorClick} title="¡Anúnciate Aquí!">
            <div className="absolute inset-0 bg-white/5 opacity-50"></div>
            <div className="p-3 text-center z-10 flex items-center gap-3">
@@ -868,7 +1021,7 @@ export default function App() {
               <div>
                 <h1 className="text-3xl sm:text-4xl font-black tracking-tight drop-shadow-md">BROOGUIN SPORT</h1>
                 <p className="text-indigo-200 text-sm mt-1 font-medium tracking-wide">
-                  {isDeportiva ? 'Indumentaria Deportiva' : 'Uniformes Institucionales'}
+                  {isContextDeportiva ? 'Indumentaria Deportiva' : 'Uniformes Institucionales'}
                 </p>
               </div>
             </a>
@@ -928,12 +1081,41 @@ export default function App() {
         {/* Panel de Administrador General */}
         {isAdmin && (
           <div className={`${darkMode ? 'bg-slate-800 border-indigo-500' : 'bg-white border-indigo-500'} border-l-4 p-4 rounded-r-xl shadow-md space-y-4 transition-colors`}>
+            
+            {/* LEYENDA EXPLICATIVA AUTO-OCULTABLE */}
+            {showAdminLegend && (
+              <div className={`p-4 rounded-xl border relative shadow-md animate-in fade-in slide-in-from-top-4 ${darkMode ? 'bg-indigo-900/40 border-indigo-700' : 'bg-indigo-50 border-indigo-200'}`}>
+                <button onClick={() => setShowAdminLegend(false)} className={`absolute top-2 right-2 ${t.muted} hover:text-indigo-500`}><X className="w-5 h-5"/></button>
+                <h4 className={`font-bold flex items-center gap-1 mb-2 ${darkMode ? 'text-indigo-300' : 'text-indigo-800'}`}>
+                  <Info className="w-4 h-4" /> Herramientas del Modo Administración
+                </h4>
+                <ul className={`text-xs space-y-2 ml-1 ${darkMode ? 'text-indigo-200' : 'text-indigo-700'}`}>
+                  <li><b>🔹 Estado de Pago:</b> Clickea sobre 'Pendiente/Señado/Pagado' en la tabla para registrar entregas de dinero. Al hacerlo, te dará la opción de enviar un Recibo por WhatsApp.</li>
+                  <li><b>🔹 Papelera:</b> Si borras un pedido, irá a la papelera. Tienes 48 horas para deshacerlo antes de que se autoelimine permanentemente para ahorrar espacio.</li>
+                  <li><b>🔹 Cerrar Lista:</b> Bloquea el formulario para que los clientes ya no puedan agregar pedidos.</li>
+                  {isCreator && (
+                    <>
+                      <li className="pt-1 mt-1 border-t border-indigo-300/30"><b>👑 Creador de Enlaces:</b> Genera links personalizados con precios bloqueados para cada colegio.</li>
+                      <li><b>👑 Hojas de Corte:</b> Exporta un PDF resumido especial solo para el taller de costura.</li>
+                      <li><b>👑 Mover Pedidos:</b> Al "Editar" un pedido, ahora puedes cambiarlo de grupo si el cliente se equivocó.</li>
+                      <li><b>👑 Todos los Grupos:</b> Verás un botón extra para acceder a un directorio completo y estadístico de todos los grupos y ventas.</li>
+                    </>
+                  )}
+                  {isMasterOwner && (
+                    <li className="pt-1 mt-1 border-t border-indigo-300/30"><b>🚀 Dueño Supremo:</b> Tienes acceso al total financiero de toda la empresa, directorio ordenable, papelera de grupos de 40 días, y al historial silencioso de los administradores.</li>
+                  )}
+                </ul>
+              </div>
+            )}
+
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-indigo-500 flex-shrink-0 mt-0.5" />
                 <div>
-                  <h3 className={`font-bold text-sm ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>Panel de Administración</h3>
-                  <p className={`text-xs ${t.muted}`}>Visualizando y gestionando pedidos.</p>
+                  <h3 className={`font-bold text-sm flex items-center gap-1 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
+                    Panel de Administración 
+                  </h3>
+                  <p className={`text-xs ${t.muted}`}>Bienvenido/a {currentDelegateName || 'Admin'}. Herramientas exclusivas habilitadas.</p>
                 </div>
               </div>
               
@@ -964,17 +1146,32 @@ export default function App() {
                     >
                       <History className="w-4 h-4" /> {showAuditLogs ? 'Ocultar Historial' : 'Historial'}
                     </button>
-                    <button onClick={() => setShowGroupManager(!showGroupManager)} className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-700 transition-all">
-                      <Settings className="w-4 h-4" /> {showGroupManager ? 'Ocultar Opciones Supremas' : 'Herramientas Supremas'}
+                    
+                    {/* Botón de Todos los Grupos disponible para AMBOS (lukasy67 y marseo) */}
+                    {isCreator && (
+                      <button 
+                        onClick={() => { 
+                          if (!showGroupManager) setShowGroupManager(true);
+                          setTimeout(() => { document.getElementById('directorio-grupos-section')?.scrollIntoView({ behavior: 'smooth' }) }, 150);
+                        }} 
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-all ${darkMode ? 'bg-blue-900/30 text-blue-400 hover:bg-blue-800/50' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'}`}
+                      >
+                        <Layers className="w-4 h-4" /> Todos los Grupos
+                      </button>
+                    )}
+
+                    <button onClick={() => { setIsGroupAdmin(false); setIsMasterOwner(false); setIsCreator(false); setShowGroupManager(false); }} className="flex items-center gap-2 bg-neutral-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-neutral-700 transition-all">
+                      <Unlock className="w-4 h-4" /> Cerrar Modo Supremo
                     </button>
                   </>
                 )}
 
                 {/* Filtro Restringido */}
                 {isGroupAdmin ? (
-                  <div className={`flex items-center gap-2 p-2 rounded-lg border ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-indigo-50 border-indigo-100'}`}>
-                    <Filter className="w-4 h-4 text-indigo-500" />
-                    <select value={adminGroupFilter} onChange={(e) => setAdminGroupFilter(e.target.value)} className={`bg-transparent border-none text-sm font-bold outline-none cursor-pointer max-w-[150px] truncate ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
+                  <div className={`flex items-center gap-1 p-2 rounded-lg border ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-indigo-50 border-indigo-100'}`}>
+                    <Filter className="w-4 h-4 text-indigo-500 ml-1" />
+                    <HelperTooltip darkMode={darkMode} text="Filtra la lista de pedidos de abajo para ver la de otros grupos o la de 'Todos'." />
+                    <select value={adminGroupFilter} onChange={(e) => setAdminGroupFilter(e.target.value)} className={`bg-transparent border-none text-sm font-bold outline-none cursor-pointer max-w-[150px] truncate ml-1 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
                       {availableGroups.map(g => (<option key={g} value={g}>{g === 'Todos' ? 'Todos los Grupos' : `Grupo: ${g}`}</option>))}
                     </select>
                     
@@ -995,16 +1192,19 @@ export default function App() {
             </div>
 
             {/* MODO SUPREMO: DASHBOARD Y CREADOR */}
-            {showGroupManager && isGroupAdmin && (
+            {showGroupManager && isCreator && (
               <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
                 
+                {/* DASHBOARD FINANCIERO GLOBAL Y MÉTRICAS DE TRÁFICO (SOLO PARA DUEÑO MASTER) */}
                 {isMasterOwner && (
                   <div className="bg-slate-950 p-5 rounded-xl border border-slate-800 shadow-inner text-white">
                     <div className="flex flex-col md:flex-row gap-6">
                       <div className="flex-1">
-                        <h4 className="text-sm font-bold text-slate-400 mb-1 flex items-center gap-2"><TrendingUp className="w-4 h-4" /> Dashboard Financiero Global</h4>
-                        <p className="text-[11px] text-slate-500 mb-4 italic">💡 Sumatoria de plata y prendas de <b>TODOS</b> los colegios/equipos registrados juntos.</p>
-                        <div className="grid grid-cols-2 gap-4">
+                        <h4 className="text-sm font-bold text-slate-400 mb-1 flex items-center gap-1">
+                          <TrendingUp className="w-4 h-4" /> Dashboard Financiero Global 
+                          <HelperTooltip darkMode={true} text="Suma todas las ganancias, deudas y prendas de absolutamente todos los colegios y clubes en el sistema. Uso exclusivo del dueño." />
+                        </h4>
+                        <div className="grid grid-cols-2 gap-4 mt-4">
                           <div><p className="text-[10px] uppercase text-slate-500">Recaudación Total</p><p className="text-xl font-black text-emerald-400">{new Intl.NumberFormat('es-PY').format(globalStats.collected)} Gs.</p></div>
                           <div><p className="text-[10px] uppercase text-slate-500">Deuda Pendiente</p><p className="text-xl font-black text-amber-400">{new Intl.NumberFormat('es-PY').format(globalStats.debt)} Gs.</p></div>
                         </div>
@@ -1014,7 +1214,10 @@ export default function App() {
                         <div className="flex justify-between text-sm mb-1 border-b border-slate-800 pb-1"><span className="text-slate-400">Total Esperado:</span><span className="font-bold">{new Intl.NumberFormat('es-PY').format(globalStats.expected)} Gs.</span></div>
                         <div className="flex justify-between text-sm mb-4 border-b border-slate-800 pb-1"><span className="text-slate-400">Total Prendas Generales:</span><span className="font-bold">{globalStats.items}</span></div>
                         
-                        <h4 className="text-[10px] font-bold text-slate-400 mb-2 flex items-center gap-1 uppercase tracking-wider"><BarChart3 className="w-3 h-3" /> Métricas de Tráfico (Sponsors)</h4>
+                        <h4 className="text-[10px] font-bold text-slate-400 mb-2 flex items-center gap-1 uppercase tracking-wider">
+                          <BarChart3 className="w-3 h-3" /> Métricas de Tráfico (Sponsors)
+                          <HelperTooltip darkMode={true} text="Mide en secreto cuántas veces se abrió tu web y cuántos clics le dieron al anuncio de tu sponsor local." />
+                        </h4>
                         <div className="grid grid-cols-2 gap-2 bg-slate-900 p-2 rounded-lg">
                            <div><p className="text-[10px] text-slate-400">Visitas a la Web</p><p className="text-sm font-bold text-white">{siteMetrics.visits}</p></div>
                            <div><p className="text-[10px] text-slate-400">Clics en Auspiciantes</p><p className="text-sm font-bold text-blue-400">{siteMetrics.sponsorClicks}</p></div>
@@ -1025,10 +1228,12 @@ export default function App() {
                 )}
 
                 <div className={`p-5 rounded-xl shadow-inner text-white ${darkMode ? 'bg-slate-900 border border-slate-700' : 'bg-indigo-900 border border-indigo-700'}`}>
-                  <h4 className="text-sm font-bold text-emerald-300 mb-1 flex items-center gap-2"><Eye className="w-4 h-4" /> Creador de Enlaces Parametrizados (Vista en Vivo)</h4>
-                  <p className="text-[11px] text-indigo-300 mb-4 italic">💡 Crea un "espacio de trabajo" único para un cliente nuevo. El precio se calculará solo basándose en el PDF oficial.</p>
+                  <h4 className="text-sm font-bold text-emerald-300 mb-1 flex items-center gap-1">
+                    <Eye className="w-4 h-4" /> Creador de Enlaces Parametrizados (Vista en Vivo)
+                    <HelperTooltip darkMode={true} text="Herramienta maestra para crear nuevos grupos. El enlace generado recordará la tela y los precios configurados aquí, bloqueando los cambios para el usuario final." />
+                  </h4>
                   
-                  <form onSubmit={handleCreateGroup} className="space-y-4">
+                  <form onSubmit={handleCreateGroup} className="space-y-4 mt-4">
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                       <div className="md:col-span-2">
                         <label className="block text-[10px] uppercase tracking-wider text-indigo-300 mb-1">Nombre del Grupo/Equipo</label>
@@ -1094,22 +1299,44 @@ export default function App() {
                   </h2>
                   {isAdmin && (
                     <span className={`px-2 py-1 rounded text-[9px] font-bold uppercase tracking-widest ${darkMode ? 'bg-slate-700 text-slate-300' : 'bg-neutral-100 text-neutral-500'}`}>
-                      {isGroupLocked ? 'Lista Bloqueada' : 'Abierto a Usuarios'}
+                      {isGroupLocked ? 'Lista Bloqueada' : 'Abierto'}
                     </span>
                   )}
                 </div>
                 
                 <form onSubmit={handleSubmit} className="space-y-4">
+                  
+                  {/* SELECTOR PARA MOVER DE GRUPO (SÓLO PARA CREADORES AL EDITAR) */}
+                  {editingId && isGroupAdmin && (
+                    <div className={`p-3 rounded-lg border mb-4 shadow-inner ${darkMode ? 'bg-amber-900/20 border-amber-800' : 'bg-amber-50 border-amber-200'}`}>
+                       <label className={`flex items-center gap-1 text-xs font-bold mb-1 uppercase tracking-wide ${darkMode ? 'text-amber-500' : 'text-amber-700'}`}>
+                         Mover a otro Grupo
+                         <HelperTooltip darkMode={darkMode} text="Cambia este pedido hacia otra lista. Ideal si el cliente se equivocó de enlace." />
+                       </label>
+                       <select name="group_name" value={formData.group_name} onChange={handleChange} className={`block w-full px-3 py-1.5 rounded-md text-sm font-bold outline-none focus:ring-2 ${t.input}`}>
+                         {allGroupNames.map(g => (
+                           <option key={g} value={g}>{g}</option>
+                         ))}
+                       </select>
+                    </div>
+                  )}
+
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${t.label}`}>Nombre del Cliente</label>
+                    <label className={`flex items-center gap-1 text-sm font-medium mb-1 ${t.label}`}>
+                      Nombre del Cliente
+                      <HelperTooltip darkMode={darkMode} text="Sirve para registrar a nombre de quién está el pedido. Sugerencia: Completar con Nombre y Apellido." />
+                    </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><User className={`h-4 w-4 ${t.muted}`} /></div>
-                      <input type="text" name="name" value={formData.name} onChange={handleChange} required placeholder="Juan Pérez" className={`block w-full pl-10 pr-3 py-2 rounded-lg focus:ring-2 sm:text-sm transition-colors ${t.input}`} />
+                      <input type="text" name="name" value={formData.name} onChange={handleChange} required placeholder="Ej. Lucas López" className={`block w-full pl-10 pr-3 py-2 rounded-lg focus:ring-2 sm:text-sm transition-colors ${t.input}`} />
                     </div>
                   </div>
 
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${t.label}`}>Teléfono (Obligatorio)</label>
+                    <label className={`flex items-center gap-1 text-sm font-medium mb-1 ${t.label}`}>
+                      Teléfono (Obligatorio)
+                      <HelperTooltip darkMode={darkMode} text="Número de WhatsApp para avisarte cuando esté lista la entrega o por si el taller tiene dudas con tu pedido." />
+                    </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Phone className={`h-4 w-4 ${t.muted}`} /></div>
                       <input type="tel" name="phone" value={formData.phone} onChange={handleChange} required placeholder="Ej. 0984948834" className={`block w-full pl-10 pr-3 py-2 rounded-lg focus:ring-2 sm:text-sm transition-colors ${t.input}`} />
@@ -1118,13 +1345,19 @@ export default function App() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${t.label}`}>Talle (Remera)</label>
+                      <label className={`flex items-center gap-1 text-sm font-medium mb-1 ${t.label}`}>
+                        Talle (Remera)
+                        <HelperTooltip darkMode={darkMode} text="El tamaño de tu prenda. Los talles especiales suelen ser unisex automáticamente." />
+                      </label>
                       <select name="size" value={formData.size} onChange={handleChange} className={`block w-full px-3 py-2 rounded-lg sm:text-sm cursor-pointer font-bold outline-none focus:ring-2 ${t.input} ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>
                         {activeSizes.map(s => (<option key={s} value={s}>{s}</option>))}
                       </select>
                     </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${t.label}`}>Género</label>
+                      <label className={`flex items-center gap-1 text-sm font-medium mb-1 ${t.label}`}>
+                        Género
+                        <HelperTooltip darkMode={darkMode} text="Determina si el corte de la remera será entallado (Femenino) o recto (Masculino)." />
+                      </label>
                       <select name="gender" value={formData.gender} onChange={handleChange} className={`block w-full px-3 py-2 rounded-lg sm:text-sm cursor-pointer outline-none focus:ring-2 ${t.input}`}>
                         <option value="Femenino">Femenino</option>
                         <option value="Masculino">Masculino</option>
@@ -1133,17 +1366,25 @@ export default function App() {
                     </div>
                   </div>
 
-                  {isDeportiva && (
+                  {isContextDeportiva && (
                     <div className={`p-4 rounded-xl border space-y-4 ${darkMode ? 'bg-slate-700/30 border-slate-600' : 'bg-neutral-50 border-neutral-200'}`}>
-                      <h4 className={`text-xs font-bold uppercase tracking-wider mb-2 ${t.muted}`}>Detalles Deportivos</h4>
+                      <h4 className={`text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-1 ${t.muted}`}>
+                        Detalles Deportivos
+                      </h4>
                       
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className={`block text-[10px] font-medium mb-1 ${t.label}`}>Nombre (Espalda)</label>
-                          <input type="text" name="playerName" value={formData.playerName} onChange={handleChange} placeholder="Ej. PÉREZ" className={`block w-full px-3 py-2 rounded-lg sm:text-sm uppercase outline-none focus:ring-2 ${t.input}`} />
+                          <label className={`flex items-center gap-1 text-[10px] font-medium mb-1 ${t.label}`}>
+                            Nombre (Espalda)
+                            <HelperTooltip darkMode={darkMode} text="El texto que irá estampado en tu espalda. Te sugerimos un nombre o apodo corto para que se lea mejor." />
+                          </label>
+                          <input type="text" name="playerName" value={formData.playerName} onChange={handleChange} placeholder="Ej. LUKASY" className={`block w-full px-3 py-2 rounded-lg sm:text-sm uppercase outline-none focus:ring-2 ${t.input}`} />
                         </div>
                         <div>
-                          <label className={`block text-[10px] font-medium mb-1 ${t.label}`}>Número (Dorsal)</label>
+                          <label className={`flex items-center gap-1 text-[10px] font-medium mb-1 ${t.label}`}>
+                            Número (Dorsal)
+                            <HelperTooltip darkMode={darkMode} text="El número grande central que irá en tu espalda (generalmente del 1 al 99)." />
+                          </label>
                           <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Hash className={`h-3 w-3 ${t.muted}`} /></div>
                             <input type="number" name="playerNumber" value={formData.playerNumber} onChange={handleChange} placeholder="10" className={`block w-full pl-8 pr-3 py-2 rounded-lg sm:text-sm font-bold outline-none focus:ring-2 ${t.input}`} />
@@ -1155,7 +1396,10 @@ export default function App() {
                         <div className={`flex flex-col rounded-lg ${t.box} p-2`}>
                           <div className="flex items-center gap-3">
                             <input type="checkbox" id="includeShort" name="includeShort" checked={formData.includeShort} onChange={handleChange} className="w-4 h-4 text-indigo-500 rounded cursor-pointer" />
-                            <label htmlFor="includeShort" className={`text-sm font-medium cursor-pointer flex-1 ${t.label}`}>Añadir Short</label>
+                            <label htmlFor="includeShort" className={`flex items-center gap-1 text-sm font-medium cursor-pointer flex-1 ${t.label}`}>
+                              Añadir Short
+                              <HelperTooltip darkMode={darkMode} text="Incluye el pantalón corto al conjunto. Puedes elegir un talle distinto al de tu remera." />
+                            </label>
                             {formData.includeShort && (
                                <select name="shortSize" value={formData.shortSize} onChange={handleChange} className={`px-2 py-1 rounded text-xs font-bold outline-none ${t.input}`}>
                                  {activeSizes.map(s => (<option key={s} value={s}>{s}</option>))}
@@ -1164,7 +1408,10 @@ export default function App() {
                           </div>
                           {formData.includeShort && formData.gender === 'Femenino' && (
                             <div className={`flex items-center justify-end gap-2 mt-2 border-t pt-2 ${t.border}`}>
-                              <span className={`text-[10px] font-medium ${t.muted}`}>Diseño del Short:</span>
+                              <span className={`flex items-center gap-1 text-[10px] font-medium ${t.muted}`}>
+                                Diseño del Short:
+                                <HelperTooltip darkMode={darkMode} text="El corte femenino es más corto y entallado que el estándar." />
+                              </span>
                               <select name="femaleShortType" value={formData.femaleShortType} onChange={handleChange} className={`px-2 py-1 border rounded text-xs font-bold outline-none ${darkMode ? 'bg-pink-900/30 border-pink-800 text-pink-300' : 'bg-pink-50 border-pink-200 text-pink-900'}`}>
                                 <option value="Standard">Standard</option><option value="Femenino">Corte Femenino</option>
                               </select>
@@ -1172,13 +1419,19 @@ export default function App() {
                           )}
                         </div>
 
-                        <div className={`flex items-center gap-3 p-2 rounded-lg ${t.box}`}>
+                        <div className={`flex items-center gap-3 p-2 rounded-lg border ${t.box}`}>
                           <input type="checkbox" id="includeSocks" name="includeSocks" checked={formData.includeSocks} onChange={handleChange} className="w-4 h-4 text-indigo-500 rounded cursor-pointer" />
-                          <label htmlFor="includeSocks" className={`text-sm font-medium cursor-pointer flex-1 ${t.label}`}>Añadir Medias</label>
+                          <label htmlFor="includeSocks" className={`flex items-center gap-1 text-sm font-medium cursor-pointer flex-1 ${t.label}`}>
+                            Añadir Medias
+                            <HelperTooltip darkMode={darkMode} text="Agrega las medias oficiales del equipo a tu paquete." />
+                          </label>
                         </div>
                         <div className={`flex items-center gap-3 p-2 rounded-lg border mt-2 ${darkMode ? 'bg-indigo-900/20 border-indigo-800' : 'bg-indigo-50 border-indigo-200'}`}>
                           <input type="checkbox" id="isGoalkeeper" name="isGoalkeeper" checked={formData.isGoalkeeper} onChange={handleChange} className="w-4 h-4 text-indigo-500 rounded cursor-pointer" />
-                          <label htmlFor="isGoalkeeper" className={`text-sm font-bold cursor-pointer flex-1 ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>Es Arquero</label>
+                          <label htmlFor="isGoalkeeper" className={`flex items-center gap-1 text-sm font-bold cursor-pointer flex-1 ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>
+                            Es Arquero
+                            <HelperTooltip darkMode={darkMode} text="Avisa al taller que este conjunto lleva diseño/color especial. Habilita también usar Manga Larga si lo deseas." />
+                          </label>
                         </div>
                       </div>
                     </div>
@@ -1186,7 +1439,10 @@ export default function App() {
 
                   <div className="grid grid-cols-2 gap-4 items-end">
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${t.label}`}>Cantidad de Kits</label>
+                      <label className={`flex items-center gap-1 text-sm font-medium mb-1 ${t.label}`}>
+                        Cantidad de Kits
+                        <HelperTooltip darkMode={darkMode} text="Cuántos conjuntos exactamente iguales a este vas a pedir." />
+                      </label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Hash className={`h-4 w-4 ${t.muted}`} /></div>
                         <input type="number" name="quantity" min="1" value={formData.quantity} onChange={handleChange} required className={`block w-full pl-10 pr-3 py-2 rounded-lg sm:text-sm font-bold outline-none focus:ring-2 ${t.input}`} />
@@ -1195,15 +1451,19 @@ export default function App() {
                     {allowLongSleeve && (
                       <div className={`flex items-center gap-2 p-2 rounded-lg h-[38px] ${t.indigoBg}`}>
                         <input type="checkbox" id="longSleeve" name="longSleeve" checked={formData.longSleeve} onChange={handleChange} className="w-4 h-4 text-indigo-500 rounded cursor-pointer" />
-                        <label htmlFor="longSleeve" className={`text-[11px] font-medium cursor-pointer flex-1 leading-tight ${t.indigoText}`}>
+                        <label htmlFor="longSleeve" className={`text-[11px] font-medium cursor-pointer flex-1 leading-tight flex items-center gap-1 ${t.indigoText}`}>
                           Manga Larga (+{new Intl.NumberFormat('es-PY').format(costoMangaLarga)})
+                          <HelperTooltip darkMode={darkMode} text="Cambia el diseño a mangas largas. Esto tiene un recargo sobre el precio base." />
                         </label>
                       </div>
                     )}
                   </div>
 
                   <div>
-                    <label className={`block text-sm font-medium mb-1 text-xs ${t.label}`}>Observaciones Adicionales</label>
+                    <label className={`flex items-center gap-1 text-sm font-medium mb-1 text-xs ${t.label}`}>
+                      Observaciones Adicionales
+                      <HelperTooltip darkMode={darkMode} text="Anotaciones extra para el taller (Ej. 'Pagaré en efectivo mañana')." />
+                    </label>
                     <textarea name="observations" value={formData.observations} onChange={handleChange} rows="2" placeholder="Opcional..." className={`block w-full px-3 py-2 rounded-lg text-sm resize-none outline-none focus:ring-2 ${t.input}`} />
                   </div>
 
@@ -1222,22 +1482,17 @@ export default function App() {
               </div>
             )}
             
-            {/* Resumen Compacto */}
+            {/* Resumen Compacto Financiero (VISITANTES) */}
             <div className={`p-5 rounded-2xl shadow-sm ${t.indigoBg}`}>
-              <h3 className={`text-sm font-bold flex items-center gap-2 mb-3 ${t.indigoText}`}>
-                <Layers className={`w-4 h-4 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`} /> Resumen {displayGroup}
+              <h3 className={`text-sm font-bold flex items-center gap-1 mb-3 ${t.indigoText}`}>
+                <Layers className={`w-4 h-4 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`} /> Resumen Financiero {displayGroup}
+                <HelperTooltip darkMode={darkMode} text="Muestra cuánto dinero falta para que el equipo llegue a la meta de pago y pueda enviar a producir las prendas." />
               </h3>
-              <div className="flex flex-wrap gap-2">
-                {compactSummaryItems.map((item) => (
-                  <div key={`${item.size}-${item.gender}-${item.isLong}`} className={`flex items-center rounded text-[10px] overflow-hidden ${t.box}`}>
-                    <span className={`px-2 py-1 font-bold ${darkMode ? 'bg-slate-700 text-slate-300' : 'bg-indigo-100 text-indigo-800'}`}>{item.size}{item.gender[0]}{item.isLong ? 'L' : ''}</span>
-                    <span className="px-2 py-1 font-black">{item.total}</span>
-                  </div>
-                ))}
-              </div>
-              <div className={`mt-4 pt-3 border-t flex justify-between items-center ${darkMode ? 'border-indigo-800/50' : 'border-indigo-200'}`}>
-                <span className={`text-xs font-bold ${t.indigoText}`}>Total Prendas:</span>
-                <span className="text-sm font-black text-white bg-indigo-500 px-3 py-0.5 rounded-lg shadow-sm">{totalGarments}</span>
+              
+              <div className={`pt-2 flex flex-col sm:flex-row justify-between gap-4`}>
+                 <div><p className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">Esperado de este Grupo</p><p className={`text-lg font-black ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>{new Intl.NumberFormat('es-PY').format(totalRevenue)} Gs.</p></div>
+                 <div><p className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider">Recaudado (Señas+Pagos)</p><p className={`text-lg font-black ${darkMode ? 'text-emerald-400' : 'text-emerald-700'}`}>{new Intl.NumberFormat('es-PY').format(totalCollected)} Gs.</p></div>
+                 <div><p className="text-[10px] text-red-400 font-bold uppercase tracking-wider">Falta Cobrar</p><p className={`text-lg font-black ${darkMode ? 'text-red-400' : 'text-red-600'}`}>{new Intl.NumberFormat('es-PY').format(totalRevenue - totalCollected)} Gs.</p></div>
               </div>
             </div>
           </div>
@@ -1248,8 +1503,9 @@ export default function App() {
             {/* BARRA DE PROGRESO DE PAGOS */}
             <div className={`p-5 rounded-2xl shadow-sm flex flex-col justify-center ${t.card}`}>
                <div className="flex justify-between items-end mb-2">
-                 <h3 className={`text-sm font-bold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
+                 <h3 className={`text-sm font-bold flex items-center gap-1 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
                    <Target className="w-5 h-5 text-emerald-500" /> Progreso de Recaudación
+                   <HelperTooltip darkMode={darkMode} text="Muestra la meta financiera del equipo basada en lo que ya se abonó (señas o pagos completos)." />
                  </h3>
                  <span className="text-xs font-black text-emerald-500 bg-emerald-500/20 px-2 py-0.5 rounded-md">{progressPercent}%</span>
                </div>
@@ -1269,14 +1525,27 @@ export default function App() {
             <div className={`p-6 rounded-2xl shadow-sm ${t.card}`}>
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
                  
-                 <div className="flex items-center gap-4 w-full sm:w-auto">
-                   <h2 className={`text-xl font-semibold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}><Search className="w-5 h-5 text-indigo-500" /> Pedidos Recientes</h2>
+                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full sm:w-auto">
+                   <div className="flex items-center gap-1">
+                     <h2 className={`text-xl font-semibold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
+                       <Search className="w-5 h-5 text-indigo-500" /> Pedidos Recientes
+                     </h2>
+                     <HelperTooltip darkMode={darkMode} text="Aquí puedes ver todos los pedidos ingresados. Busca tu nombre para confirmar que fuiste registrado." />
+                     <button 
+                       onClick={fetchOrdersAndSettings} 
+                       disabled={loading}
+                       className={`p-1.5 rounded-lg transition-colors ml-1 ${darkMode ? 'bg-slate-700 text-indigo-400 hover:bg-slate-600' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}
+                       title="Actualizar lista de pedidos"
+                     >
+                       <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                     </button>
+                   </div>
                    <input 
                      type="text" 
                      placeholder="Buscar por nombre..." 
                      value={searchTerm} 
                      onChange={(e) => setSearchTerm(e.target.value)} 
-                     className={`flex-1 sm:w-48 px-3 py-1.5 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none ${t.input}`} 
+                     className={`flex-1 w-full sm:w-48 px-3 py-1.5 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-colors ${t.input}`} 
                    />
                  </div>
                  
@@ -1301,12 +1570,13 @@ export default function App() {
                     <th className="px-4 py-3 text-left font-bold uppercase tracking-wider">Cliente</th>
                     <th className="px-4 py-3 text-left font-bold uppercase tracking-wider">Prenda</th>
                     <th className="px-4 py-3 text-left font-bold uppercase tracking-wider">Estado / Pago</th>
+                    <th className="px-4 py-3 text-left font-bold uppercase tracking-wider">Fecha y Hora</th>
                     {isAdmin && <th className="px-4 py-3 text-right font-bold uppercase tracking-wider">Acción</th>}
                   </tr>
                 </thead>
                 <tbody className={`divide-y ${t.divide} ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
                   {activeOrders.filter(o => o.name.toLowerCase().includes(searchTerm.toLowerCase())).map((order) => {
-                    const cleanObs = order.observations ? order.observations.replace(/\[Precio:\s*\d+\]/, '').trim() : '';
+                    const { details, rest } = extractDetails(order.observations);
                     const fins = getOrderFinancials(order);
                     
                     return (
@@ -1314,7 +1584,7 @@ export default function App() {
                         {isGroupAdmin && adminGroupFilter === 'Todos' && <td className="px-4 py-3 font-bold text-indigo-500">{order.group_name}</td>}
                         <td className={`px-4 py-3 font-medium ${darkMode ? 'text-slate-200' : 'text-neutral-900'}`}>
                           {order.name}
-                          {(isAdmin || isGroupAdmin) && order.phone && order.phone !== '-' && (
+                          {isAdmin && order.phone && order.phone !== '-' && (
                             <div className="mt-1 flex flex-wrap items-center gap-2">
                               <span className={`text-[10px] flex items-center gap-1 ${t.muted}`}><Phone className="w-2.5 h-2.5"/> {order.phone}</span>
                               <a href={getWhatsAppLink(order)} target="_blank" rel="noopener noreferrer" className={`text-[10px] flex items-center gap-1 px-2 py-0.5 rounded font-bold transition-colors cursor-pointer border ${darkMode ? 'bg-green-900/30 text-green-400 border-green-800 hover:bg-green-900/50' : 'bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#075E54] border-[#25D366]/30'}`}>
@@ -1323,9 +1593,16 @@ export default function App() {
                             </div>
                           )}
                         </td>
-                        <td className="px-4 py-3">
-                          <span className={`font-bold ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>{order.size}</span> <span className={t.muted}>{order.gender[0]}. {order.longSleeve && '(ML)'} x{order.quantity}</span>
-                          {cleanObs && <div className={`text-[10px] mt-1 italic text-wrap max-w-[200px] leading-tight ${t.muted}`}>{cleanObs}</div>}
+                        <td className="px-4 py-3 min-w-[200px]">
+                          <div className={`font-bold ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>
+                            {order.size} <span className={t.muted}>{order.gender[0]}. {order.longSleeve && '(ML)'} x{order.quantity}</span>
+                          </div>
+                          {details && (
+                             <div className={`mt-1.5 p-2 rounded border text-[11px] font-mono leading-tight shadow-inner ${darkMode ? 'bg-slate-900 border-slate-700 text-slate-300' : 'bg-neutral-100 border-neutral-200 text-neutral-600'} whitespace-pre-wrap break-words`}>
+                               {details}
+                             </div>
+                          )}
+                          {rest && <div className={`text-[10px] mt-1 italic ${t.muted}`}>📝 {rest}</div>}
                         </td>
                         <td className="px-4 py-3">
                           {isAdmin ? (
@@ -1345,11 +1622,14 @@ export default function App() {
                             </div>
                           )}
                         </td>
+                        <td className={`px-4 py-3 whitespace-nowrap text-xs ${t.muted}`}>
+                          {formatDate(order.created_at)}
+                        </td>
                         {isAdmin && (
                           <td className="px-4 py-3 text-right">
                             <div className="flex justify-end gap-1">
                                   <button onClick={() => handleEditClick(order)} className={`p-1.5 rounded transition-colors ${darkMode ? 'text-amber-400 hover:bg-slate-700' : 'text-amber-500 hover:bg-amber-50'}`}><Edit className="w-3 h-3" /></button>
-                                  <button onClick={() => handleDelete(order.id)} className={`p-1.5 rounded transition-colors ${darkMode ? 'text-red-400 hover:bg-slate-700' : 'text-red-500 hover:bg-red-50'}`}><Trash2 className="w-3 h-3" /></button>
+                                  <button onClick={() => handleDelete(order)} className={`p-1.5 rounded transition-colors ${darkMode ? 'text-red-400 hover:bg-slate-700' : 'text-red-500 hover:bg-red-50'}`}><Trash2 className="w-3 h-3" /></button>
                                 </div>
                               </td>
                             )}
@@ -1362,10 +1642,13 @@ export default function App() {
               )}
             </div>
 
-            <div className={`p-6 rounded-2xl shadow-sm ${t.card}`}>
-               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
-                  <h2 className={`text-xl font-semibold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}><ClipboardList className="w-5 h-5 text-emerald-500" /> Resumen de Pedidos</h2>
-                  {isAdmin && (
+            {isAdmin && (
+              <div className={`p-6 rounded-2xl shadow-sm ${t.card}`}>
+                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+                    <h2 className={`text-xl font-semibold flex items-center gap-1 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
+                      <ClipboardList className="w-5 h-5 text-emerald-500" /> Resumen de Pedidos (Taller)
+                      <HelperTooltip darkMode={darkMode} text="Panel exclusivo para administradores. Muestra las tablas consolidadas listas para enviar a producción." />
+                    </h2>
                     <div className="flex flex-wrap gap-2 w-full sm:w-auto justify-end">
                       <button onClick={handleExportHojaCorte} className="flex-1 sm:flex-none text-xs bg-slate-800 text-white border border-slate-900 px-3 py-2 rounded-lg font-bold flex items-center justify-center gap-2 shadow-sm hover:bg-slate-900">
                         <Scissors className="w-3 h-3" /> Hoja de Corte
@@ -1377,91 +1660,194 @@ export default function App() {
                         <FileText className="w-3 h-3" /> PDF
                       </button>
                     </div>
-                  )}
-               </div>
-               
-               <div className={`p-4 rounded-xl flex flex-col sm:flex-row justify-between gap-4 mb-6 ${t.indigoBg}`}>
-                  <div><p className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">Esperado de este Grupo</p><p className={`text-lg font-black ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>{new Intl.NumberFormat('es-PY').format(totalRevenue)} Gs.</p></div>
-                  <div><p className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider">Recaudado (Señas+Pagos)</p><p className={`text-lg font-black ${darkMode ? 'text-emerald-400' : 'text-emerald-700'}`}>{new Intl.NumberFormat('es-PY').format(totalCollected)} Gs.</p></div>
-                  <div><p className="text-[10px] text-red-400 font-bold uppercase tracking-wider">Falta Cobrar</p><p className={`text-lg font-black ${darkMode ? 'text-red-400' : 'text-red-600'}`}>{new Intl.NumberFormat('es-PY').format(totalRevenue - totalCollected)} Gs.</p></div>
-               </div>
-
-               <h3 className={`text-xs font-bold uppercase mb-2 ${t.muted}`}>Cantidades de Remeras</h3>
-               <div className="overflow-x-auto mb-6">
-                  <table className={`min-w-full divide-y text-xs ${t.divide}`}>
-                    <thead className={t.tableHead}>
-                      <tr>
-                        <th className="px-6 py-3 text-left font-bold">Talle</th>
-                        <th className="px-6 py-3 text-center font-bold">Fem.</th>
-                        <th className="px-6 py-3 text-center font-bold">Masc.</th>
-                        <th className="px-6 py-3 text-center font-bold">Uni.</th>
-                        <th className="px-6 py-3 text-right font-bold">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className={`divide-y ${t.divide} ${darkMode ? 'bg-slate-800' : 'bg-white'} text-sm`}>
-                      {summaryBySize.map((item) => (
-                        <tr key={item.size} className={item.total > 0 ? (darkMode ? 'bg-emerald-900/10' : 'bg-emerald-50/30') : ''}>
-                          <td className={`px-6 py-4 font-bold ${darkMode ? 'text-slate-200' : 'text-neutral-900'}`}>{item.size}</td>
-                          <td className="px-6 py-4 text-center">{item.fem > 0 ? <span className="text-emerald-500 font-bold">{item.fem}</span> : <span className={t.muted}>-</span>}</td>
-                          <td className="px-6 py-4 text-center">{item.masc > 0 ? <span className="text-emerald-500 font-bold">{item.masc}</span> : <span className={t.muted}>-</span>}</td>
-                          <td className="px-6 py-4 text-center">{item.uni > 0 ? <span className="text-emerald-500 font-bold">{item.uni}</span> : <span className={t.muted}>-</span>}</td>
-                          <td className={`px-6 py-4 text-right font-black ${darkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>{item.total > 0 ? item.total : <span className={t.muted}>0</span>}</td>
+                 </div>
+                 
+                 <h3 className={`text-xs font-bold uppercase mb-2 ${t.muted}`}>Cantidades de Remeras</h3>
+                 <div className="overflow-x-auto mb-6">
+                    <table className={`min-w-full divide-y text-xs ${t.divide}`}>
+                      <thead className={t.tableHead}>
+                        <tr>
+                          <th className="px-6 py-3 text-left font-bold">Talle</th>
+                          <th className="px-6 py-3 text-center font-bold">Fem.</th>
+                          <th className="px-6 py-3 text-center font-bold">Masc.</th>
+                          <th className="px-6 py-3 text-center font-bold">Uni.</th>
+                          <th className="px-6 py-3 text-right font-bold">Total</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-               </div>
+                      </thead>
+                      <tbody className={`divide-y ${t.divide} ${darkMode ? 'bg-slate-800' : 'bg-white'} text-sm`}>
+                        {summaryBySize.map((item) => (
+                          <tr key={item.size} className={item.total > 0 ? (darkMode ? 'bg-emerald-900/10' : 'bg-emerald-50/30') : ''}>
+                            <td className={`px-6 py-4 font-bold ${darkMode ? 'text-slate-200' : 'text-neutral-900'}`}>{item.size}</td>
+                            <td className="px-6 py-4 text-center">{item.fem > 0 ? <span className="text-emerald-500 font-bold">{item.fem}</span> : <span className={t.muted}>-</span>}</td>
+                            <td className="px-6 py-4 text-center">{item.masc > 0 ? <span className="text-emerald-500 font-bold">{item.masc}</span> : <span className={t.muted}>-</span>}</td>
+                            <td className="px-6 py-4 text-center">{item.uni > 0 ? <span className="text-emerald-500 font-bold">{item.uni}</span> : <span className={t.muted}>-</span>}</td>
+                            <td className={`px-6 py-4 text-right font-black ${darkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>{item.total > 0 ? item.total : <span className={t.muted}>0</span>}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                 </div>
 
-               {isDeportiva && (Object.keys(shortsSummary).length > 0 || totalSocks > 0) && (
-                 <>
-                   <h3 className={`text-xs font-bold uppercase mb-2 ${t.muted}`}>Extras Deportivos</h3>
-                   <div className={`p-4 rounded-xl border flex flex-col sm:flex-row gap-8 ${darkMode ? 'bg-slate-700/30 border-slate-600' : 'bg-neutral-50 border-neutral-200'}`}>
-                     {Object.keys(shortsSummary).length > 0 && (
-                       <div className="flex-1">
-                         <span className={`text-xs font-bold block mb-2 border-b pb-1 ${darkMode ? 'text-indigo-300 border-slate-600' : 'text-indigo-900 border-neutral-300'}`}>Confección de Shorts</span>
-                         <ul className="space-y-1">
-                           {Object.entries(shortsSummary).map(([sz, qty]) => (
-                             <li key={`sum-${sz}`} className={`text-sm flex justify-between ${darkMode ? 'text-slate-300' : 'text-neutral-700'}`}>Talle <strong>{sz}</strong> <span className="font-bold text-indigo-500">{qty} und.</span></li>
-                           ))}
-                         </ul>
-                       </div>
-                     )}
-                     {totalSocks > 0 && (
-                       <div className="flex-1">
-                         <span className={`text-xs font-bold block mb-2 border-b pb-1 ${darkMode ? 'text-indigo-300 border-slate-600' : 'text-indigo-900 border-neutral-300'}`}>Medias</span>
-                         <div className={`text-sm flex justify-between ${darkMode ? 'text-slate-300' : 'text-neutral-700'}`}>Total pares: <span className="font-bold text-indigo-500">{totalSocks} pares</span></div>
-                       </div>
-                     )}
-                   </div>
-                 </>
-               )}
-            </div>
+                 {isContextDeportiva && (Object.keys(shortsSummary).length > 0 || totalSocks > 0) && (
+                   <>
+                     <h3 className={`text-xs font-bold uppercase mb-2 ${t.muted}`}>Extras Deportivos</h3>
+                     <div className={`p-4 rounded-xl border flex flex-col sm:flex-row gap-8 ${darkMode ? 'bg-slate-700/30 border-slate-600' : 'bg-neutral-50 border-neutral-200'}`}>
+                       {Object.keys(shortsSummary).length > 0 && (
+                         <div className="flex-1">
+                           <span className={`text-xs font-bold block mb-2 border-b pb-1 ${darkMode ? 'text-indigo-300 border-slate-600' : 'text-indigo-900 border-neutral-300'}`}>Confección de Shorts</span>
+                           <ul className="space-y-1">
+                             {Object.entries(shortsSummary).map(([sz, qty]) => (
+                               <li key={`sum-${sz}`} className={`text-sm flex justify-between ${darkMode ? 'text-slate-300' : 'text-neutral-700'}`}>Talle <strong>{sz}</strong> <span className="font-bold text-indigo-500">{qty} und.</span></li>
+                             ))}
+                           </ul>
+                         </div>
+                       )}
+                       {totalSocks > 0 && (
+                         <div className="flex-1">
+                           <span className={`text-xs font-bold block mb-2 border-b pb-1 ${darkMode ? 'text-indigo-300 border-slate-600' : 'text-indigo-900 border-neutral-300'}`}>Medias</span>
+                           <div className={`text-sm flex justify-between ${darkMode ? 'text-slate-300' : 'text-neutral-700'}`}>Total pares: <span className="font-bold text-indigo-500">{totalSocks} pares</span></div>
+                         </div>
+                       )}
+                     </div>
+                   </>
+                 )}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Papelera */}
-        {isAdmin && deletedOrders.length > 0 && (
-          <div className={`p-6 rounded-2xl border border-dashed ${darkMode ? 'bg-slate-800/50 border-slate-600' : 'bg-white/50 border-neutral-300'}`}>
-            <h2 className={`text-lg font-bold mb-4 flex items-center gap-2 ${t.muted}`}><Trash2 className="w-5 h-5" /> Papelera ({deletedOrders.length})</h2>
+        {/* MODO SUPREMO: DIRECTORIO DE GRUPOS */}
+        {showGroupManager && isCreator && (
+          <div id="directorio-grupos-section" className={`p-6 rounded-2xl shadow-sm border mt-8 ${t.card}`}>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+              <h2 className={`text-xl font-semibold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
+                <Layers className="w-5 h-5 text-indigo-500" /> Directorio Maestro de Grupos
+              </h2>
+            </div>
+            
+            <div className="flex flex-wrap gap-2 items-center mb-4">
+               <span className={`text-sm font-bold ${t.muted}`}>Ordenar por:</span>
+               <select value={groupSort.key} onChange={(e) => setGroupSort({...groupSort, key: e.target.value})} className={`px-3 py-1.5 rounded-lg text-sm font-bold outline-none cursor-pointer ${t.input}`}>
+                 <option value="name">Orden Alfabético</option>
+                 <option value="firstOrder">Fecha de Creación</option>
+                 <option value="lastOrder">Último Pedido Ingresado</option>
+               </select>
+               
+               <button onClick={() => setGroupSort({...groupSort, direction: groupSort.direction === 'asc' ? 'desc' : 'asc'})} className={`px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1 transition-colors ${darkMode ? 'bg-slate-700 hover:bg-slate-600 text-indigo-300' : 'bg-indigo-100 hover:bg-indigo-200 text-indigo-700'}`}>
+                 {groupSort.direction === 'asc' ? (
+                   <>A <ArrowRight className="w-3 h-3" /> Z (Ascendente)</>
+                 ) : (
+                   <>Z <ArrowLeft className="w-3 h-3" /> A (Descendente)</>
+                 )}
+               </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className={`min-w-full divide-y text-xs ${t.divide}`}>
+                <thead className={t.tableHead}>
+                  <tr>
+                    <th className="px-4 py-3 text-left font-bold uppercase tracking-wider">Nombre del Grupo</th>
+                    <th className="px-4 py-3 text-left font-bold uppercase tracking-wider">Creación (1er Pedido)</th>
+                    <th className="px-4 py-3 text-left font-bold uppercase tracking-wider">Última Actividad</th>
+                    <th className="px-4 py-3 text-right font-bold uppercase tracking-wider">Total Prendas</th>
+                    <th className="px-4 py-3 text-right font-bold uppercase tracking-wider">Recaudación</th>
+                    <th className="px-4 py-3 text-right font-bold uppercase tracking-wider">Acción</th>
+                  </tr>
+                </thead>
+                <tbody className={`divide-y ${t.divide} ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
+                   {sortedGroupStats.length === 0 ? (
+                     <tr><td colSpan="6" className={`p-8 text-center italic ${t.muted}`}>No hay grupos registrados aún.</td></tr>
+                   ) : (
+                     sortedGroupStats.map(group => (
+                       <tr key={group.name} className={`${t.rowHover} transition-colors`}>
+                         <td className="px-4 py-3 font-bold text-indigo-500">{group.name}</td>
+                         <td className={`px-4 py-3 ${t.muted}`}>{formatDate(group.firstOrder)}</td>
+                         <td className={`px-4 py-3 ${t.muted}`}>{formatDate(group.lastOrder)}</td>
+                         <td className={`px-4 py-3 text-right font-bold ${darkMode ? 'text-slate-300' : 'text-neutral-800'}`}>{group.count} und.</td>
+                         <td className="px-4 py-3 text-right font-black text-emerald-500">{new Intl.NumberFormat('es-PY').format(group.revenue)} Gs.</td>
+                         <td className="px-4 py-3 text-right">
+                           <button onClick={() => handleArchiveGroup(group.name)} className="text-red-500 hover:bg-red-50 p-1.5 rounded-md transition-colors" title="Mover a papelera de grupos"><Trash2 className="w-4 h-4" /></button>
+                         </td>
+                       </tr>
+                     ))
+                   )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Papelera de Grupos (Dueño Supremo y Creador) */}
+        {showGroupManager && isCreator && archivedGroups.length > 0 && (
+          <div className={`p-6 rounded-2xl shadow-sm border mt-4 ${t.card}`}>
+            <h2 className={`text-lg font-bold mb-4 flex items-center gap-2 ${t.muted}`}><Trash2 className="w-5 h-5" /> Papelera de Grupos ({archivedGroups.length})</h2>
             <div className="overflow-x-auto">
                <table className={`min-w-full text-xs ${t.muted}`}>
+                  <thead className={t.tableHead}>
+                      <tr>
+                         <th className="px-4 py-3 text-left">Grupo</th>
+                         <th className="px-4 py-3 text-left">Eliminado el</th>
+                         <th className="px-4 py-3 text-left">Tiempo Restante</th>
+                         <th className="px-4 py-3 text-right">Acciones</th>
+                      </tr>
+                  </thead>
                   <tbody>
-                    {deletedOrders.map(o => (
-                      <tr key={o.id} className={`border-t ${t.border}`}>
-                        <td className="py-2">{o.name} ({o.group_name})</td>
-                        <td className="py-2 text-right">
-                           <button onClick={() => handleRestore(o.id)} className={`font-bold px-2 py-1 rounded transition-colors ${darkMode ? 'text-indigo-400 hover:bg-slate-700' : 'text-indigo-600 hover:bg-indigo-50'}`}>Restaurar</button>
-                           <button onClick={() => handlePermanentDelete(o.id)} className={`px-2 py-1 rounded transition-colors ${darkMode ? 'text-red-400 hover:bg-slate-700' : 'text-red-400 hover:bg-red-50'}`}>Eliminar</button>
+                    {archivedGroups.map(g => {
+                      const daysLeft = Math.max(0, 40 - (Date.now() - g.archivedAt) / (1000 * 60 * 60 * 24));
+                      return (
+                      <tr key={g.name} className={`border-t ${t.border}`}>
+                        <td className="py-2 px-4 font-bold">{g.name}</td>
+                        <td className="py-2 px-4">{formatDate(g.archivedAt)}</td>
+                        <td className="py-2 px-4 text-red-400 font-bold">{Math.ceil(daysLeft)} días</td>
+                        <td className="py-2 px-4 text-right">
+                           <button onClick={() => handleRestoreGroup(g.name)} className={`font-bold px-2 py-1 rounded transition-colors mr-2 ${darkMode ? 'text-indigo-400 hover:bg-slate-700' : 'text-indigo-600 hover:bg-indigo-50'}`}>Restaurar</button>
+                           <button onClick={() => handlePermanentDeleteGroup(g.name)} className={`px-2 py-1 rounded transition-colors ${darkMode ? 'text-red-400 hover:bg-slate-700' : 'text-red-400 hover:bg-red-50'}`}>Eliminar Ya</button>
                         </td>
                       </tr>
-                    ))}
+                      )
+                    })}
                   </tbody>
                </table>
             </div>
           </div>
         )}
 
-        {/* HISTORIAL DE AUDITORÍA (DESPLEGABLE AL FONDO) */}
+        {/* Papelera de Pedidos */}
+        {isAdmin && deletedOrders.length > 0 && (
+          <div className={`p-6 rounded-2xl border border-dashed ${darkMode ? 'bg-slate-800/50 border-slate-600' : 'bg-white/50 border-neutral-300'}`}>
+            <h2 className={`text-lg font-bold mb-4 flex items-center gap-2 ${t.muted}`}>
+              <Trash2 className="w-5 h-5" /> Papelera de Pedidos ({deletedOrders.length})
+              <HelperTooltip darkMode={darkMode} text="Los pedidos aquí se auto-eliminarán permanentemente a las 48 horas exactas de su borrado." />
+            </h2>
+            <div className="overflow-x-auto">
+               <table className={`min-w-full text-xs ${t.muted}`}>
+                  <tbody>
+                    {deletedOrders.map(o => {
+                      const delMatch = o.observations?.match(/\[DEL:(\d+)\]/);
+                      const delTime = delMatch ? parseInt(delMatch[1]) : new Date(o.created_at).getTime();
+                      const hoursLeft = Math.max(0, 48 - (Date.now() - delTime) / (1000 * 60 * 60));
+                      const timeLeftStr = hoursLeft > 24 ? `${Math.floor(hoursLeft/24)} días` : `${Math.floor(hoursLeft)} hs`;
+                      
+                      return (
+                        <tr key={o.id} className={`border-t ${t.border}`}>
+                          <td className="py-2">
+                             {o.name} ({o.group_name}) <br/>
+                             <span className="text-[10px] text-red-400 font-bold">Desaparece en {timeLeftStr}</span>
+                          </td>
+                          <td className="py-2 text-right">
+                             <button onClick={() => handleRestore(o)} className={`font-bold px-2 py-1 rounded transition-colors ${darkMode ? 'text-indigo-400 hover:bg-slate-700' : 'text-indigo-600 hover:bg-indigo-50'}`}>Restaurar</button>
+                             <button onClick={() => handlePermanentDelete(o.id)} className={`px-2 py-1 rounded transition-colors ${darkMode ? 'text-red-400 hover:bg-slate-700' : 'text-red-400 hover:bg-red-50'}`}>Eliminar Ya</button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+               </table>
+            </div>
+          </div>
+        )}
+
+        {/* HISTORIAL DE AUDITORÍA */}
         {showAuditLogs && isGroupAdmin && (
           <div id="audit-logs-section" className={`p-6 rounded-2xl shadow-sm border mt-8 mb-4 ${darkMode ? 'bg-slate-800 border-purple-800' : 'bg-white border-purple-200'}`}>
             <div className="flex justify-between items-center mb-4">
@@ -1511,16 +1897,22 @@ export default function App() {
                <Lock className="w-3 h-3" /> Acceso Admin
             </button>
           ) : (
-            <button onClick={() => setIsAdmin(false)} className="text-indigo-500 hover:text-indigo-400 text-xs font-bold flex items-center justify-center mx-auto gap-1">
-               <Unlock className="w-3 h-3" /> Salir del Modo Admin
+            <button onClick={() => { setIsAdmin(false); setIsGroupAdmin(false); setIsMasterOwner(false); setIsCreator(false); setShowGroupManager(false); setCurrentDelegateName(''); }} className="text-indigo-500 hover:text-indigo-400 text-xs font-bold flex items-center justify-center mx-auto gap-1">
+               <Unlock className="w-3 h-3" /> Salir de la Cuenta
             </button>
           )}
         </div>
 
-        {/* Notificación de éxito */}
+        {/* Notificación de éxito Ampliada */}
         {showSuccess && (
-          <div className="fixed bottom-6 right-6 bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-5">
-            <span className="font-bold text-sm flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> {successMessage}</span>
+          <div className="fixed bottom-6 right-6 bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-in fade-in z-50">
+            <CheckCircle2 className="w-6 h-6 flex-shrink-0" />
+            <div className="flex flex-col">
+              <span className="font-bold text-sm">{successMessage}</span>
+              <span className="text-[11px] text-emerald-100 font-medium">
+                {successMessage.includes('Registrado') ? 'Revisa que tu pedido aparezca en la lista de abajo.' : 'Los cambios han sido guardados.'}
+              </span>
+            </div>
           </div>
         )}
 
@@ -1565,9 +1957,22 @@ export default function App() {
                 <h3 className={`font-bold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}><Lock className="w-5 h-5" /> Iniciar Sesión</h3>
                 <button onClick={() => setShowAdminLogin(false)} className={`${t.muted} hover:text-slate-200`}><X className="w-5 h-5" /></button>
               </div>
+              
+              <div className="mb-4">
+                <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${t.muted}`}>Tu Nombre (Referencia de Auditoría)</label>
+                <div className="relative">
+                  <input type="text" value={inputDelegate} onChange={(e) => setInputDelegate(e.target.value)} list="delegates-list" placeholder="Ej. Lucas López" className={`w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm ${t.input}`} />
+                  <datalist id="delegates-list">
+                    {availableDelegates.map(d => <option key={d} value={d} />)}
+                  </datalist>
+                </div>
+                <p className={`text-[9px] mt-1 ${t.muted}`}>Tus movimientos quedarán registrados a este nombre.</p>
+              </div>
+
               <div className="relative mb-4">
-                <input type={showPassword ? "text" : "password"} value={adminPin} onChange={(e) => setAdminPin(e.target.value)} placeholder="PIN Administrador" onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()} className={`w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none pr-12 ${t.input}`} />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className={`absolute inset-y-0 right-0 pr-4 flex items-center ${t.muted}`}><EyeOff className="w-5 h-5" /></button>
+                <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${t.muted}`}>Contraseña de Acceso</label>
+                <input type={showPassword ? "text" : "password"} value={adminPin} onChange={(e) => setAdminPin(e.target.value)} placeholder="Contraseña..." onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()} className={`w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none pr-12 ${t.input}`} />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className={`absolute bottom-3 right-0 pr-4 flex items-center ${t.muted}`}><EyeOff className="w-5 h-5" /></button>
               </div>
               {pinError && <p className="text-xs text-red-500 mb-3 mt-[-10px]">Contraseña incorrecta.</p>}
               
@@ -1612,7 +2017,7 @@ export default function App() {
             <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
               <div className="flex justify-between items-center mb-4">
                 <h3 className={`font-bold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}><ShieldAlert className="w-5 h-5 text-red-500" /> Modo Supremo</h3>
-                <button onClick={() => {setShowGroupAuth(false); setGroupPinError(false); setGroupPin(''); setShowGroupPassword(false); setIsMasterOwner(false);}} className={`${t.muted} hover:text-slate-200`}><X className="w-5 h-5" /></button>
+                <button onClick={() => {setShowGroupAuth(false); setGroupPinError(false); setGroupPin(''); setShowGroupPassword(false); setIsMasterOwner(false); setIsCreator(false);}} className={`${t.muted} hover:text-slate-200`}><X className="w-5 h-5" /></button>
               </div>
               <div className="relative mb-4">
                 <input type={showGroupPassword ? "text" : "password"} value={groupPin} onChange={(e) => setGroupPin(e.target.value)} placeholder="Contraseña Maestra" onKeyDown={(e) => e.key === 'Enter' && handleGroupAuth()} className={`w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-red-500 outline-none pr-12 ${t.input}`} />
