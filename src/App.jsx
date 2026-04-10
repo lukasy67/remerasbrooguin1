@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone, Loader2, Layers, Lock, Unlock, X, Eye, EyeOff, Download, FileText, Info, AlertCircle, Search, CheckCircle2, Edit, Filter, Link2, Plus, ShieldAlert, Settings, MessageCircle, DollarSign, TrendingUp, Scissors, History, KeyRound, RefreshCw, BarChart3, ExternalLink, Receipt, Target, QrCode } from 'lucide-react';
+import { Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone, Loader2, Layers, Lock, Unlock, X, Eye, EyeOff, Download, FileText, Info, AlertCircle, Search, CheckCircle2, Edit, Filter, Link2, Plus, ShieldAlert, Settings, MessageCircle, DollarSign, TrendingUp, Scissors, History, KeyRound, RefreshCw, BarChart3, ExternalLink, Receipt, Target, QrCode, MapPin, Moon, Sun } from 'lucide-react';
 
 // ==========================================
 // CONFIGURACIÓN DE SUPABASE (CONEXIÓN DIRECTA API REST)
@@ -46,7 +46,78 @@ const PRECIOS_BASE = {
   }
 };
 
+// ==========================================
+// SISTEMA DE ANIMACIONES (10 TEMÁTICAS)
+// ==========================================
+const ANIMATION_THEMES = [
+  { e: ['⚽', '🥅', '🏟️', '👟', '🥇'], a: 'anim-fall' },        // 0: Festejo de Gol
+  { e: ['🏆', '🥇', '🏅', '🌟', '🙌'], a: 'anim-bounce' },      // 1: Campeones
+  { e: ['🌸', '🌺', '💮', '🍃', '✨'], a: 'anim-float' },       // 2: Lluvia de Flores
+  { e: ['💋', '❤️', '💖', '😍', '🌹'], a: 'anim-float' },       // 3: Femenino / Besos
+  { e: ['🔥', '💪', '💯', '💥', '⚡'], a: 'anim-zoom' },        // 4: Fuego y Pasión
+  { e: ['🎉', '🎊', '🎈', '✨', '🎁'], a: 'anim-fall' },        // 5: Confeti Clásico
+  { e: ['🚀', '🌕', '⭐', '☄️', '🛸'], a: 'anim-rise' },        // 6: Cohetes
+  { e: ['⭐', '🌟', '✨', '💫', '🤩'], a: 'anim-fall' },        // 7: Lluvia de Estrellas
+  { e: ['💎', '💸', '💰', '🤑', '🪙'], a: 'anim-fall' },        // 8: Diamantes y Éxito
+  { e: ['🏀', '🏐', '🎾', '🏓', '🎯'], a: 'anim-bounce' }       // 9: Multideportes
+];
+
+const SuccessAnimation = ({ themeIndex }) => {
+  const theme = ANIMATION_THEMES[themeIndex] || ANIMATION_THEMES[0];
+  const particles = Array.from({ length: 40 });
+
+  return (
+    <div className="fixed inset-0 pointer-events-none z-[9999] overflow-hidden">
+      {particles.map((_, i) => {
+        const left = Math.random() * 100;
+        const delay = Math.random() * 1.5;
+        const duration = 2 + Math.random() * 3;
+        const size = 1.5 + Math.random() * 2;
+        const emoji = theme.e[Math.floor(Math.random() * theme.e.length)];
+
+        return (
+          <div
+            key={i}
+            className="absolute"
+            style={{
+              left: `${left}vw`,
+              fontSize: `${size}rem`,
+              animation: `${theme.a} ${duration}s ease-in-out ${delay}s forwards`,
+              opacity: 0,
+            }}
+          >
+            {emoji}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 export default function App() {
+  // MODO OSCURO
+  const [darkMode, setDarkMode] = useState(false);
+
+  // PALETA DINÁMICA MEJORADA (Ahora los inputs son súper visibles)
+  const t = {
+    page: darkMode ? 'bg-slate-900 text-slate-200' : 'bg-neutral-100 text-neutral-800',
+    card: darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-neutral-200',
+    input: darkMode ? 'bg-slate-700 border border-slate-600 text-white placeholder-slate-400 shadow-inner' : 'bg-neutral-50 border border-neutral-300 text-neutral-900 placeholder-neutral-400 shadow-sm focus:bg-white focus:border-indigo-400',
+    label: darkMode ? 'text-slate-300 font-semibold' : 'text-neutral-700 font-bold',
+    muted: darkMode ? 'text-slate-400' : 'text-neutral-500',
+    tableHead: darkMode ? 'bg-slate-900/50 text-slate-300' : 'bg-neutral-50 text-neutral-500',
+    rowHover: darkMode ? 'hover:bg-slate-700/50' : 'hover:bg-neutral-50',
+    border: darkMode ? 'border-slate-700' : 'border-neutral-200',
+    divide: darkMode ? 'divide-slate-700' : 'divide-neutral-200',
+    indigoBg: darkMode ? 'bg-indigo-900/30 border-indigo-800/50' : 'bg-indigo-50 border-indigo-100',
+    indigoText: darkMode ? 'text-indigo-300' : 'text-indigo-900',
+    emeraldBg: darkMode ? 'bg-emerald-900/30 text-emerald-400' : 'bg-emerald-50 text-emerald-700',
+    redBg: darkMode ? 'bg-red-900/30 text-red-400' : 'bg-red-50 text-red-700',
+    amberBg: darkMode ? 'bg-amber-900/30 text-amber-400' : 'bg-amber-50 text-amber-700',
+    box: darkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-neutral-300 shadow-sm',
+    sponsorCard: darkMode ? 'bg-slate-800 border-slate-700 from-slate-900 to-slate-800' : 'bg-white border-neutral-200 from-neutral-100 to-white',
+  };
+
   const [orders, setOrders] = useState([]);
   const [groupSettings, setGroupSettings] = useState([]); 
   const [loading, setLoading] = useState(true);
@@ -61,9 +132,8 @@ export default function App() {
   const [currentAdminPassword, setCurrentAdminPassword] = useState('brooguin2025'); 
   const MASTER_AUTHORIZATION = 'alucas123'; 
 
-  // RAMIFICACIÓN DEL MODO SUPREMO
-  const [isGroupAdmin, setIsGroupAdmin] = useState(false); // Nivel 1: Creador de links ('remeras')
-  const [isMasterOwner, setIsMasterOwner] = useState(false); // Nivel 2: Dueño Total ('lukasy67')
+  const [isGroupAdmin, setIsGroupAdmin] = useState(false);
+  const [isMasterOwner, setIsMasterOwner] = useState(false); 
   
   const [showGroupAuth, setShowGroupAuth] = useState(false);
   const [groupPin, setGroupPin] = useState('');
@@ -80,11 +150,13 @@ export default function App() {
   const [showAuditLogs, setShowAuditLogs] = useState(false);
   const [auditLogsData, setAuditLogsData] = useState([]);
   
-  // MODAL PARA CÓDIGO QR
   const [qrModal, setQrModal] = useState({ isOpen: false, link: '', groupName: '' });
+  const [renameModal, setRenameModal] = useState({ isOpen: false, oldName: '', newName: '' });
 
-  // MÉTRICAS DE TRÁFICO
   const [siteMetrics, setSiteMetrics] = useState({ visits: 0, sponsorClicks: 0 });
+  
+  // Animación State
+  const [activeAnimationTheme, setActiveAnimationTheme] = useState(null);
 
   const urlParams = new URLSearchParams(window.location.search);
   const urlGroup = urlParams.get('grupo') || 'General';
@@ -144,7 +216,6 @@ export default function App() {
     }));
   }, [displayAge, displayType]);
 
-  // Carga inicial y Tracker de Visitas
   useEffect(() => {
     fetchOrdersAndSettings();
     trackVisit();
@@ -167,16 +238,12 @@ export default function App() {
   const handleSponsorClick = async () => {
     const currentClicks = siteMetrics.sponsorClicks;
     setSiteMetrics(prev => ({ ...prev, sponsorClicks: currentClicks + 1 }));
-    
-    // Registro silencioso en base de datos
     const res = await supabaseRequest('global_settings?id=eq.sponsor_clicks', 'GET');
     if (res.data && res.data.length > 0) {
       await supabaseRequest('global_settings?id=eq.sponsor_clicks', 'PATCH', { value: (currentClicks + 1).toString() });
     } else {
       await supabaseRequest('global_settings', 'POST', { id: 'sponsor_clicks', value: '1' });
     }
-
-    // Redirección a tu WhatsApp
     const msg = "Hola quiero ser sponsor de la página de Brooguin";
     window.open(`https://wa.me/595984948834?text=${encodeURIComponent(msg)}`, '_blank');
   };
@@ -301,10 +368,15 @@ export default function App() {
         if (error) throw new Error(error);
         if (isAdmin) logAction('Agregó Pedido Manual', `Agregó a ${orderData.name}`);
         setSuccessMessage('¡Pedido Registrado!');
+        
+        // TRIGER ANIMATION
+        setActiveAnimationTheme(Math.floor(Math.random() * 10));
       }
       await fetchOrdersAndSettings(); 
       setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
+      setTimeout(() => setShowSuccess(false), 4000);
+      setTimeout(() => setActiveAnimationTheme(null), 5000); // Clear animation after 5s
+
       setFormData({ 
         name: '', phone: '', size: activeSizes[0], gender: 'Femenino', quantity: 1, longSleeve: false, observations: '',
         playerName: '', playerNumber: '', isGoalkeeper: false, includeShort: displayType.includes('Short'), shortSize: activeSizes[0], femaleShortType: 'Standard', includeSocks: displayType.includes('Medias')
@@ -327,6 +399,32 @@ export default function App() {
       logAction(newStatus ? 'Cerró Lista' : 'Reabrió Lista', `Afectó al grupo ${displayGroup}`);
       await fetchOrdersAndSettings();
     } catch (err) { alert("Error al bloquear la lista."); }
+  };
+
+  const handleRenameGroupSubmit = async () => {
+    if (!renameModal.newName.trim() || renameModal.newName === renameModal.oldName) return;
+    const cleanNewName = renameModal.newName.trim().replace(/\s+/g, '');
+    
+    setLoading(true);
+    try {
+      await supabaseRequest(`orders?group_name=eq.${renameModal.oldName}`, 'PATCH', { group_name: cleanNewName });
+      await supabaseRequest(`audit_logs?group_name=eq.${renameModal.oldName}`, 'PATCH', { group_name: cleanNewName });
+      
+      const setting = groupSettings.find(g => g.group_name === renameModal.oldName);
+      if (setting) {
+        await supabaseRequest(`group_settings?group_name=eq.${renameModal.oldName}`, 'DELETE');
+        await supabaseRequest('group_settings', 'POST', { group_name: cleanNewName, is_locked: setting.is_locked });
+      }
+      
+      logAction('Renombró Grupo', `El grupo ${renameModal.oldName} ahora se llama ${cleanNewName}`);
+      
+      if (adminGroupFilter === renameModal.oldName) setAdminGroupFilter(cleanNewName);
+      
+      setRenameModal({ isOpen: false, oldName: '', newName: '' });
+      alert(`¡Grupo renombrado exitosamente a "${cleanNewName}"! \nSi estabas compartiendo este enlace, deberás generar uno nuevo.`);
+      await fetchOrdersAndSettings();
+    } catch (err) { alert("Error al renombrar el grupo. Intenta nuevamente."); }
+    setLoading(false);
   };
 
   const handleOpenPayment = (order) => {
@@ -398,13 +496,9 @@ export default function App() {
   
   const handleGroupAuth = () => {
     if (groupPin === 'remeras') { 
-       setIsGroupAdmin(true); 
-       setIsMasterOwner(false); 
-       setShowGroupAuth(false); setShowGroupManager(true); setGroupPin(''); setGroupPinError(false); setShowGroupPassword(false); 
+       setIsGroupAdmin(true); setIsMasterOwner(false); setShowGroupAuth(false); setShowGroupManager(true); setGroupPin(''); setGroupPinError(false); setShowGroupPassword(false); 
     } else if (groupPin === 'lukasy67') {
-       setIsGroupAdmin(true); 
-       setIsMasterOwner(true); 
-       setShowGroupAuth(false); setShowGroupManager(true); setGroupPin(''); setGroupPinError(false); setShowGroupPassword(false); 
+       setIsGroupAdmin(true); setIsMasterOwner(true); setShowGroupAuth(false); setShowGroupManager(true); setGroupPin(''); setGroupPinError(false); setShowGroupPassword(false); 
     } else {
        setGroupPinError(true);
     }
@@ -436,7 +530,6 @@ export default function App() {
     try { document.execCommand('copy'); } catch (err) {}
     document.body.removeChild(textArea);
     
-    // Muestra el código QR al crear
     setQrModal({ isOpen: true, link: link, groupName: cleanName });
     setNewGroupConfig({ ...newGroupConfig, name: '' });
   };
@@ -451,7 +544,6 @@ export default function App() {
     try { document.execCommand('copy'); } catch (err) {}
     document.body.removeChild(textArea);
     
-    // Muestra el código QR al copiar
     setQrModal({ isOpen: true, link: link, groupName: groupName });
   };
 
@@ -560,7 +652,6 @@ export default function App() {
     return items;
   }, [activeOrders, activeSizes]);
 
-  // BARRA DE PROGRESO DE PAGOS (Basada en Recaudación Financiera)
   const progressPercent = totalRevenue === 0 ? 0 : Math.round((totalCollected / totalRevenue) * 100);
 
   const handleExportCSV = () => {
@@ -707,8 +798,40 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-100 text-neutral-800 font-sans p-4 md:p-8 transition-colors duration-500">
+    <div className={`min-h-screen font-sans p-4 md:p-8 transition-colors duration-500 ${t.page}`}>
       
+      {/* INYECTAMOS LOS KEYFRAMES PARA LAS ANIMACIONES AQUÍ */}
+      <style>
+        {`
+          @keyframes anim-fall {
+            0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(110vh) rotate(360deg); opacity: 0; }
+          }
+          @keyframes anim-float {
+            0% { transform: translateY(110vh) scale(0.5); opacity: 0; }
+            50% { opacity: 1; transform: translateY(50vh) scale(1.2); }
+            100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+          }
+          @keyframes anim-bounce {
+            0% { transform: translateY(110vh); }
+            50% { transform: translateY(30vh); }
+            100% { transform: translateY(110vh); }
+          }
+          @keyframes anim-zoom {
+            0% { transform: scale(0); opacity: 0; }
+            50% { transform: scale(1.5); opacity: 1; }
+            100% { transform: scale(1); opacity: 0; }
+          }
+          @keyframes anim-rise {
+            0% { transform: translateY(110vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(-10vh) rotate(-360deg); opacity: 0; }
+          }
+        `}
+      </style>
+
+      {/* RENDERIZADOR DE ANIMACIÓN DE ÉXITO */}
+      {activeAnimationTheme !== null && <SuccessAnimation themeIndex={activeAnimationTheme} />}
+
       {/* Botón Flotante de Asistencia (WhatsApp) */}
       <a href="https://wa.me/595984948834" target="_blank" rel="noopener noreferrer" className="fixed bottom-6 left-6 bg-[#25D366] text-white p-3.5 rounded-full shadow-2xl hover:bg-[#20bd5a] transition-all transform hover:scale-110 z-50 flex items-center justify-center group border-2 border-white/20">
         <MessageCircle className="w-6 h-6" />
@@ -720,13 +843,13 @@ export default function App() {
       <div className="max-w-6xl mx-auto space-y-6">
         
         {/* ESPACIO SPONSOR LOCAL (Interactivo a tu WhatsApp) */}
-        <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden flex items-center justify-center relative cursor-pointer hover:shadow-md transition-shadow group" onClick={handleSponsorClick} title="¡Anúnciate Aquí!">
-           <div className="absolute inset-0 bg-gradient-to-r from-neutral-100 to-white opacity-50"></div>
+        <div className={`rounded-xl shadow-sm overflow-hidden flex items-center justify-center relative cursor-pointer hover:shadow-md transition-all group border bg-gradient-to-r ${t.sponsorCard}`} onClick={handleSponsorClick} title="¡Anúnciate Aquí!">
+           <div className="absolute inset-0 bg-white/5 opacity-50"></div>
            <div className="p-3 text-center z-10 flex items-center gap-3">
-             <div className="w-10 h-10 bg-neutral-200 rounded-full flex items-center justify-center text-neutral-400 font-black text-xs border border-dashed border-neutral-400 group-hover:border-indigo-400 group-hover:text-indigo-400 transition-colors">LOGO</div>
+             <div className="w-10 h-10 bg-indigo-500/20 rounded-full flex items-center justify-center text-indigo-400 font-black text-xs border border-dashed border-indigo-400 group-hover:bg-indigo-500 group-hover:text-white transition-colors">LOGO</div>
              <div className="text-left">
-               <p className="text-[10px] uppercase tracking-widest text-neutral-400 font-bold mb-0.5">Espacio Sponsor Local</p>
-               <p className="text-sm font-black text-neutral-800 flex items-center gap-1 group-hover:text-indigo-600 transition-colors">Tu Marca Aquí <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" /></p>
+               <p className={`text-[10px] uppercase tracking-widest font-bold mb-0.5 ${darkMode ? 'text-slate-400' : 'text-neutral-500'}`}>¿Quieres ser nuestro sponsor?</p>
+               <p className={`text-sm font-black flex items-center gap-1 group-hover:text-indigo-500 transition-colors ${darkMode ? 'text-white' : 'text-neutral-800'}`}>🚀 ¡Destaca tu marca aquí! <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" /></p>
              </div>
            </div>
         </div>
@@ -751,52 +874,78 @@ export default function App() {
             </a>
           </div>
           
-          <div className="flex-1 flex flex-col sm:flex-row gap-4 w-full md:w-auto md:justify-end z-10">
-            <div className="bg-indigo-800/40 p-3 rounded-xl border border-indigo-700 flex-shrink-0 shadow-inner flex flex-col justify-center">
-              <p className="text-[10px] text-indigo-300 uppercase tracking-widest font-bold mb-1">Consultas y Diseño</p>
-              <div className="text-sm font-medium text-white flex items-center gap-2">
-                Lucas López
-                <a href="https://wa.me/595984948834" target="_blank" rel="noopener noreferrer" className="bg-[#25D366]/20 text-[#25D366] px-2 py-0.5 rounded flex items-center gap-1 hover:bg-[#25D366]/30 transition-colors">
-                  <Phone className="w-3 h-3" /> 0984 948 834
-                </a>
+          <div className="flex-1 flex flex-wrap sm:flex-nowrap gap-3 w-full md:w-auto md:justify-end z-10">
+            
+            {/* Cajas de Contacto y Ubicación */}
+            <div className="flex gap-2 w-full sm:w-auto">
+              <div className="bg-indigo-800/40 p-2.5 rounded-xl border border-indigo-700 flex-1 sm:flex-none shadow-inner flex flex-col justify-center">
+                <p className="text-[9px] text-indigo-300 uppercase tracking-widest font-bold mb-1">Consultas y Diseño</p>
+                <div className="text-xs font-medium text-white flex flex-col xl:flex-row items-start xl:items-center gap-1">
+                  <span className="hidden xl:inline">Lucas López</span>
+                  <a href="https://wa.me/595984948834" target="_blank" rel="noopener noreferrer" className="bg-[#25D366]/20 text-[#25D366] px-1.5 py-0.5 rounded flex items-center gap-1 hover:bg-[#25D366]/30 transition-colors w-full xl:w-auto justify-center">
+                    <Phone className="w-3 h-3" /> 0984 948 834
+                  </a>
+                </div>
+              </div>
+
+              <div className="bg-indigo-800/40 p-2.5 rounded-xl border border-indigo-700 flex-1 sm:flex-none shadow-inner flex flex-col justify-center">
+                <p className="text-[9px] text-indigo-300 uppercase tracking-widest font-bold mb-1">Visítanos</p>
+                <div className="text-xs font-medium text-white flex flex-col xl:flex-row items-start xl:items-center gap-1">
+                  <span className="hidden xl:inline">San Estanislao</span>
+                  <a href="https://maps.app.goo.gl/7KNH1ieqe5rSto1L9" target="_blank" rel="noopener noreferrer" className="bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded flex items-center gap-1 hover:bg-red-500/30 transition-colors w-full xl:w-auto justify-center">
+                    <MapPin className="w-3 h-3" /> Encuéntranos acá
+                  </a>
+                </div>
               </div>
             </div>
 
-            <div className={`p-3 rounded-xl border max-w-xs flex-shrink-0 shadow-inner flex items-center justify-between min-w-[150px] transition-colors ${isPreviewMode ? 'bg-emerald-900/80 border-emerald-500' : 'bg-indigo-800/60 border-indigo-700'}`}>
-               <div>
-                 <span className={`block text-[10px] uppercase tracking-widest font-bold mb-0.5 ${isPreviewMode ? 'text-emerald-300' : 'text-indigo-300'}`}>
-                    {isPreviewMode ? 'Vista Previa' : 'Grupo Activo'}
-                 </span>
-                 <span className="text-lg font-black text-white truncate max-w-[150px] block" title={displayGroup}>{displayGroup}</span>
-               </div>
-               <button onClick={handleShareCurrentGroup} className={`${isPreviewMode ? 'bg-emerald-700 hover:bg-emerald-600' : 'bg-indigo-700 hover:bg-indigo-600'} p-2 rounded-lg ml-2 flex gap-1 transition-colors cursor-pointer`} title="Compartir grupo y ver QR">
-                 {isPreviewMode ? <Eye className="w-5 h-5 text-emerald-200" /> : <QrCode className="w-5 h-5 text-indigo-300" />}
-               </button>
+            {/* Caja de Grupo y Botón Modo Oscuro */}
+            <div className="flex gap-2 w-full sm:w-auto">
+              <div className={`p-3 rounded-xl border flex-1 sm:flex-none shadow-inner flex items-center justify-between min-w-[150px] transition-colors ${isPreviewMode ? 'bg-emerald-900/80 border-emerald-500' : 'bg-indigo-800/60 border-indigo-700'}`}>
+                 <div>
+                   <span className={`block text-[10px] uppercase tracking-widest font-bold mb-0.5 ${isPreviewMode ? 'text-emerald-300' : 'text-indigo-300'}`}>
+                      {isPreviewMode ? 'Vista Previa' : 'Grupo Activo'}
+                   </span>
+                   <span className="text-lg font-black text-white truncate max-w-[150px] block" title={displayGroup}>{displayGroup}</span>
+                 </div>
+                 <button onClick={handleShareCurrentGroup} className={`${isPreviewMode ? 'bg-emerald-700 hover:bg-emerald-600' : 'bg-indigo-700 hover:bg-indigo-600'} p-2 rounded-lg ml-2 flex gap-1 transition-colors cursor-pointer`} title="Compartir grupo y ver QR">
+                   {isPreviewMode ? <Eye className="w-5 h-5 text-emerald-200" /> : <QrCode className="w-5 h-5 text-indigo-300" />}
+                 </button>
+              </div>
+
+              {/* Botón MODO OSCURO */}
+              <button 
+                onClick={() => setDarkMode(!darkMode)}
+                className="p-3 bg-indigo-800/60 border border-indigo-700 rounded-xl hover:bg-indigo-700 transition-colors flex items-center justify-center text-indigo-300 hover:text-white"
+                title={darkMode ? "Activar Modo Claro" : "Activar Modo Oscuro"}
+              >
+                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </button>
             </div>
           </div>
         </header>
 
         {/* Panel de Administrador General */}
         {isAdmin && (
-          <div className="bg-white border-l-4 border-indigo-500 p-4 rounded-r-xl shadow-md space-y-4">
+          <div className={`${darkMode ? 'bg-slate-800 border-indigo-500' : 'bg-white border-indigo-500'} border-l-4 p-4 rounded-r-xl shadow-md space-y-4 transition-colors`}>
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="w-5 h-5 text-indigo-500 flex-shrink-0 mt-0.5" />
                 <div>
-                  <h3 className="font-bold text-sm text-indigo-900">Panel de Administración</h3>
-                  <p className="text-xs text-neutral-600">Visualizando y gestionando pedidos.</p>
+                  <h3 className={`font-bold text-sm ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>Panel de Administración</h3>
+                  <p className={`text-xs ${t.muted}`}>Visualizando y gestionando pedidos.</p>
                 </div>
               </div>
               
               <div className="flex flex-wrap gap-2 items-center">
                 {!isGroupAdmin && (
-                  <button onClick={() => setShowChangePass(true)} className="flex items-center gap-2 bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-200 transition-all">
+                  <button onClick={() => setShowChangePass(true)} className="flex items-center gap-2 bg-indigo-500/20 text-indigo-500 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-500/30 transition-all">
                     <KeyRound className="w-4 h-4" /> Cambiar Clave
                   </button>
                 )}
 
                 {!isGroupAdmin ? (
-                  <button onClick={() => setShowGroupAuth(true)} className="flex items-center gap-2 bg-neutral-800 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-neutral-900 transition-all">
+                  <button onClick={() => setShowGroupAuth(true)} className={`flex items-center gap-2 ${darkMode ? 'bg-slate-700 hover:bg-slate-600' : 'bg-neutral-800 hover:bg-neutral-900'} text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-all`}>
                     <ShieldAlert className="w-4 h-4" /> Modo Supremo
                   </button>
                 ) : (
@@ -811,9 +960,9 @@ export default function App() {
                           setShowAuditLogs(false);
                         }
                       }} 
-                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-all ${showAuditLogs ? 'bg-purple-600 text-white hover:bg-purple-700' : 'bg-purple-100 text-purple-700 hover:bg-purple-200'}`}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-all ${showAuditLogs ? 'bg-purple-600 text-white hover:bg-purple-700' : 'bg-purple-500/20 text-purple-500 hover:bg-purple-500/30'}`}
                     >
-                      <History className="w-4 h-4" /> {showAuditLogs ? 'Ocultar Historial' : 'Historial de Actividad'}
+                      <History className="w-4 h-4" /> {showAuditLogs ? 'Ocultar Historial' : 'Historial'}
                     </button>
                     <button onClick={() => setShowGroupManager(!showGroupManager)} className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-700 transition-all">
                       <Settings className="w-4 h-4" /> {showGroupManager ? 'Ocultar Opciones Supremas' : 'Herramientas Supremas'}
@@ -821,27 +970,25 @@ export default function App() {
                   </>
                 )}
 
+                {/* Filtro Restringido */}
                 {isGroupAdmin ? (
-                  <div className="flex items-center gap-2 bg-indigo-50 p-2 rounded-lg border border-indigo-100">
-                    <Filter className="w-4 h-4 text-indigo-600" />
-                    <select value={adminGroupFilter} onChange={(e) => setAdminGroupFilter(e.target.value)} className="bg-transparent border-none text-sm font-bold text-indigo-900 outline-none cursor-pointer">
+                  <div className={`flex items-center gap-2 p-2 rounded-lg border ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-indigo-50 border-indigo-100'}`}>
+                    <Filter className="w-4 h-4 text-indigo-500" />
+                    <select value={adminGroupFilter} onChange={(e) => setAdminGroupFilter(e.target.value)} className={`bg-transparent border-none text-sm font-bold outline-none cursor-pointer max-w-[150px] truncate ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
                       {availableGroups.map(g => (<option key={g} value={g}>{g === 'Todos' ? 'Todos los Grupos' : `Grupo: ${g}`}</option>))}
                     </select>
+                    
                     {adminGroupFilter !== 'Todos' && (
-                      <button 
-                        onClick={() => copyExistingGroupLink(adminGroupFilter)} 
-                        className="ml-1 p-1.5 bg-indigo-200 text-indigo-700 hover:bg-indigo-600 hover:text-white rounded transition-colors flex items-center gap-1" 
-                        title="Copiar enlace y ver QR"
-                      >
-                        <Link2 className="w-4 h-4" />
-                        <QrCode className="w-4 h-4" />
-                      </button>
+                      <div className={`flex gap-1 ml-1 border-l pl-2 ${darkMode ? 'border-slate-500' : 'border-indigo-200'}`}>
+                        <button onClick={() => setRenameModal({ isOpen: true, oldName: adminGroupFilter, newName: adminGroupFilter })} className="p-1.5 bg-amber-500/20 text-amber-500 hover:bg-amber-500 hover:text-white rounded transition-colors" title="Renombrar este grupo"><Edit className="w-4 h-4" /></button>
+                        <button onClick={() => copyExistingGroupLink(adminGroupFilter)} className="p-1.5 bg-indigo-500/20 text-indigo-500 hover:bg-indigo-500 hover:text-white rounded transition-colors flex items-center gap-1" title="Copiar enlace y ver QR"><Link2 className="w-4 h-4" /></button>
+                      </div>
                     )}
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 bg-indigo-50 px-4 py-2 rounded-lg border border-indigo-100">
-                     <Layers className="w-4 h-4 text-indigo-600" />
-                     <span className="text-sm font-bold text-indigo-900">Filtro bloqueado: {displayGroup}</span>
+                  <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-indigo-50 border-indigo-100'}`}>
+                     <Layers className="w-4 h-4 text-indigo-500" />
+                     <span className={`text-sm font-bold ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>Filtro bloqueado: {displayGroup}</span>
                   </div>
                 )}
               </div>
@@ -851,52 +998,51 @@ export default function App() {
             {showGroupManager && isGroupAdmin && (
               <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
                 
-                {/* DASHBOARD FINANCIERO GLOBAL Y MÉTRICAS DE TRÁFICO (SOLO PARA DUEÑO MASTER 'lukasy67') */}
                 {isMasterOwner && (
-                  <div className="bg-neutral-900 p-5 rounded-xl border border-neutral-700 shadow-inner text-white">
+                  <div className="bg-slate-950 p-5 rounded-xl border border-slate-800 shadow-inner text-white">
                     <div className="flex flex-col md:flex-row gap-6">
                       <div className="flex-1">
-                        <h4 className="text-sm font-bold text-neutral-400 mb-1 flex items-center gap-2"><TrendingUp className="w-4 h-4" /> Dashboard Financiero Global</h4>
-                        <p className="text-[11px] text-neutral-500 mb-4 italic">💡 Sumatoria de plata y prendas de <b>TODOS</b> los colegios/equipos registrados juntos.</p>
+                        <h4 className="text-sm font-bold text-slate-400 mb-1 flex items-center gap-2"><TrendingUp className="w-4 h-4" /> Dashboard Financiero Global</h4>
+                        <p className="text-[11px] text-slate-500 mb-4 italic">💡 Sumatoria de plata y prendas de <b>TODOS</b> los colegios/equipos registrados juntos.</p>
                         <div className="grid grid-cols-2 gap-4">
-                          <div><p className="text-[10px] uppercase text-neutral-500">Recaudación Total</p><p className="text-xl font-black text-emerald-400">{new Intl.NumberFormat('es-PY').format(globalStats.collected)} Gs.</p></div>
-                          <div><p className="text-[10px] uppercase text-neutral-500">Deuda Pendiente</p><p className="text-xl font-black text-amber-400">{new Intl.NumberFormat('es-PY').format(globalStats.debt)} Gs.</p></div>
+                          <div><p className="text-[10px] uppercase text-slate-500">Recaudación Total</p><p className="text-xl font-black text-emerald-400">{new Intl.NumberFormat('es-PY').format(globalStats.collected)} Gs.</p></div>
+                          <div><p className="text-[10px] uppercase text-slate-500">Deuda Pendiente</p><p className="text-xl font-black text-amber-400">{new Intl.NumberFormat('es-PY').format(globalStats.debt)} Gs.</p></div>
                         </div>
                       </div>
-                      <div className="w-px bg-neutral-700 hidden md:block"></div>
+                      <div className="w-px bg-slate-800 hidden md:block"></div>
                       <div className="flex-1 flex flex-col justify-center">
-                        <div className="flex justify-between text-sm mb-1 border-b border-neutral-800 pb-1"><span className="text-neutral-400">Total Esperado:</span><span className="font-bold">{new Intl.NumberFormat('es-PY').format(globalStats.expected)} Gs.</span></div>
-                        <div className="flex justify-between text-sm mb-4 border-b border-neutral-800 pb-1"><span className="text-neutral-400">Total Prendas Generales:</span><span className="font-bold">{globalStats.items}</span></div>
+                        <div className="flex justify-between text-sm mb-1 border-b border-slate-800 pb-1"><span className="text-slate-400">Total Esperado:</span><span className="font-bold">{new Intl.NumberFormat('es-PY').format(globalStats.expected)} Gs.</span></div>
+                        <div className="flex justify-between text-sm mb-4 border-b border-slate-800 pb-1"><span className="text-slate-400">Total Prendas Generales:</span><span className="font-bold">{globalStats.items}</span></div>
                         
-                        <h4 className="text-[10px] font-bold text-neutral-400 mb-2 flex items-center gap-1 uppercase tracking-wider"><BarChart3 className="w-3 h-3" /> Métricas de Tráfico (Sponsors)</h4>
-                        <div className="grid grid-cols-2 gap-2 bg-neutral-800/50 p-2 rounded-lg">
-                           <div><p className="text-[10px] text-neutral-400">Visitas a la Web</p><p className="text-sm font-bold text-white">{siteMetrics.visits}</p></div>
-                           <div><p className="text-[10px] text-neutral-400">Clics en Auspiciantes</p><p className="text-sm font-bold text-blue-400">{siteMetrics.sponsorClicks}</p></div>
+                        <h4 className="text-[10px] font-bold text-slate-400 mb-2 flex items-center gap-1 uppercase tracking-wider"><BarChart3 className="w-3 h-3" /> Métricas de Tráfico (Sponsors)</h4>
+                        <div className="grid grid-cols-2 gap-2 bg-slate-900 p-2 rounded-lg">
+                           <div><p className="text-[10px] text-slate-400">Visitas a la Web</p><p className="text-sm font-bold text-white">{siteMetrics.visits}</p></div>
+                           <div><p className="text-[10px] text-slate-400">Clics en Auspiciantes</p><p className="text-sm font-bold text-blue-400">{siteMetrics.sponsorClicks}</p></div>
                         </div>
                       </div>
                     </div>
                   </div>
                 )}
 
-                <div className="bg-indigo-900 p-5 rounded-xl border border-indigo-700 shadow-inner text-white">
+                <div className={`p-5 rounded-xl shadow-inner text-white ${darkMode ? 'bg-slate-900 border border-slate-700' : 'bg-indigo-900 border border-indigo-700'}`}>
                   <h4 className="text-sm font-bold text-emerald-300 mb-1 flex items-center gap-2"><Eye className="w-4 h-4" /> Creador de Enlaces Parametrizados (Vista en Vivo)</h4>
-                  <p className="text-[11px] text-indigo-300 mb-4 italic">💡 Crea un "espacio de trabajo" único para un cliente nuevo. El precio se calculará solo basándose en el PDF oficial. Al copiar el enlace, se lo pasas al capitán para que él mismo recopile los datos de su grupo allí.</p>
+                  <p className="text-[11px] text-indigo-300 mb-4 italic">💡 Crea un "espacio de trabajo" único para un cliente nuevo. El precio se calculará solo basándose en el PDF oficial.</p>
                   
                   <form onSubmit={handleCreateGroup} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                       <div className="md:col-span-2">
                         <label className="block text-[10px] uppercase tracking-wider text-indigo-300 mb-1">Nombre del Grupo/Equipo</label>
-                        <input type="text" value={newGroupConfig.name} onChange={(e) => setNewGroupConfig({...newGroupConfig, name: e.target.value})} placeholder="Ej. Intercolegial2026" className="w-full px-3 py-2 rounded-lg bg-indigo-800 border-indigo-600 text-white text-sm outline-none focus:ring-2 focus:ring-emerald-400" required />
+                        <input type="text" value={newGroupConfig.name} onChange={(e) => setNewGroupConfig({...newGroupConfig, name: e.target.value})} placeholder="Ej. Intercolegial2026" className={`w-full px-3 py-2 border rounded-lg text-sm outline-none shadow-sm focus:ring-2 focus:ring-emerald-400 ${darkMode ? 'bg-slate-800 border-slate-600 text-white placeholder-slate-500' : 'bg-indigo-800 border-indigo-600 text-white placeholder-indigo-400'}`} required />
                       </div>
                       <div>
                         <label className="block text-[10px] uppercase tracking-wider text-indigo-300 mb-1">Rango de Edad</label>
-                        <select value={newGroupConfig.edad} onChange={(e) => setNewGroupConfig({...newGroupConfig, edad: e.target.value})} className="w-full px-3 py-2 rounded-lg bg-indigo-800 border-indigo-600 text-white text-sm outline-none cursor-pointer">
+                        <select value={newGroupConfig.edad} onChange={(e) => setNewGroupConfig({...newGroupConfig, edad: e.target.value})} className={`w-full px-3 py-2 border rounded-lg text-sm outline-none shadow-sm cursor-pointer ${darkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-indigo-800 border-indigo-600 text-white'}`}>
                           <option value="Adultos">Adultos</option><option value="Infantil">Infantil</option>
                         </select>
                       </div>
                       <div>
                         <label className="block text-[10px] uppercase tracking-wider text-indigo-300 mb-1">Tipo de Prenda Base</label>
-                        <select value={newGroupConfig.tipo} onChange={(e) => setNewGroupConfig({...newGroupConfig, tipo: e.target.value})} className="w-full px-3 py-2 rounded-lg bg-indigo-800 border-indigo-600 text-white text-sm outline-none cursor-pointer">
+                        <select value={newGroupConfig.tipo} onChange={(e) => setNewGroupConfig({...newGroupConfig, tipo: e.target.value})} className={`w-full px-3 py-2 border rounded-lg text-sm outline-none shadow-sm cursor-pointer ${darkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-indigo-800 border-indigo-600 text-white'}`}>
                           <option value="Remera + Short">Remera + Short</option>
                           <option value="Remera + Short + Medias">Remera + Short + Medias</option>
                           <option value="Solo Remera">Solo Remera</option>
@@ -907,15 +1053,15 @@ export default function App() {
                       </div>
                       <div>
                         <label className="block text-[10px] uppercase tracking-wider text-indigo-300 mb-1">Calidad de Tela</label>
-                        <select value={newGroupConfig.tela} onChange={(e) => setNewGroupConfig({...newGroupConfig, tela: e.target.value})} className="w-full px-3 py-2 rounded-lg bg-indigo-800 border-indigo-600 text-white text-sm outline-none cursor-pointer disabled:opacity-50" disabled={newGroupConfig.tipo === 'Remera Piqué'}>
+                        <select value={newGroupConfig.tela} onChange={(e) => setNewGroupConfig({...newGroupConfig, tela: e.target.value})} className={`w-full px-3 py-2 border rounded-lg text-sm outline-none shadow-sm cursor-pointer disabled:opacity-50 ${darkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-indigo-800 border-indigo-600 text-white'}`} disabled={newGroupConfig.tipo === 'Remera Piqué'}>
                           <option value="Premium">Premium</option><option value="Semi-Premium">Semi-Premium</option><option value="Estandard">Estandard</option>
                         </select>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between border-t border-indigo-800 pt-4 mt-2">
+                    <div className={`flex items-center justify-between border-t pt-4 mt-2 ${darkMode ? 'border-slate-700' : 'border-indigo-800'}`}>
                       <div className="flex items-center gap-3">
                         <label className="text-[10px] uppercase tracking-wider text-indigo-300">Costo Base (Gs):</label>
-                        <input type="number" value={newGroupConfig.costo} onChange={(e) => setNewGroupConfig({...newGroupConfig, costo: e.target.value})} className="w-32 px-3 py-1.5 rounded-lg bg-indigo-800 border-indigo-600 text-white font-bold text-sm outline-none" required />
+                        <input type="number" value={newGroupConfig.costo} onChange={(e) => setNewGroupConfig({...newGroupConfig, costo: e.target.value})} className={`w-32 px-3 py-1.5 border rounded-lg font-bold text-sm shadow-sm outline-none ${darkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-indigo-800 border-indigo-600 text-white'}`} required />
                       </div>
                       <button type="submit" className="bg-emerald-500 hover:bg-emerald-400 text-neutral-900 px-6 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors shadow-lg">
                         <QrCode className="w-4 h-4" /> Generar Link y Ver QR
@@ -933,53 +1079,53 @@ export default function App() {
           <div className="lg:col-span-1 space-y-6">
             
             {isGroupLocked && !isAdmin ? (
-               <div className="bg-red-50 p-8 rounded-2xl border border-red-200 text-center shadow-sm">
-                  <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                     <Lock className="w-8 h-8 text-red-600" />
+               <div className={`p-8 rounded-2xl border text-center shadow-sm ${darkMode ? 'bg-red-900/20 border-red-800' : 'bg-red-50 border-red-200'}`}>
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${darkMode ? 'bg-red-900/50' : 'bg-red-100'}`}>
+                     <Lock className="w-8 h-8 text-red-500" />
                   </div>
-                  <h3 className="text-xl font-bold text-red-900 mb-2">Lista Cerrada</h3>
-                  <p className="text-sm text-red-700">El administrador ha cerrado la recepción de pedidos para el grupo <strong>{displayGroup}</strong>. Contacta con tu encargado para más información.</p>
+                  <h3 className={`text-xl font-bold mb-2 ${darkMode ? 'text-red-400' : 'text-red-900'}`}>Lista Cerrada</h3>
+                  <p className={`text-sm ${darkMode ? 'text-red-300' : 'text-red-700'}`}>El administrador ha cerrado la recepción de pedidos para el grupo <strong>{displayGroup}</strong>. Contacta con tu encargado para más información.</p>
                </div>
             ) : (
-              <div className={`bg-white p-6 rounded-2xl shadow-sm border ${editingId ? 'border-amber-400 ring-4 ring-amber-50' : isPreviewMode ? 'border-emerald-400 ring-2 ring-emerald-50' : 'border-neutral-200'} transition-all`}>
+              <div className={`p-6 rounded-2xl shadow-sm border transition-all ${t.card} ${editingId ? (darkMode ? 'border-amber-500 ring-2 ring-amber-900' : 'border-amber-400 ring-4 ring-amber-50') : isPreviewMode ? (darkMode ? 'border-emerald-500 ring-2 ring-emerald-900' : 'border-emerald-400 ring-2 ring-emerald-50') : ''}`}>
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-xl font-semibold flex items-center gap-2">
-                    {editingId ? <><Edit className="w-5 h-5 text-amber-500" /> Editar Pedido</> : <><PlusCircle className={`w-5 h-5 ${isPreviewMode ? 'text-emerald-500' : 'text-indigo-600'}`} /> Nuevo Pedido</>}
+                    {editingId ? <><Edit className="w-5 h-5 text-amber-500" /> Editar Pedido</> : <><PlusCircle className={`w-5 h-5 ${isPreviewMode ? 'text-emerald-500' : 'text-indigo-500'}`} /> Nuevo Pedido</>}
                   </h2>
                   {isAdmin && (
-                    <span className="bg-neutral-100 text-neutral-500 px-2 py-1 rounded text-[9px] font-bold uppercase tracking-widest">
-                      {isGroupLocked ? 'Lista Bloqueada a Usuarios' : 'Abierto a Usuarios'}
+                    <span className={`px-2 py-1 rounded text-[9px] font-bold uppercase tracking-widest ${darkMode ? 'bg-slate-700 text-slate-300' : 'bg-neutral-100 text-neutral-500'}`}>
+                      {isGroupLocked ? 'Lista Bloqueada' : 'Abierto a Usuarios'}
                     </span>
                   )}
                 </div>
                 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-neutral-700 mb-1">Nombre del Cliente</label>
+                    <label className={`block text-sm font-medium mb-1 ${t.label}`}>Nombre del Cliente</label>
                     <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><User className="h-4 w-4 text-neutral-400" /></div>
-                      <input type="text" name="name" value={formData.name} onChange={handleChange} required placeholder="Juan Pérez" className="block w-full pl-10 pr-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500 sm:text-sm" />
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><User className={`h-4 w-4 ${t.muted}`} /></div>
+                      <input type="text" name="name" value={formData.name} onChange={handleChange} required placeholder="Juan Pérez" className={`block w-full pl-10 pr-3 py-2 rounded-lg focus:ring-2 sm:text-sm transition-colors ${t.input}`} />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-neutral-700 mb-1">Teléfono (Obligatorio)</label>
+                    <label className={`block text-sm font-medium mb-1 ${t.label}`}>Teléfono (Obligatorio)</label>
                     <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Phone className="h-4 w-4 text-neutral-400" /></div>
-                      <input type="tel" name="phone" value={formData.phone} onChange={handleChange} required placeholder="Ej. 0984948834" className="block w-full pl-10 pr-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500 sm:text-sm" />
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Phone className={`h-4 w-4 ${t.muted}`} /></div>
+                      <input type="tel" name="phone" value={formData.phone} onChange={handleChange} required placeholder="Ej. 0984948834" className={`block w-full pl-10 pr-3 py-2 rounded-lg focus:ring-2 sm:text-sm transition-colors ${t.input}`} />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-neutral-700 mb-1">Talle (Remera)</label>
-                      <select name="size" value={formData.size} onChange={handleChange} className="block w-full px-3 py-2 border border-neutral-300 rounded-lg sm:text-sm bg-white cursor-pointer font-bold text-indigo-900">
+                      <label className={`block text-sm font-medium mb-1 ${t.label}`}>Talle (Remera)</label>
+                      <select name="size" value={formData.size} onChange={handleChange} className={`block w-full px-3 py-2 rounded-lg sm:text-sm cursor-pointer font-bold outline-none focus:ring-2 ${t.input} ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>
                         {activeSizes.map(s => (<option key={s} value={s}>{s}</option>))}
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-neutral-700 mb-1">Género</label>
-                      <select name="gender" value={formData.gender} onChange={handleChange} className="block w-full px-3 py-2 border border-neutral-300 rounded-lg sm:text-sm bg-white cursor-pointer">
+                      <label className={`block text-sm font-medium mb-1 ${t.label}`}>Género</label>
+                      <select name="gender" value={formData.gender} onChange={handleChange} className={`block w-full px-3 py-2 rounded-lg sm:text-sm cursor-pointer outline-none focus:ring-2 ${t.input}`}>
                         <option value="Femenino">Femenino</option>
                         <option value="Masculino">Masculino</option>
                         <option value="Unisex">Unisex</option>
@@ -988,51 +1134,51 @@ export default function App() {
                   </div>
 
                   {isDeportiva && (
-                    <div className="bg-neutral-50 p-4 rounded-xl border border-neutral-200 space-y-4">
-                      <h4 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Detalles Deportivos</h4>
+                    <div className={`p-4 rounded-xl border space-y-4 ${darkMode ? 'bg-slate-700/30 border-slate-600' : 'bg-neutral-50 border-neutral-200'}`}>
+                      <h4 className={`text-xs font-bold uppercase tracking-wider mb-2 ${t.muted}`}>Detalles Deportivos</h4>
                       
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-[10px] font-medium text-neutral-700 mb-1">Nombre (Espalda)</label>
-                          <input type="text" name="playerName" value={formData.playerName} onChange={handleChange} placeholder="Ej. PÉREZ" className="block w-full px-3 py-2 border border-neutral-300 rounded-lg sm:text-sm uppercase" />
+                          <label className={`block text-[10px] font-medium mb-1 ${t.label}`}>Nombre (Espalda)</label>
+                          <input type="text" name="playerName" value={formData.playerName} onChange={handleChange} placeholder="Ej. PÉREZ" className={`block w-full px-3 py-2 rounded-lg sm:text-sm uppercase outline-none focus:ring-2 ${t.input}`} />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-medium text-neutral-700 mb-1">Número (Dorsal)</label>
+                          <label className={`block text-[10px] font-medium mb-1 ${t.label}`}>Número (Dorsal)</label>
                           <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Hash className="h-3 w-3 text-neutral-400" /></div>
-                            <input type="number" name="playerNumber" value={formData.playerNumber} onChange={handleChange} placeholder="10" className="block w-full pl-8 pr-3 py-2 border border-neutral-300 rounded-lg sm:text-sm font-bold" />
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Hash className={`h-3 w-3 ${t.muted}`} /></div>
+                            <input type="number" name="playerNumber" value={formData.playerNumber} onChange={handleChange} placeholder="10" className={`block w-full pl-8 pr-3 py-2 rounded-lg sm:text-sm font-bold outline-none focus:ring-2 ${t.input}`} />
                           </div>
                         </div>
                       </div>
 
                       <div className="flex flex-col gap-2">
-                        <div className="flex flex-col bg-white rounded-lg border border-neutral-200 p-2">
+                        <div className={`flex flex-col rounded-lg ${t.box} p-2`}>
                           <div className="flex items-center gap-3">
-                            <input type="checkbox" id="includeShort" name="includeShort" checked={formData.includeShort} onChange={handleChange} className="w-4 h-4 text-indigo-600 rounded cursor-pointer" />
-                            <label htmlFor="includeShort" className="text-sm font-medium text-indigo-900 cursor-pointer flex-1">Añadir Short</label>
+                            <input type="checkbox" id="includeShort" name="includeShort" checked={formData.includeShort} onChange={handleChange} className="w-4 h-4 text-indigo-500 rounded cursor-pointer" />
+                            <label htmlFor="includeShort" className={`text-sm font-medium cursor-pointer flex-1 ${t.label}`}>Añadir Short</label>
                             {formData.includeShort && (
-                               <select name="shortSize" value={formData.shortSize} onChange={handleChange} className="px-2 py-1 border border-neutral-300 rounded text-xs bg-indigo-50 font-bold text-indigo-900 outline-none">
+                               <select name="shortSize" value={formData.shortSize} onChange={handleChange} className={`px-2 py-1 rounded text-xs font-bold outline-none ${t.input}`}>
                                  {activeSizes.map(s => (<option key={s} value={s}>{s}</option>))}
                                </select>
                             )}
                           </div>
                           {formData.includeShort && formData.gender === 'Femenino' && (
-                            <div className="flex items-center justify-end gap-2 mt-2 border-t border-neutral-100 pt-2">
-                              <span className="text-[10px] font-medium text-neutral-500">Diseño del Short:</span>
-                              <select name="femaleShortType" value={formData.femaleShortType} onChange={handleChange} className="px-2 py-1 border border-neutral-300 rounded text-xs bg-pink-50 font-bold text-pink-900 outline-none">
+                            <div className={`flex items-center justify-end gap-2 mt-2 border-t pt-2 ${t.border}`}>
+                              <span className={`text-[10px] font-medium ${t.muted}`}>Diseño del Short:</span>
+                              <select name="femaleShortType" value={formData.femaleShortType} onChange={handleChange} className={`px-2 py-1 border rounded text-xs font-bold outline-none ${darkMode ? 'bg-pink-900/30 border-pink-800 text-pink-300' : 'bg-pink-50 border-pink-200 text-pink-900'}`}>
                                 <option value="Standard">Standard</option><option value="Femenino">Corte Femenino</option>
                               </select>
                             </div>
                           )}
                         </div>
 
-                        <div className="flex items-center gap-3 p-2 bg-white rounded-lg border border-neutral-200">
-                          <input type="checkbox" id="includeSocks" name="includeSocks" checked={formData.includeSocks} onChange={handleChange} className="w-4 h-4 text-indigo-600 rounded cursor-pointer" />
-                          <label htmlFor="includeSocks" className="text-sm font-medium text-indigo-900 cursor-pointer flex-1">Añadir Medias</label>
+                        <div className={`flex items-center gap-3 p-2 rounded-lg ${t.box}`}>
+                          <input type="checkbox" id="includeSocks" name="includeSocks" checked={formData.includeSocks} onChange={handleChange} className="w-4 h-4 text-indigo-500 rounded cursor-pointer" />
+                          <label htmlFor="includeSocks" className={`text-sm font-medium cursor-pointer flex-1 ${t.label}`}>Añadir Medias</label>
                         </div>
-                        <div className="flex items-center gap-3 p-2 bg-indigo-100/50 rounded-lg border border-indigo-200 mt-2">
-                          <input type="checkbox" id="isGoalkeeper" name="isGoalkeeper" checked={formData.isGoalkeeper} onChange={handleChange} className="w-4 h-4 text-indigo-600 rounded cursor-pointer" />
-                          <label htmlFor="isGoalkeeper" className="text-sm font-bold text-indigo-900 cursor-pointer flex-1">Es Arquero</label>
+                        <div className={`flex items-center gap-3 p-2 rounded-lg border mt-2 ${darkMode ? 'bg-indigo-900/20 border-indigo-800' : 'bg-indigo-50 border-indigo-200'}`}>
+                          <input type="checkbox" id="isGoalkeeper" name="isGoalkeeper" checked={formData.isGoalkeeper} onChange={handleChange} className="w-4 h-4 text-indigo-500 rounded cursor-pointer" />
+                          <label htmlFor="isGoalkeeper" className={`text-sm font-bold cursor-pointer flex-1 ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>Es Arquero</label>
                         </div>
                       </div>
                     </div>
@@ -1040,16 +1186,16 @@ export default function App() {
 
                   <div className="grid grid-cols-2 gap-4 items-end">
                     <div>
-                      <label className="block text-sm font-medium text-neutral-700 mb-1">Cantidad de Kits</label>
+                      <label className={`block text-sm font-medium mb-1 ${t.label}`}>Cantidad de Kits</label>
                       <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Hash className="h-4 w-4 text-neutral-400" /></div>
-                        <input type="number" name="quantity" min="1" value={formData.quantity} onChange={handleChange} required className="block w-full pl-10 pr-3 py-2 border border-neutral-300 rounded-lg sm:text-sm font-bold" />
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Hash className={`h-4 w-4 ${t.muted}`} /></div>
+                        <input type="number" name="quantity" min="1" value={formData.quantity} onChange={handleChange} required className={`block w-full pl-10 pr-3 py-2 rounded-lg sm:text-sm font-bold outline-none focus:ring-2 ${t.input}`} />
                       </div>
                     </div>
                     {allowLongSleeve && (
-                      <div className="flex items-center gap-2 p-2 bg-indigo-50/50 rounded-lg border border-indigo-100 h-[38px]">
-                        <input type="checkbox" id="longSleeve" name="longSleeve" checked={formData.longSleeve} onChange={handleChange} className="w-4 h-4 text-indigo-600 rounded cursor-pointer" />
-                        <label htmlFor="longSleeve" className="text-[11px] font-medium text-indigo-900 cursor-pointer flex-1 leading-tight">
+                      <div className={`flex items-center gap-2 p-2 rounded-lg h-[38px] ${t.indigoBg}`}>
+                        <input type="checkbox" id="longSleeve" name="longSleeve" checked={formData.longSleeve} onChange={handleChange} className="w-4 h-4 text-indigo-500 rounded cursor-pointer" />
+                        <label htmlFor="longSleeve" className={`text-[11px] font-medium cursor-pointer flex-1 leading-tight ${t.indigoText}`}>
                           Manga Larga (+{new Intl.NumberFormat('es-PY').format(costoMangaLarga)})
                         </label>
                       </div>
@@ -1057,18 +1203,18 @@ export default function App() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-neutral-700 mb-1 text-xs">Observaciones Adicionales</label>
-                    <textarea name="observations" value={formData.observations} onChange={handleChange} rows="2" placeholder="Opcional..." className="block w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-none" />
+                    <label className={`block text-sm font-medium mb-1 text-xs ${t.label}`}>Observaciones Adicionales</label>
+                    <textarea name="observations" value={formData.observations} onChange={handleChange} rows="2" placeholder="Opcional..." className={`block w-full px-3 py-2 rounded-lg text-sm resize-none outline-none focus:ring-2 ${t.input}`} />
                   </div>
 
-                  <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex justify-between items-center mt-2 shadow-inner">
-                    <span className="text-sm font-semibold text-indigo-900">Total Calculado:</span>
-                    <span className="text-xl font-black text-indigo-700">{new Intl.NumberFormat('es-PY').format(currentOrderTotal)} Gs.</span>
+                  <div className={`p-4 rounded-xl flex justify-between items-center mt-2 shadow-inner ${t.indigoBg}`}>
+                    <span className={`text-sm font-semibold ${t.indigoText}`}>Total Calculado:</span>
+                    <span className={`text-xl font-black ${darkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>{new Intl.NumberFormat('es-PY').format(currentOrderTotal)} Gs.</span>
                   </div>
 
                   <div className="flex gap-3 pt-2">
-                    {editingId && (<button type="button" onClick={cancelEdit} className="w-1/3 flex justify-center py-3 px-4 border border-neutral-300 rounded-xl shadow-sm text-sm font-medium text-neutral-700 bg-white">Cancelar</button>)}
-                    <button type="submit" className={`${editingId ? 'w-2/3 bg-amber-500' : isPreviewMode ? 'w-full bg-emerald-500' : 'w-full bg-indigo-600'} flex justify-center py-3 px-4 rounded-xl shadow-md text-sm font-bold text-white transition-all transform hover:-translate-y-0.5`}>
+                    {editingId && (<button type="button" onClick={cancelEdit} className={`w-1/3 flex justify-center py-3 px-4 rounded-xl shadow-sm text-sm font-medium transition-colors ${t.box} ${t.label}`}>Cancelar</button>)}
+                    <button type="submit" className={`${editingId ? 'w-2/3 bg-amber-500 hover:bg-amber-600 text-white' : isPreviewMode ? 'w-full bg-emerald-500 hover:bg-emerald-600 text-white' : 'w-full bg-indigo-600 hover:bg-indigo-700 text-white'} flex justify-center py-3 px-4 rounded-xl shadow-md text-sm font-bold transition-all transform hover:-translate-y-0.5 border-none`}>
                       {editingId ? 'Guardar Cambios' : isPreviewMode ? 'Probar Pedido' : 'Agregar Pedido'}
                     </button>
                   </div>
@@ -1077,21 +1223,21 @@ export default function App() {
             )}
             
             {/* Resumen Compacto */}
-            <div className="bg-indigo-50 p-5 rounded-2xl shadow-sm border border-indigo-100">
-              <h3 className="text-sm font-bold text-indigo-900 flex items-center gap-2 mb-3">
-                <Layers className="w-4 h-4 text-indigo-600" /> Resumen {displayGroup}
+            <div className={`p-5 rounded-2xl shadow-sm ${t.indigoBg}`}>
+              <h3 className={`text-sm font-bold flex items-center gap-2 mb-3 ${t.indigoText}`}>
+                <Layers className={`w-4 h-4 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`} /> Resumen {displayGroup}
               </h3>
               <div className="flex flex-wrap gap-2">
                 {compactSummaryItems.map((item) => (
-                  <div key={`${item.size}-${item.gender}-${item.isLong}`} className="flex items-center bg-white border border-indigo-200 rounded text-[10px] overflow-hidden">
-                    <span className="bg-indigo-100 px-2 py-1 font-bold">{item.size}{item.gender[0]}{item.isLong ? 'L' : ''}</span>
+                  <div key={`${item.size}-${item.gender}-${item.isLong}`} className={`flex items-center rounded text-[10px] overflow-hidden ${t.box}`}>
+                    <span className={`px-2 py-1 font-bold ${darkMode ? 'bg-slate-700 text-slate-300' : 'bg-indigo-100 text-indigo-800'}`}>{item.size}{item.gender[0]}{item.isLong ? 'L' : ''}</span>
                     <span className="px-2 py-1 font-black">{item.total}</span>
                   </div>
                 ))}
               </div>
-              <div className="mt-4 pt-3 border-t border-indigo-200 flex justify-between items-center">
-                <span className="text-xs font-bold text-indigo-900">Total Prendas:</span>
-                <span className="text-sm font-black text-white bg-indigo-600 px-3 py-0.5 rounded-lg shadow-sm">{totalGarments}</span>
+              <div className={`mt-4 pt-3 border-t flex justify-between items-center ${darkMode ? 'border-indigo-800/50' : 'border-indigo-200'}`}>
+                <span className={`text-xs font-bold ${t.indigoText}`}>Total Prendas:</span>
+                <span className="text-sm font-black text-white bg-indigo-500 px-3 py-0.5 rounded-lg shadow-sm">{totalGarments}</span>
               </div>
             </div>
           </div>
@@ -1099,43 +1245,43 @@ export default function App() {
           {/* Columna Listado y Resumen */}
           <div className="lg:col-span-2 space-y-6">
             
-            {/* BARRA DE PROGRESO DE PAGOS (Basada en Recaudación Financiera) */}
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-neutral-200 flex flex-col justify-center">
+            {/* BARRA DE PROGRESO DE PAGOS */}
+            <div className={`p-5 rounded-2xl shadow-sm flex flex-col justify-center ${t.card}`}>
                <div className="flex justify-between items-end mb-2">
-                 <h3 className="text-sm font-bold text-indigo-900 flex items-center gap-2">
+                 <h3 className={`text-sm font-bold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
                    <Target className="w-5 h-5 text-emerald-500" /> Progreso de Recaudación
                  </h3>
-                 <span className="text-xs font-black text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-md">{progressPercent}%</span>
+                 <span className="text-xs font-black text-emerald-500 bg-emerald-500/20 px-2 py-0.5 rounded-md">{progressPercent}%</span>
                </div>
                
-               <div className="w-full bg-neutral-100 rounded-full h-3.5 mb-2 overflow-hidden border border-neutral-200">
+               <div className={`w-full rounded-full h-3.5 mb-2 overflow-hidden border ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-neutral-100 border-neutral-200'}`}>
                  <div className="bg-gradient-to-r from-emerald-400 to-emerald-600 h-3.5 rounded-full transition-all duration-1000 ease-out flex items-center justify-end px-2" style={{ width: `${progressPercent}%` }}>
                  </div>
                </div>
                
-               <p className="text-xs text-neutral-500 text-center font-medium">
+               <p className={`text-xs text-center font-medium ${t.muted}`}>
                  {progressPercent === 0 && "¡Sé el primero en aportar a la meta del equipo!"}
                  {progressPercent > 0 && progressPercent < 100 && `¡El equipo se está armando! Llevamos recaudados ${new Intl.NumberFormat('es-PY').format(totalCollected)} Gs de ${new Intl.NumberFormat('es-PY').format(totalRevenue)} Gs.`}
                  {progressPercent === 100 && totalRevenue > 0 && "¡Meta financiera 100% alcanzada! El pedido está listo para producción."}
                </p>
             </div>
 
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-neutral-200">
+            <div className={`p-6 rounded-2xl shadow-sm ${t.card}`}>
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
                  
                  <div className="flex items-center gap-4 w-full sm:w-auto">
-                   <h2 className="text-xl font-semibold flex items-center gap-2"><Search className="w-5 h-5 text-indigo-400" /> Pedidos Recientes</h2>
+                   <h2 className={`text-xl font-semibold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}><Search className="w-5 h-5 text-indigo-500" /> Pedidos Recientes</h2>
                    <input 
                      type="text" 
                      placeholder="Buscar por nombre..." 
                      value={searchTerm} 
                      onChange={(e) => setSearchTerm(e.target.value)} 
-                     className="flex-1 sm:w-48 px-3 py-1.5 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none" 
+                     className={`flex-1 sm:w-48 px-3 py-1.5 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none ${t.input}`} 
                    />
                  </div>
                  
                  {isAdmin && (
-                   <button onClick={toggleGroupLock} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-all ${isGroupLocked ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'}`}>
+                   <button onClick={toggleGroupLock} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-all border ${isGroupLocked ? (darkMode ? 'bg-emerald-900/30 text-emerald-400 border-emerald-800' : 'bg-emerald-100 text-emerald-700 border-emerald-200') : (darkMode ? 'bg-red-900/30 text-red-400 border-red-800' : 'bg-red-50 text-red-600 border-red-200')}`}>
                      {isGroupLocked ? <Unlock className="w-4 h-4"/> : <Lock className="w-4 h-4"/>}
                      {isGroupLocked ? 'Reabrir Lista' : 'Cerrar Lista a Usuarios'}
                    </button>
@@ -1145,55 +1291,55 @@ export default function App() {
               {loading ? (
                 <div className="text-center py-8"><Loader2 className="w-8 h-8 animate-spin mx-auto text-indigo-500" /></div>
               ) : activeOrders.length === 0 ? (
-                <div className="text-center py-8 text-neutral-400 italic">No hay pedidos en este grupo.</div>
+                <div className={`text-center py-8 italic ${t.muted}`}>No hay pedidos en este grupo.</div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-neutral-200 text-xs">
-                    <thead className="bg-neutral-50">
+                  <table className={`min-w-full divide-y text-xs ${t.divide}`}>
+                    <thead className={t.tableHead}>
                   <tr>
-                    {isGroupAdmin && adminGroupFilter === 'Todos' && <th className="px-4 py-3 text-left">Grupo</th>}
-                    <th className="px-4 py-3 text-left">Cliente</th>
-                    <th className="px-4 py-3 text-left">Prenda</th>
-                    <th className="px-4 py-3 text-left">Estado / Pago</th>
-                    {isAdmin && <th className="px-4 py-3 text-right">Acción</th>}
+                    {isGroupAdmin && adminGroupFilter === 'Todos' && <th className="px-4 py-3 text-left font-bold uppercase tracking-wider">Grupo</th>}
+                    <th className="px-4 py-3 text-left font-bold uppercase tracking-wider">Cliente</th>
+                    <th className="px-4 py-3 text-left font-bold uppercase tracking-wider">Prenda</th>
+                    <th className="px-4 py-3 text-left font-bold uppercase tracking-wider">Estado / Pago</th>
+                    {isAdmin && <th className="px-4 py-3 text-right font-bold uppercase tracking-wider">Acción</th>}
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-neutral-200">
+                <tbody className={`divide-y ${t.divide} ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
                   {activeOrders.filter(o => o.name.toLowerCase().includes(searchTerm.toLowerCase())).map((order) => {
                     const cleanObs = order.observations ? order.observations.replace(/\[Precio:\s*\d+\]/, '').trim() : '';
                     const fins = getOrderFinancials(order);
                     
                     return (
-                      <tr key={order.id} className="hover:bg-neutral-50">
-                        {isGroupAdmin && adminGroupFilter === 'Todos' && <td className="px-4 py-3 font-bold text-indigo-600">{order.group_name}</td>}
-                        <td className="px-4 py-3 font-medium text-neutral-900">
+                      <tr key={order.id} className={`${t.rowHover} transition-colors`}>
+                        {isGroupAdmin && adminGroupFilter === 'Todos' && <td className="px-4 py-3 font-bold text-indigo-500">{order.group_name}</td>}
+                        <td className={`px-4 py-3 font-medium ${darkMode ? 'text-slate-200' : 'text-neutral-900'}`}>
                           {order.name}
                           {(isAdmin || isGroupAdmin) && order.phone && order.phone !== '-' && (
                             <div className="mt-1 flex flex-wrap items-center gap-2">
-                              <span className="text-[10px] text-neutral-500 flex items-center gap-1"><Phone className="w-2.5 h-2.5"/> {order.phone}</span>
-                              <a href={getWhatsAppLink(order)} target="_blank" rel="noopener noreferrer" className="text-[10px] flex items-center gap-1 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#075E54] px-2 py-0.5 rounded font-bold transition-colors cursor-pointer border border-[#25D366]/30">
+                              <span className={`text-[10px] flex items-center gap-1 ${t.muted}`}><Phone className="w-2.5 h-2.5"/> {order.phone}</span>
+                              <a href={getWhatsAppLink(order)} target="_blank" rel="noopener noreferrer" className={`text-[10px] flex items-center gap-1 px-2 py-0.5 rounded font-bold transition-colors cursor-pointer border ${darkMode ? 'bg-green-900/30 text-green-400 border-green-800 hover:bg-green-900/50' : 'bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#075E54] border-[#25D366]/30'}`}>
                                 <MessageCircle className="w-3 h-3" /> Escribir
                               </a>
                             </div>
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          <span className="font-bold text-indigo-900">{order.size}</span> {order.gender[0]}. {order.longSleeve && '(ML)'} x{order.quantity}
-                          {cleanObs && <div className="text-[10px] text-neutral-500 mt-1 italic text-wrap max-w-[200px] leading-tight">{cleanObs}</div>}
+                          <span className={`font-bold ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>{order.size}</span> <span className={t.muted}>{order.gender[0]}. {order.longSleeve && '(ML)'} x{order.quantity}</span>
+                          {cleanObs && <div className={`text-[10px] mt-1 italic text-wrap max-w-[200px] leading-tight ${t.muted}`}>{cleanObs}</div>}
                         </td>
                         <td className="px-4 py-3">
                           {isAdmin ? (
-                            <button onClick={() => handleOpenPayment(order)} className="text-left w-full hover:bg-neutral-100 p-1.5 rounded transition-colors group relative">
-                              <div className={`text-[10px] font-black uppercase ${fins.balance === 0 ? 'text-green-600' : fins.paid > 0 ? 'text-amber-600' : 'text-red-500'}`}>
+                            <button onClick={() => handleOpenPayment(order)} className={`text-left w-full p-1.5 rounded transition-colors group relative ${darkMode ? 'hover:bg-slate-700' : 'hover:bg-neutral-100'}`}>
+                              <div className={`text-[10px] font-black uppercase ${fins.balance === 0 ? 'text-green-500' : fins.paid > 0 ? 'text-amber-500' : 'text-red-500'}`}>
                                  {fins.balance === 0 ? 'PAGADO' : fins.paid > 0 ? 'SEÑADO' : 'PENDIENTE'}
                               </div>
-                              <div className="text-[9px] text-neutral-500 font-medium">
+                              <div className={`text-[9px] font-medium ${t.muted}`}>
                                  {new Intl.NumberFormat('es-PY').format(fins.paid)} / {new Intl.NumberFormat('es-PY').format(fins.total)} Gs.
                               </div>
                             </button>
                           ) : (
                             <div className="p-1">
-                              <span className={`px-2 py-0.5 rounded font-black text-[9px] uppercase ${fins.balance === 0 ? 'bg-green-100 text-green-800' : fins.paid > 0 ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'}`}>
+                              <span className={`px-2 py-0.5 rounded font-black text-[9px] uppercase ${fins.balance === 0 ? 'bg-green-500/20 text-green-500' : fins.paid > 0 ? 'bg-amber-500/20 text-amber-500' : 'bg-red-500/20 text-red-500'}`}>
                                 {fins.balance === 0 ? 'Pagado' : fins.paid > 0 ? 'Señado' : 'Pendiente'}
                               </span>
                             </div>
@@ -1202,8 +1348,8 @@ export default function App() {
                         {isAdmin && (
                           <td className="px-4 py-3 text-right">
                             <div className="flex justify-end gap-1">
-                                  <button onClick={() => handleEditClick(order)} className="text-amber-500 p-1 hover:bg-amber-50 rounded"><Edit className="w-3 h-3" /></button>
-                                  <button onClick={() => handleDelete(order.id)} className="text-red-500 p-1 hover:bg-red-50 rounded"><Trash2 className="w-3 h-3" /></button>
+                                  <button onClick={() => handleEditClick(order)} className={`p-1.5 rounded transition-colors ${darkMode ? 'text-amber-400 hover:bg-slate-700' : 'text-amber-500 hover:bg-amber-50'}`}><Edit className="w-3 h-3" /></button>
+                                  <button onClick={() => handleDelete(order.id)} className={`p-1.5 rounded transition-colors ${darkMode ? 'text-red-400 hover:bg-slate-700' : 'text-red-500 hover:bg-red-50'}`}><Trash2 className="w-3 h-3" /></button>
                                 </div>
                               </td>
                             )}
@@ -1216,50 +1362,50 @@ export default function App() {
               )}
             </div>
 
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-neutral-200">
+            <div className={`p-6 rounded-2xl shadow-sm ${t.card}`}>
                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
-                  <h2 className="text-xl font-semibold flex items-center gap-2"><ClipboardList className="w-5 h-5 text-emerald-600" /> Resumen de Pedidos</h2>
+                  <h2 className={`text-xl font-semibold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}><ClipboardList className="w-5 h-5 text-emerald-500" /> Resumen de Pedidos</h2>
                   {isAdmin && (
                     <div className="flex flex-wrap gap-2 w-full sm:w-auto justify-end">
-                      <button onClick={handleExportHojaCorte} className="flex-1 sm:flex-none text-xs bg-neutral-800 text-white border border-neutral-900 px-3 py-2 rounded-lg font-bold flex items-center justify-center gap-2 shadow-sm hover:bg-neutral-900">
+                      <button onClick={handleExportHojaCorte} className="flex-1 sm:flex-none text-xs bg-slate-800 text-white border border-slate-900 px-3 py-2 rounded-lg font-bold flex items-center justify-center gap-2 shadow-sm hover:bg-slate-900">
                         <Scissors className="w-3 h-3" /> Hoja de Corte
                       </button>
-                      <button onClick={handleExportCSV} className="flex-1 sm:flex-none text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-2 rounded-lg font-bold flex items-center justify-center gap-2 shadow-sm hover:bg-emerald-100">
+                      <button onClick={handleExportCSV} className="flex-1 sm:flex-none text-xs bg-emerald-500/20 text-emerald-600 border border-emerald-500/30 px-3 py-2 rounded-lg font-bold flex items-center justify-center gap-2 shadow-sm hover:bg-emerald-500/30">
                         <Download className="w-3 h-3" /> Excel
                       </button>
-                      <button onClick={handleExportPDF} className="flex-1 sm:flex-none text-xs bg-red-50 text-red-700 border border-red-200 px-3 py-2 rounded-lg font-bold flex items-center justify-center gap-2 shadow-sm hover:bg-red-100">
+                      <button onClick={handleExportPDF} className="flex-1 sm:flex-none text-xs bg-red-500/20 text-red-500 border border-red-500/30 px-3 py-2 rounded-lg font-bold flex items-center justify-center gap-2 shadow-sm hover:bg-red-500/30">
                         <FileText className="w-3 h-3" /> PDF
                       </button>
                     </div>
                   )}
                </div>
                
-               <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 mb-6 flex flex-col sm:flex-row justify-between gap-4">
-                  <div><p className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">Esperado de este Grupo</p><p className="text-lg font-black text-indigo-900">{new Intl.NumberFormat('es-PY').format(totalRevenue)} Gs.</p></div>
-                  <div><p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Recaudado (Señas+Pagos)</p><p className="text-lg font-black text-emerald-700">{new Intl.NumberFormat('es-PY').format(totalCollected)} Gs.</p></div>
-                  <div><p className="text-[10px] text-red-400 font-bold uppercase tracking-wider">Falta Cobrar</p><p className="text-lg font-black text-red-600">{new Intl.NumberFormat('es-PY').format(totalRevenue - totalCollected)} Gs.</p></div>
+               <div className={`p-4 rounded-xl flex flex-col sm:flex-row justify-between gap-4 mb-6 ${t.indigoBg}`}>
+                  <div><p className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">Esperado de este Grupo</p><p className={`text-lg font-black ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>{new Intl.NumberFormat('es-PY').format(totalRevenue)} Gs.</p></div>
+                  <div><p className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider">Recaudado (Señas+Pagos)</p><p className={`text-lg font-black ${darkMode ? 'text-emerald-400' : 'text-emerald-700'}`}>{new Intl.NumberFormat('es-PY').format(totalCollected)} Gs.</p></div>
+                  <div><p className="text-[10px] text-red-400 font-bold uppercase tracking-wider">Falta Cobrar</p><p className={`text-lg font-black ${darkMode ? 'text-red-400' : 'text-red-600'}`}>{new Intl.NumberFormat('es-PY').format(totalRevenue - totalCollected)} Gs.</p></div>
                </div>
 
-               <h3 className="text-xs font-bold text-neutral-500 uppercase mb-2">Cantidades de Remeras</h3>
+               <h3 className={`text-xs font-bold uppercase mb-2 ${t.muted}`}>Cantidades de Remeras</h3>
                <div className="overflow-x-auto mb-6">
-                  <table className="min-w-full divide-y divide-neutral-200">
-                    <thead className="bg-neutral-50 text-[10px] uppercase font-bold text-neutral-500">
+                  <table className={`min-w-full divide-y text-xs ${t.divide}`}>
+                    <thead className={t.tableHead}>
                       <tr>
-                        <th className="px-6 py-3 text-left">Talle</th>
-                        <th className="px-6 py-3 text-center">Fem.</th>
-                        <th className="px-6 py-3 text-center">Masc.</th>
-                        <th className="px-6 py-3 text-center">Uni.</th>
-                        <th className="px-6 py-3 text-right">Total</th>
+                        <th className="px-6 py-3 text-left font-bold">Talle</th>
+                        <th className="px-6 py-3 text-center font-bold">Fem.</th>
+                        <th className="px-6 py-3 text-center font-bold">Masc.</th>
+                        <th className="px-6 py-3 text-center font-bold">Uni.</th>
+                        <th className="px-6 py-3 text-right font-bold">Total</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-neutral-200 text-sm">
+                    <tbody className={`divide-y ${t.divide} ${darkMode ? 'bg-slate-800' : 'bg-white'} text-sm`}>
                       {summaryBySize.map((item) => (
-                        <tr key={item.size} className={item.total > 0 ? 'bg-emerald-50/30' : ''}>
-                          <td className="px-6 py-4 font-bold">{item.size}</td>
-                          <td className="px-6 py-4 text-center">{item.fem > 0 ? <span className="text-emerald-700 font-bold">{item.fem}</span> : <span className="text-neutral-300">-</span>}</td>
-                          <td className="px-6 py-4 text-center">{item.masc > 0 ? <span className="text-emerald-700 font-bold">{item.masc}</span> : <span className="text-neutral-300">-</span>}</td>
-                          <td className="px-6 py-4 text-center">{item.uni > 0 ? <span className="text-emerald-700 font-bold">{item.uni}</span> : <span className="text-neutral-300">-</span>}</td>
-                          <td className="px-6 py-4 text-right font-black text-indigo-700">{item.total > 0 ? item.total : <span className="text-neutral-400">0</span>}</td>
+                        <tr key={item.size} className={item.total > 0 ? (darkMode ? 'bg-emerald-900/10' : 'bg-emerald-50/30') : ''}>
+                          <td className={`px-6 py-4 font-bold ${darkMode ? 'text-slate-200' : 'text-neutral-900'}`}>{item.size}</td>
+                          <td className="px-6 py-4 text-center">{item.fem > 0 ? <span className="text-emerald-500 font-bold">{item.fem}</span> : <span className={t.muted}>-</span>}</td>
+                          <td className="px-6 py-4 text-center">{item.masc > 0 ? <span className="text-emerald-500 font-bold">{item.masc}</span> : <span className={t.muted}>-</span>}</td>
+                          <td className="px-6 py-4 text-center">{item.uni > 0 ? <span className="text-emerald-500 font-bold">{item.uni}</span> : <span className={t.muted}>-</span>}</td>
+                          <td className={`px-6 py-4 text-right font-black ${darkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>{item.total > 0 ? item.total : <span className={t.muted}>0</span>}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1268,22 +1414,22 @@ export default function App() {
 
                {isDeportiva && (Object.keys(shortsSummary).length > 0 || totalSocks > 0) && (
                  <>
-                   <h3 className="text-xs font-bold text-neutral-500 uppercase mb-2">Extras Deportivos</h3>
-                   <div className="bg-neutral-50 p-4 rounded-xl border border-neutral-200 flex flex-col sm:flex-row gap-8">
+                   <h3 className={`text-xs font-bold uppercase mb-2 ${t.muted}`}>Extras Deportivos</h3>
+                   <div className={`p-4 rounded-xl border flex flex-col sm:flex-row gap-8 ${darkMode ? 'bg-slate-700/30 border-slate-600' : 'bg-neutral-50 border-neutral-200'}`}>
                      {Object.keys(shortsSummary).length > 0 && (
                        <div className="flex-1">
-                         <span className="text-xs font-bold text-indigo-900 block mb-2 border-b border-neutral-300 pb-1">Confección de Shorts</span>
+                         <span className={`text-xs font-bold block mb-2 border-b pb-1 ${darkMode ? 'text-indigo-300 border-slate-600' : 'text-indigo-900 border-neutral-300'}`}>Confección de Shorts</span>
                          <ul className="space-y-1">
                            {Object.entries(shortsSummary).map(([sz, qty]) => (
-                             <li key={`sum-${sz}`} className="text-sm flex justify-between">Talle <strong>{sz}</strong> <span className="font-bold text-indigo-600">{qty} und.</span></li>
+                             <li key={`sum-${sz}`} className={`text-sm flex justify-between ${darkMode ? 'text-slate-300' : 'text-neutral-700'}`}>Talle <strong>{sz}</strong> <span className="font-bold text-indigo-500">{qty} und.</span></li>
                            ))}
                          </ul>
                        </div>
                      )}
                      {totalSocks > 0 && (
                        <div className="flex-1">
-                         <span className="text-xs font-bold text-indigo-900 block mb-2 border-b border-neutral-300 pb-1">Medias</span>
-                         <div className="text-sm flex justify-between">Total pares: <span className="font-bold text-indigo-600">{totalSocks} pares</span></div>
+                         <span className={`text-xs font-bold block mb-2 border-b pb-1 ${darkMode ? 'text-indigo-300 border-slate-600' : 'text-indigo-900 border-neutral-300'}`}>Medias</span>
+                         <div className={`text-sm flex justify-between ${darkMode ? 'text-slate-300' : 'text-neutral-700'}`}>Total pares: <span className="font-bold text-indigo-500">{totalSocks} pares</span></div>
                        </div>
                      )}
                    </div>
@@ -1295,17 +1441,17 @@ export default function App() {
 
         {/* Papelera */}
         {isAdmin && deletedOrders.length > 0 && (
-          <div className="bg-white/50 p-6 rounded-2xl border border-neutral-300 border-dashed">
-            <h2 className="text-lg font-bold text-neutral-500 mb-4 flex items-center gap-2"><Trash2 className="w-5 h-5" /> Papelera ({deletedOrders.length})</h2>
+          <div className={`p-6 rounded-2xl border border-dashed ${darkMode ? 'bg-slate-800/50 border-slate-600' : 'bg-white/50 border-neutral-300'}`}>
+            <h2 className={`text-lg font-bold mb-4 flex items-center gap-2 ${t.muted}`}><Trash2 className="w-5 h-5" /> Papelera ({deletedOrders.length})</h2>
             <div className="overflow-x-auto">
-               <table className="min-w-full text-xs text-neutral-500">
+               <table className={`min-w-full text-xs ${t.muted}`}>
                   <tbody>
                     {deletedOrders.map(o => (
-                      <tr key={o.id} className="border-t border-neutral-200">
+                      <tr key={o.id} className={`border-t ${t.border}`}>
                         <td className="py-2">{o.name} ({o.group_name})</td>
                         <td className="py-2 text-right">
-                           <button onClick={() => handleRestore(o.id)} className="text-indigo-600 font-bold px-2 py-1 hover:bg-indigo-50 rounded">Restaurar</button>
-                           <button onClick={() => handlePermanentDelete(o.id)} className="text-red-400 px-2 py-1 hover:bg-red-50 rounded">Eliminar</button>
+                           <button onClick={() => handleRestore(o.id)} className={`font-bold px-2 py-1 rounded transition-colors ${darkMode ? 'text-indigo-400 hover:bg-slate-700' : 'text-indigo-600 hover:bg-indigo-50'}`}>Restaurar</button>
+                           <button onClick={() => handlePermanentDelete(o.id)} className={`px-2 py-1 rounded transition-colors ${darkMode ? 'text-red-400 hover:bg-slate-700' : 'text-red-400 hover:bg-red-50'}`}>Eliminar</button>
                         </td>
                       </tr>
                     ))}
@@ -1317,39 +1463,39 @@ export default function App() {
 
         {/* HISTORIAL DE AUDITORÍA (DESPLEGABLE AL FONDO) */}
         {showAuditLogs && isGroupAdmin && (
-          <div id="audit-logs-section" className="bg-white p-6 rounded-2xl shadow-sm border border-purple-200 mt-8 mb-4">
+          <div id="audit-logs-section" className={`p-6 rounded-2xl shadow-sm border mt-8 mb-4 ${darkMode ? 'bg-slate-800 border-purple-800' : 'bg-white border-purple-200'}`}>
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold flex items-center gap-2"><History className="w-5 h-5 text-purple-600" /> Historial de Actividad (Auditoría)</h2>
+              <h2 className={`text-xl font-semibold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-slate-900'}`}><History className="w-5 h-5 text-purple-500" /> Historial de Actividad (Auditoría)</h2>
               <div className="flex gap-2">
-                <button onClick={() => fetchAuditLogs()} className="text-indigo-600 hover:bg-indigo-50 p-2 rounded-lg transition-colors flex items-center gap-1 text-sm font-bold" title="Actualizar Datos">
+                <button onClick={() => fetchAuditLogs()} className="text-indigo-500 hover:bg-indigo-500/20 p-2 rounded-lg transition-colors flex items-center gap-1 text-sm font-bold" title="Actualizar Datos">
                   <RefreshCw className="w-4 h-4" /> Refrescar
                 </button>
-                <button onClick={() => setShowAuditLogs(false)} className="text-neutral-400 hover:bg-neutral-100 p-2 rounded-lg transition-colors" title="Ocultar Historial">
+                <button onClick={() => setShowAuditLogs(false)} className={`p-2 rounded-lg transition-colors ${t.muted} ${darkMode ? 'hover:bg-slate-700' : 'hover:bg-neutral-100'}`} title="Ocultar Historial">
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
-            <p className="text-sm text-neutral-500 mb-4">Registro detallado de todos los movimientos realizados por los administradores en el sistema.</p>
-            <div className="overflow-x-auto max-h-[400px] overflow-y-auto border border-neutral-200 rounded-lg">
+            <p className={`text-sm mb-4 ${t.muted}`}>Registro detallado de todos los movimientos realizados por los administradores en el sistema.</p>
+            <div className={`overflow-x-auto max-h-[400px] overflow-y-auto border rounded-lg ${darkMode ? 'border-slate-700' : 'border-neutral-200'}`}>
                <table className="min-w-full text-xs text-left">
-                  <thead className="bg-neutral-50 sticky top-0 shadow-sm z-10">
+                  <thead className={`sticky top-0 shadow-sm z-10 ${t.tableHead}`}>
                      <tr>
-                        <th className="px-4 py-3 font-bold text-neutral-600 uppercase tracking-wider">Fecha y Hora</th>
-                        <th className="px-4 py-3 font-bold text-neutral-600 uppercase tracking-wider">Grupo</th>
-                        <th className="px-4 py-3 font-bold text-neutral-600 uppercase tracking-wider">Acción</th>
-                        <th className="px-4 py-3 font-bold text-neutral-600 uppercase tracking-wider">Detalles</th>
+                        <th className="px-4 py-3 font-bold uppercase tracking-wider">Fecha y Hora</th>
+                        <th className="px-4 py-3 font-bold uppercase tracking-wider">Grupo</th>
+                        <th className="px-4 py-3 font-bold uppercase tracking-wider">Acción</th>
+                        <th className="px-4 py-3 font-bold uppercase tracking-wider">Detalles</th>
                      </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-neutral-100">
+                  <tbody className={`divide-y ${t.divide} ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
                      {auditLogsData.length === 0 ? (
-                       <tr><td colSpan="4" className="p-8 text-center text-neutral-400 italic">No hay registros de actividad aún.</td></tr>
+                       <tr><td colSpan="4" className={`p-8 text-center italic ${t.muted}`}>No hay registros de actividad aún.</td></tr>
                      ) : (
                        auditLogsData.map(log => (
-                         <tr key={log.id} className="hover:bg-neutral-50 transition-colors">
-                            <td className="px-4 py-3 text-neutral-500 whitespace-nowrap">{new Date(log.created_at).toLocaleString('es-PY')}</td>
-                            <td className="px-4 py-3 font-bold text-indigo-600 whitespace-nowrap">{log.group_name}</td>
-                            <td className="px-4 py-3 font-bold text-neutral-800 whitespace-nowrap">{log.action}</td>
-                            <td className="px-4 py-3 text-neutral-600">{log.details}</td>
+                         <tr key={log.id} className={`${t.rowHover} transition-colors`}>
+                            <td className={`px-4 py-3 whitespace-nowrap ${t.muted}`}>{new Date(log.created_at).toLocaleString('es-PY')}</td>
+                            <td className="px-4 py-3 font-bold text-indigo-500 whitespace-nowrap">{log.group_name}</td>
+                            <td className={`px-4 py-3 font-bold whitespace-nowrap ${darkMode ? 'text-slate-300' : 'text-neutral-800'}`}>{log.action}</td>
+                            <td className={`px-4 py-3 ${darkMode ? 'text-slate-400' : 'text-neutral-600'}`}>{log.details}</td>
                          </tr>
                        ))
                      )}
@@ -1359,13 +1505,13 @@ export default function App() {
           </div>
         )}
 
-        <div className="text-center pb-8 pt-4 border-t border-neutral-200 mt-4">
+        <div className={`text-center pb-8 pt-4 border-t mt-4 ${t.border}`}>
           {!isAdmin ? (
-            <button onClick={() => setShowAdminLogin(true)} className="text-neutral-400 hover:text-indigo-600 transition-colors text-[10px] flex items-center justify-center mx-auto gap-1">
+            <button onClick={() => setShowAdminLogin(true)} className={`text-[10px] flex items-center justify-center mx-auto gap-1 transition-colors ${t.muted} hover:text-indigo-500`}>
                <Lock className="w-3 h-3" /> Acceso Admin
             </button>
           ) : (
-            <button onClick={() => setIsAdmin(false)} className="text-indigo-600 hover:text-indigo-800 text-xs font-bold flex items-center justify-center mx-auto gap-1">
+            <button onClick={() => setIsAdmin(false)} className="text-indigo-500 hover:text-indigo-400 text-xs font-bold flex items-center justify-center mx-auto gap-1">
                <Unlock className="w-3 h-3" /> Salir del Modo Admin
             </button>
           )}
@@ -1373,36 +1519,34 @@ export default function App() {
 
         {/* Notificación de éxito */}
         {showSuccess && (
-          <div className="fixed bottom-6 right-6 bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-2xl z-50 animate-bounce">
+          <div className="fixed bottom-6 right-6 bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-5">
             <span className="font-bold text-sm flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> {successMessage}</span>
           </div>
         )}
 
-        {/* Modal Pago (Gestor Señas) Y BOTÓN DE RECIBO WHATSAPP */}
+        {/* Modal Pago (Gestor Señas) */}
         {paymentModal.isOpen && paymentModal.order && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
-             <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in">
+             <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
                 <div className="flex justify-between items-center mb-4">
-                   <h3 className="font-bold text-indigo-900 flex items-center gap-2"><DollarSign className="w-5 h-5 bg-emerald-100 text-emerald-600 rounded-full p-0.5" /> Registrar Pago</h3>
-                   <button onClick={() => setPaymentModal({isOpen: false, order: null, amount: 0})} className="text-neutral-400 hover:text-neutral-600"><X className="w-5 h-5" /></button>
+                   <h3 className={`font-bold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}><DollarSign className="w-5 h-5 bg-emerald-500/20 text-emerald-500 rounded-full p-0.5" /> Registrar Pago</h3>
+                   <button onClick={() => setPaymentModal({isOpen: false, order: null, amount: 0})} className={`${t.muted} hover:text-slate-200`}><X className="w-5 h-5" /></button>
                 </div>
-                <div className="bg-neutral-50 p-3 rounded-lg mb-4 text-sm text-center">
-                   <p className="text-neutral-500 mb-1">Total del pedido de {paymentModal.order.name}</p>
-                   <p className="text-xl font-black text-indigo-900">{new Intl.NumberFormat('es-PY').format(getUnitPrice(paymentModal.order) * paymentModal.order.quantity)} Gs.</p>
+                <div className={`p-3 rounded-lg mb-4 text-sm text-center ${darkMode ? 'bg-slate-700' : 'bg-neutral-50'}`}>
+                   <p className={`mb-1 ${t.muted}`}>Total del pedido de {paymentModal.order.name}</p>
+                   <p className={`text-xl font-black ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>{new Intl.NumberFormat('es-PY').format(getUnitPrice(paymentModal.order) * paymentModal.order.quantity)} Gs.</p>
                 </div>
-                <label className="block text-xs font-bold text-neutral-600 mb-1">Monto entregado hasta ahora (Gs):</label>
+                <label className={`block text-xs font-bold mb-1 ${t.muted}`}>Monto entregado hasta ahora (Gs):</label>
                 <input 
                   type="number" value={paymentModal.amount} onChange={(e) => setPaymentModal({...paymentModal, amount: e.target.value})} 
-                  className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-lg text-center mb-4" 
+                  className={`w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-lg text-center mb-4 ${t.input}`} 
                 />
                 
-                {/* Si ya guardó el pago o quiere hacerlo todo junto */}
                 <div className="space-y-2">
-                  <button onClick={savePayment} className="w-full bg-emerald-500 text-neutral-900 font-black py-3 rounded-xl hover:bg-emerald-400 transition-all shadow-md">
+                  <button onClick={savePayment} className="w-full bg-emerald-500 text-white font-black py-3 rounded-xl hover:bg-emerald-400 transition-all shadow-md border-none">
                     Guardar Pago en el Sistema
                   </button>
                   
-                  {/* BOTÓN NUEVO: GENERADOR DE RECIBO VIRTUAL */}
                   {paymentModal.isSaved && (
                     <a href={getReceiptLink(paymentModal.order)} target="_blank" rel="noopener noreferrer" className="w-full bg-[#25D366] text-white font-bold py-3 rounded-xl hover:bg-[#20bd5a] transition-all shadow-md flex items-center justify-center gap-2">
                       <Receipt className="w-4 h-4" /> Enviar Recibo por WhatsApp
@@ -1413,26 +1557,26 @@ export default function App() {
           </div>
         )}
 
-        {/* Modal de Login Admin (CON BOTÓN DE CAMBIO DE CLAVE) */}
+        {/* Modal de Login Admin */}
         {showAdminLogin && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in">
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+            <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-indigo-900 flex items-center gap-2"><Lock className="w-5 h-5" /> Iniciar Sesión</h3>
-                <button onClick={() => setShowAdminLogin(false)} className="text-neutral-400 hover:text-neutral-600"><X className="w-5 h-5" /></button>
+                <h3 className={`font-bold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}><Lock className="w-5 h-5" /> Iniciar Sesión</h3>
+                <button onClick={() => setShowAdminLogin(false)} className={`${t.muted} hover:text-slate-200`}><X className="w-5 h-5" /></button>
               </div>
               <div className="relative mb-4">
-                <input type={showPassword ? "text" : "password"} value={adminPin} onChange={(e) => setAdminPin(e.target.value)} placeholder="PIN Administrador" onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()} className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none pr-12" />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-neutral-500"><EyeOff className="w-5 h-5" /></button>
+                <input type={showPassword ? "text" : "password"} value={adminPin} onChange={(e) => setAdminPin(e.target.value)} placeholder="PIN Administrador" onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()} className={`w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none pr-12 ${t.input}`} />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className={`absolute inset-y-0 right-0 pr-4 flex items-center ${t.muted}`}><EyeOff className="w-5 h-5" /></button>
               </div>
               {pinError && <p className="text-xs text-red-500 mb-3 mt-[-10px]">Contraseña incorrecta.</p>}
               
-              <button onClick={handleAdminLogin} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-all mb-4">Ingresar</button>
+              <button onClick={handleAdminLogin} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-all mb-4 border-none">Ingresar</button>
 
-              <div className="border-t border-neutral-200 pt-3">
+              <div className={`border-t pt-3 ${darkMode ? 'border-slate-700' : 'border-neutral-200'}`}>
                 <button 
                   onClick={() => { setShowAdminLogin(false); setShowChangePass(true); }} 
-                  className="w-full text-xs text-indigo-600 font-bold hover:text-indigo-800 transition-colors flex items-center justify-center gap-1"
+                  className="w-full text-xs text-indigo-500 font-bold hover:text-indigo-400 transition-colors flex items-center justify-center gap-1"
                 >
                   <KeyRound className="w-3 h-3" /> Cambiar Clave de Administrador
                 </button>
@@ -1443,54 +1587,85 @@ export default function App() {
 
         {/* Modal de Cambio de Clave Admin */}
         {showChangePass && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in">
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[70] p-4 backdrop-blur-sm">
+            <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-indigo-900 flex items-center gap-2"><KeyRound className="w-5 h-5 text-indigo-600" /> Cambiar Contraseña</h3>
-                <button onClick={() => {setShowChangePass(false); setPassChangeError('');}} className="text-neutral-400 hover:text-neutral-600"><X className="w-5 h-5" /></button>
+                <h3 className={`font-bold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}><KeyRound className="w-5 h-5 text-indigo-500" /> Cambiar Contraseña</h3>
+                <button onClick={() => {setShowChangePass(false); setPassChangeError('');}} className={`${t.muted} hover:text-slate-200`}><X className="w-5 h-5" /></button>
               </div>
-              <p className="text-xs text-neutral-500 mb-4">Para cambiar la clave de acceso debes ingresar la Clave Maestra de autorización.</p>
+              <p className={`text-xs mb-4 ${t.muted}`}>Para cambiar la clave de acceso debes ingresar la Clave Maestra de autorización.</p>
               
               <div className="space-y-3 mb-4">
-                <input type="password" value={masterPassInput} onChange={(e) => setMasterPassInput(e.target.value)} placeholder="Clave Maestra de Autorización" className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
-                <input type="text" value={newAdminPassInput} onChange={(e) => setNewAdminPassInput(e.target.value)} placeholder="Nueva Contraseña" className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold text-indigo-900" />
+                <input type="password" value={masterPassInput} onChange={(e) => setMasterPassInput(e.target.value)} placeholder="Clave Maestra de Autorización" className={`w-full px-4 py-2 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm ${t.input}`} />
+                <input type="text" value={newAdminPassInput} onChange={(e) => setNewAdminPassInput(e.target.value)} placeholder="Nueva Contraseña" className={`w-full px-4 py-2 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold ${t.input} ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`} />
               </div>
 
               {passChangeError && <p className="text-xs text-red-500 mb-3 font-bold">{passChangeError}</p>}
-              <button onClick={handleChangePasswordSubmit} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-all">Guardar Nueva Contraseña</button>
+              <button onClick={handleChangePasswordSubmit} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-all border-none">Guardar Nueva Contraseña</button>
             </div>
           </div>
         )}
 
         {/* Modal de Acceso Modo Supremo */}
         {showGroupAuth && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in">
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+            <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-indigo-900 flex items-center gap-2"><ShieldAlert className="w-5 h-5 text-red-500" /> Modo Supremo</h3>
-                <button onClick={() => {setShowGroupAuth(false); setGroupPinError(false); setGroupPin(''); setShowGroupPassword(false); setIsMasterOwner(false);}} className="text-neutral-400 hover:text-neutral-600"><X className="w-5 h-5" /></button>
+                <h3 className={`font-bold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}><ShieldAlert className="w-5 h-5 text-red-500" /> Modo Supremo</h3>
+                <button onClick={() => {setShowGroupAuth(false); setGroupPinError(false); setGroupPin(''); setShowGroupPassword(false); setIsMasterOwner(false);}} className={`${t.muted} hover:text-slate-200`}><X className="w-5 h-5" /></button>
               </div>
               <div className="relative mb-4">
-                <input type={showGroupPassword ? "text" : "password"} value={groupPin} onChange={(e) => setGroupPin(e.target.value)} placeholder="Contraseña Maestra" onKeyDown={(e) => e.key === 'Enter' && handleGroupAuth()} className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-red-500 outline-none pr-12" />
-                <button type="button" onClick={() => setShowGroupPassword(!showGroupPassword)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-neutral-500"><EyeOff className="w-5 h-5" /></button>
+                <input type={showGroupPassword ? "text" : "password"} value={groupPin} onChange={(e) => setGroupPin(e.target.value)} placeholder="Contraseña Maestra" onKeyDown={(e) => e.key === 'Enter' && handleGroupAuth()} className={`w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-red-500 outline-none pr-12 ${t.input}`} />
+                <button type="button" onClick={() => setShowGroupPassword(!showGroupPassword)} className={`absolute inset-y-0 right-0 pr-4 flex items-center ${t.muted}`}><EyeOff className="w-5 h-5" /></button>
               </div>
               {groupPinError && <p className="text-xs text-red-500 mb-3 mt-[-10px]">Contraseña incorrecta.</p>}
-              <button onClick={handleGroupAuth} className="w-full bg-neutral-900 text-white font-bold py-3 rounded-xl hover:bg-black transition-all">Activar Modo Supremo</button>
+              <button onClick={handleGroupAuth} className={`w-full text-white font-bold py-3 rounded-xl transition-all border-none ${darkMode ? 'bg-slate-950 hover:bg-black' : 'bg-neutral-900 hover:bg-black'}`}>Activar Modo Supremo</button>
             </div>
           </div>
         )}
 
-        {/* NUEVO: Modal Código QR */}
+        {/* Modal para Renombrar Grupo */}
+        {renameModal.isOpen && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[80] p-4 backdrop-blur-sm">
+            <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className={`font-bold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}><Edit className="w-5 h-5 text-amber-500" /> Renombrar Grupo</h3>
+                <button onClick={() => setRenameModal({isOpen: false, oldName: '', newName: ''})} className={`${t.muted} hover:text-slate-200`}><X className="w-5 h-5" /></button>
+              </div>
+              <p className={`text-xs mb-4 ${t.muted}`}>Se actualizarán automáticamente todos los pedidos, historiales y estados de bloqueo al nuevo nombre.</p>
+              
+              <div className="space-y-3 mb-4">
+                <div>
+                  <label className={`block text-[10px] uppercase font-bold mb-1 ${t.muted}`}>Nombre Actual</label>
+                  <input type="text" value={renameModal.oldName} disabled className={`w-full px-4 py-2 border rounded-xl text-sm cursor-not-allowed ${darkMode ? 'bg-slate-900 border-slate-700 text-slate-500' : 'bg-neutral-100 border-neutral-200 text-neutral-500'}`} />
+                </div>
+                <div>
+                  <label className={`block text-[10px] uppercase font-bold mb-1 ${darkMode ? 'text-indigo-400' : 'text-indigo-500'}`}>Nuevo Nombre (Sin Espacios)</label>
+                  <input type="text" value={renameModal.newName} onChange={(e) => setRenameModal({...renameModal, newName: e.target.value})} placeholder="Ej. ColegioNacional" className={`w-full px-4 py-2 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold ${t.input} ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`} />
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <button onClick={() => setRenameModal({isOpen: false, oldName: '', newName: ''})} className={`flex-1 font-bold py-2 rounded-xl transition-all text-sm border-none ${darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'}`}>Cancelar</button>
+                <button onClick={handleRenameGroupSubmit} disabled={loading} className="flex-1 bg-amber-500 text-white font-bold py-2 rounded-xl hover:bg-amber-600 transition-all text-sm flex items-center justify-center gap-2 border-none">
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Guardar Cambio'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Código QR */}
         {qrModal.isOpen && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[80] p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in text-center">
+            <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in text-center ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-indigo-900 flex items-center gap-2"><QrCode className="w-5 h-5 text-indigo-600" /> Compartir Grupo</h3>
-                <button onClick={() => setQrModal({isOpen: false, link: '', groupName: ''})} className="text-neutral-400 hover:text-neutral-600"><X className="w-5 h-5" /></button>
+                <h3 className={`font-bold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}><QrCode className="w-5 h-5 text-indigo-500" /> Compartir Grupo</h3>
+                <button onClick={() => setQrModal({isOpen: false, link: '', groupName: ''})} className={`${t.muted} hover:text-slate-200`}><X className="w-5 h-5" /></button>
               </div>
-              <p className="text-sm text-neutral-600 mb-4">Comparte este código con tu equipo para que ingresen directo al grupo <strong>{qrModal.groupName}</strong>.</p>
+              <p className={`text-sm mb-4 ${t.muted}`}>Comparte este código con tu equipo para que ingresen directo al grupo <strong>{qrModal.groupName}</strong>.</p>
               
-              <div className="bg-neutral-100 p-4 rounded-xl flex justify-center mb-4 border border-neutral-200">
+              <div className={`p-4 rounded-xl flex justify-center mb-4 border ${darkMode ? 'bg-slate-200 border-slate-400' : 'bg-neutral-100 border-neutral-200'}`}>
                 <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrModal.link)}&margin=10`} alt="QR Code" className="rounded-lg shadow-sm" />
               </div>
               
@@ -1508,13 +1683,13 @@ export default function App() {
                     const textArea = document.createElement("textarea"); textArea.value = qrModal.link; document.body.appendChild(textArea); textArea.select();
                     try { document.execCommand('copy'); alert("¡Enlace copiado al portapapeles!"); } catch (err) {} document.body.removeChild(textArea);
                   }}
-                  className="flex-1 bg-indigo-100 text-indigo-700 font-bold py-2 px-3 rounded-xl hover:bg-indigo-200 transition-all flex items-center justify-center gap-2 text-sm shadow-sm"
+                  className={`flex-1 font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-2 text-sm shadow-sm border-none ${darkMode ? 'bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/40' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'}`}
                 >
                   <Link2 className="w-4 h-4" /> Copiar
                 </button>
               </div>
               
-              <button onClick={() => setQrModal({isOpen: false, link: '', groupName: ''})} className="w-full bg-neutral-800 text-white font-bold py-2 rounded-xl hover:bg-neutral-900 transition-all text-sm">Cerrar Ventana</button>
+              <button onClick={() => setQrModal({isOpen: false, link: '', groupName: ''})} className={`w-full font-bold py-2 rounded-xl transition-all text-sm border-none ${darkMode ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-neutral-800 text-white hover:bg-neutral-900'}`}>Cerrar Ventana</button>
             </div>
           </div>
         )}
