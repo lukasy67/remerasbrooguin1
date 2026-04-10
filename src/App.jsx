@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone, Loader2, Layers, Lock, Unlock, X, Eye, EyeOff, Download, FileText, Info, AlertCircle, Search, CheckCircle2, Edit, Filter, Link2, Plus, ShieldAlert, Settings, MessageCircle, DollarSign, TrendingUp, Scissors, History, KeyRound, RefreshCw, BarChart3, ExternalLink, Receipt, Target, QrCode, MapPin, Moon, Sun, ArrowRight, ArrowLeft } from 'lucide-react';
 
 // ==========================================
-// CONFIGURACIÓN DE SUPABASE
+// CONFIGURACIÓN DE SUPABASE (API REST)
 // ==========================================
 const supabaseUrl = 'https://waoylkoopzluyhuuhbbc.supabase.co'; 
 const supabaseKey = 'sb_publishable_JYC_sxawUbpXIYycV7HO3A_kiUiFyoy'; 
@@ -101,9 +101,6 @@ export default function App() {
     divide: darkMode ? 'divide-slate-700' : 'divide-neutral-200',
     indigoBg: darkMode ? 'bg-indigo-900/30 border-indigo-800/50' : 'bg-indigo-50 border-indigo-100',
     indigoText: darkMode ? 'text-indigo-300' : 'text-indigo-900',
-    emeraldBg: darkMode ? 'bg-emerald-900/30 text-emerald-400' : 'bg-emerald-50 text-emerald-700',
-    redBg: darkMode ? 'bg-red-900/30 text-red-400' : 'bg-red-50 text-red-700',
-    amberBg: darkMode ? 'bg-amber-900/30 text-amber-400' : 'bg-amber-50 text-amber-700',
     box: darkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-neutral-300 shadow-sm',
     sponsorCard: darkMode ? 'bg-slate-800 border-slate-700 from-slate-900 to-slate-800' : 'bg-white border-neutral-200 from-neutral-100 to-white',
   };
@@ -226,7 +223,7 @@ export default function App() {
   const isCamisilla = displayType.toLowerCase().includes('camisilla');
   const costoMangaLarga = isContextDeportiva ? 15000 : 10000;
 
-  // Lógica de Autocompletado del Arancel (Se dispara al cambiar opciones del Nuevo Grupo)
+  // Lógica de Autocompletado del Arancel
   const handleConfigChange = (e) => {
     const { name, value } = e.target;
     setNewGroupConfig(prev => {
@@ -272,7 +269,6 @@ export default function App() {
     trackVisit();
   }, []);
 
-  // Guarda automáticamente el ADN de los grupos viejos que no lo tengan
   useEffect(() => {
     if (!loading && activeGroup !== 'General' && !groupConfigs[activeGroup] && orders.some(o => o.group_name === activeGroup && !o.deleted)) {
       saveToGlobalSettings(`conf_${activeGroup}`, JSON.stringify(activeGroupConfig));
@@ -314,6 +310,7 @@ export default function App() {
     const now = Date.now();
     let needsRefetch = false;
 
+    // Limpieza de Pedidos Borrados (+48 horas)
     for (const o of ordersData) {
       if (o.deleted) {
         const delMatch = o.observations?.match(/\[DEL:(\d+)\]/);
@@ -326,6 +323,7 @@ export default function App() {
       }
     }
 
+    // Limpieza de Grupos Archivados (+40 días)
     const validArchived = [];
     for (const g of archivedGroupsData) {
       const daysElapsed = (now - g.archivedAt) / (1000 * 60 * 60 * 24);
@@ -651,9 +649,11 @@ export default function App() {
   
   const handleGroupAuth = () => {
     if (groupPin === 'marseo') { 
+       setIsAdmin(true); 
        setIsGroupAdmin(true); setIsMasterOwner(false); setIsCreator(true);
        setShowGroupAuth(false); setShowGroupManager(true); setGroupPin(''); setGroupPinError(false); setShowGroupPassword(false); 
     } else if (groupPin === 'lukasy67') {
+       setIsAdmin(true); 
        setIsGroupAdmin(true); setIsMasterOwner(true); setIsCreator(true);
        setShowGroupAuth(false); setShowGroupManager(true); setGroupPin(''); setGroupPinError(false); setShowGroupPassword(false); 
     } else {
@@ -671,6 +671,22 @@ export default function App() {
       alert("¡Contraseña de Administrador cambiada exitosamente!");
       setShowChangePass(false); setMasterPassInput(''); setNewAdminPassInput(''); setPassChangeError('');
     } catch (err) { setPassChangeError('Error de red al guardar.'); }
+  };
+
+  const handleCreateGroup = async (e) => {
+    e.preventDefault();
+    if (!newGroupConfig.name.trim()) return;
+    const cleanName = newGroupConfig.name.trim().replace(/\s+/g, '');
+    
+    await saveToGlobalSettings(`conf_${cleanName}`, JSON.stringify(newGroupConfig));
+    setGroupConfigs(prev => ({...prev, [cleanName]: newGroupConfig}));
+    
+    const link = getGroupLink(cleanName);
+    const textArea = document.createElement("textarea"); textArea.value = link; document.body.appendChild(textArea); textArea.select();
+    try { document.execCommand('copy'); } catch (err) {}
+    document.body.removeChild(textArea);
+    setQrModal({ isOpen: true, link: link, groupName: cleanName });
+    setNewGroupConfig({ ...newGroupConfig, name: '' });
   };
 
   const copyExistingGroupLink = (groupName) => {
@@ -733,6 +749,13 @@ export default function App() {
     const newObs = (order.observations || '').replace(/\s*\[DEL:\d+\]/g, '');
     await supabaseRequest(`orders?id=eq.${order.id}`, 'PATCH', { deleted: false, observations: newObs });
     logAction('Restauró Pedido', `Desde papelera`); fetchOrdersAndSettings();
+  };
+
+  const handlePermanentDelete = async (id) => {
+    if (!isGroupAdmin) return; 
+    if(!confirm("¿Estás seguro de eliminar esto permanentemente?")) return;
+    await supabaseRequest(`orders?id=eq.${id}`, 'DELETE');
+    logAction('Borro Permanente', `Destruyó pedido`); fetchOrdersAndSettings();
   };
 
   const activeOrders = useMemo(() => {
@@ -1144,7 +1167,7 @@ export default function App() {
                   <h3 className={`font-bold text-sm flex items-center gap-1 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
                     Panel de Administración 
                   </h3>
-                  <p className={`text-xs ${t.muted}`}>Herramientas exclusivas habilitadas.</p>
+                  <p className={`text-xs ${t.muted}`}>Bienvenido/a Admin. Herramientas exclusivas habilitadas.</p>
                 </div>
               </div>
               
@@ -1176,6 +1199,7 @@ export default function App() {
                       <History className="w-4 h-4" /> {showAuditLogs ? 'Ocultar Historial' : 'Historial'}
                     </button>
                     
+                    {/* Botón de Todos los Grupos disponible para AMBOS (lukasy67 y marseo) */}
                     {isCreator && (
                       <button 
                         onClick={() => { 
@@ -1867,6 +1891,9 @@ export default function App() {
                           </td>
                           <td className="py-2 text-right">
                              <button onClick={() => handleRestore(o)} className={`font-bold px-2 py-1 rounded transition-colors ${darkMode ? 'text-indigo-400 hover:bg-slate-700' : 'text-indigo-600 hover:bg-indigo-50'}`}>Restaurar</button>
+                             {isGroupAdmin && (
+                                <button onClick={() => handlePermanentDelete(o.id)} className={`px-2 py-1 rounded transition-colors ${darkMode ? 'text-red-400 hover:bg-slate-700' : 'text-red-400 hover:bg-red-50'}`}>Eliminar Ya</button>
+                             )}
                           </td>
                         </tr>
                       )
@@ -1927,7 +1954,7 @@ export default function App() {
                <Lock className="w-3 h-3" /> Acceso Admin
             </button>
           ) : (
-            <button onClick={() => { setIsAdmin(false); setIsGroupAdmin(false); setIsMasterOwner(false); setIsCreator(false); setShowGroupManager(false); setCurrentDelegateName(''); }} className="text-indigo-500 hover:text-indigo-400 text-xs font-bold flex items-center justify-center mx-auto gap-1">
+            <button onClick={() => { setIsAdmin(false); setIsGroupAdmin(false); setIsMasterOwner(false); setIsCreator(false); setShowGroupManager(false); }} className="text-indigo-500 hover:text-indigo-400 text-xs font-bold flex items-center justify-center mx-auto gap-1">
                <Unlock className="w-3 h-3" /> Salir de la Cuenta
             </button>
           )}
@@ -1979,7 +2006,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Modal de Login Admin */}
+        {/* Modal de Login Admin NORMAL */}
         {showAdminLogin && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
             <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
