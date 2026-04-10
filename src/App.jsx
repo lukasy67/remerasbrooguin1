@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone, Loader2, Layers, Lock, Unlock, X, Eye, EyeOff, Download, FileText, Info, AlertCircle, Search, CheckCircle2, Edit, Filter, Link2, Plus, ShieldAlert, Settings, MessageCircle, DollarSign, TrendingUp, Scissors, History, KeyRound } from 'lucide-react';
+import { Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone, Loader2, Layers, Lock, Unlock, X, Eye, EyeOff, Download, FileText, Info, AlertCircle, Search, CheckCircle2, Edit, Filter, Link2, Plus, ShieldAlert, Settings, MessageCircle, DollarSign, TrendingUp, Scissors, History, KeyRound, RefreshCw } from 'lucide-react';
 
 // ==========================================
 // CONFIGURACIÓN DE SUPABASE (CONEXIÓN DIRECTA API REST)
@@ -358,7 +358,7 @@ export default function App() {
   const handleAdminLogin = () => {
     if (adminPin === currentAdminPassword) { 
       setIsAdmin(true); 
-      setAdminGroupFilter(displayGroup); // SELECCIONA EL GRUPO ACTUAL AUTOMÁTICAMENTE
+      setAdminGroupFilter(displayGroup); 
       setShowAdminLogin(false); 
       setPinError(false); 
       setAdminPin(''); 
@@ -452,16 +452,10 @@ export default function App() {
     fetchOrdersAndSettings();
   };
 
-  // FILTRADO ESTRICTO DE VISUALIZACIÓN
   const activeOrders = useMemo(() => {
     let filtered = orders.filter(o => !o.deleted);
-    // Si NO es Admin Supremo, está atado al grupo actual
-    if (!isGroupAdmin) {
-       filtered = filtered.filter(o => (o.group_name || 'General') === displayGroup);
-    } else {
-       // Si es Admin Supremo, puede usar el Filtro de "Todos" u otros
-       if (adminGroupFilter !== 'Todos') filtered = filtered.filter(o => (o.group_name || 'General') === adminGroupFilter);
-    }
+    if (!isGroupAdmin) filtered = filtered.filter(o => (o.group_name || 'General') === displayGroup);
+    else if (adminGroupFilter !== 'Todos') filtered = filtered.filter(o => (o.group_name || 'General') === adminGroupFilter);
     return filtered;
   }, [orders, isGroupAdmin, displayGroup, adminGroupFilter]);
 
@@ -858,8 +852,19 @@ export default function App() {
                   </button>
                 ) : (
                   <>
-                    <button onClick={() => { setShowAuditLogs(true); fetchAuditLogs(); }} className="flex items-center gap-2 bg-purple-100 text-purple-700 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-purple-200 transition-all">
-                      <History className="w-4 h-4" /> Historial de Actividad
+                    <button 
+                      onClick={() => { 
+                        if (!showAuditLogs) {
+                          fetchAuditLogs();
+                          setShowAuditLogs(true);
+                          setTimeout(() => { document.getElementById('audit-logs-section')?.scrollIntoView({ behavior: 'smooth' }) }, 150);
+                        } else {
+                          setShowAuditLogs(false);
+                        }
+                      }} 
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-all ${showAuditLogs ? 'bg-purple-600 text-white hover:bg-purple-700' : 'bg-purple-100 text-purple-700 hover:bg-purple-200'}`}
+                    >
+                      <History className="w-4 h-4" /> {showAuditLogs ? 'Ocultar Historial' : 'Historial de Actividad'}
                     </button>
                     <button onClick={() => setShowGroupManager(!showGroupManager)} className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-700 transition-all">
                       <Settings className="w-4 h-4" /> {showGroupManager ? 'Ocultar Opciones Supremas' : 'Herramientas Supremas'}
@@ -1322,7 +1327,51 @@ export default function App() {
           </div>
         )}
 
-        <div className="text-center pb-8">
+        {/* HISTORIAL DE AUDITORÍA (DESPLEGABLE AL FONDO) */}
+        {showAuditLogs && isGroupAdmin && (
+          <div id="audit-logs-section" className="bg-white p-6 rounded-2xl shadow-sm border border-purple-200 mt-8 mb-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold flex items-center gap-2"><History className="w-5 h-5 text-purple-600" /> Historial de Actividad (Auditoría)</h2>
+              <div className="flex gap-2">
+                <button onClick={() => fetchAuditLogs()} className="text-indigo-600 hover:bg-indigo-50 p-2 rounded-lg transition-colors flex items-center gap-1 text-sm font-bold" title="Actualizar Datos">
+                  <RefreshCw className="w-4 h-4" /> Refrescar
+                </button>
+                <button onClick={() => setShowAuditLogs(false)} className="text-neutral-400 hover:bg-neutral-100 p-2 rounded-lg transition-colors" title="Ocultar Historial">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <p className="text-sm text-neutral-500 mb-4">Registro detallado de todos los movimientos realizados por los administradores en el sistema.</p>
+            <div className="overflow-x-auto max-h-[400px] overflow-y-auto border border-neutral-200 rounded-lg">
+               <table className="min-w-full text-xs text-left">
+                  <thead className="bg-neutral-50 sticky top-0 shadow-sm z-10">
+                     <tr>
+                        <th className="px-4 py-3 font-bold text-neutral-600 uppercase tracking-wider">Fecha y Hora</th>
+                        <th className="px-4 py-3 font-bold text-neutral-600 uppercase tracking-wider">Grupo</th>
+                        <th className="px-4 py-3 font-bold text-neutral-600 uppercase tracking-wider">Acción</th>
+                        <th className="px-4 py-3 font-bold text-neutral-600 uppercase tracking-wider">Detalles</th>
+                     </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-neutral-100">
+                     {auditLogsData.length === 0 ? (
+                       <tr><td colSpan="4" className="p-8 text-center text-neutral-400 italic">No hay registros de actividad aún.</td></tr>
+                     ) : (
+                       auditLogsData.map(log => (
+                         <tr key={log.id} className="hover:bg-neutral-50 transition-colors">
+                            <td className="px-4 py-3 text-neutral-500 whitespace-nowrap">{new Date(log.created_at).toLocaleString('es-PY')}</td>
+                            <td className="px-4 py-3 font-bold text-indigo-600 whitespace-nowrap">{log.group_name}</td>
+                            <td className="px-4 py-3 font-bold text-neutral-800 whitespace-nowrap">{log.action}</td>
+                            <td className="px-4 py-3 text-neutral-600">{log.details}</td>
+                         </tr>
+                       ))
+                     )}
+                  </tbody>
+               </table>
+            </div>
+          </div>
+        )}
+
+        <div className="text-center pb-8 pt-4 border-t border-neutral-200 mt-4">
           {!isAdmin ? (
             <button onClick={() => setShowAdminLogin(true)} className="text-neutral-400 hover:text-indigo-600 transition-colors text-[10px] flex items-center justify-center mx-auto gap-1">
                <Lock className="w-3 h-3" /> Acceso Admin
@@ -1398,49 +1447,6 @@ export default function App() {
 
               {passChangeError && <p className="text-xs text-red-500 mb-3 font-bold">{passChangeError}</p>}
               <button onClick={handleChangePasswordSubmit} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-all">Guardar Nueva Contraseña</button>
-            </div>
-          </div>
-        )}
-
-        {/* Modal de Historial de Auditoría (Solo Supremo) */}
-        {showAuditLogs && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[70] p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl p-6 w-full max-w-3xl shadow-2xl animate-in zoom-in max-h-[85vh] flex flex-col">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-indigo-900 flex items-center gap-2"><History className="w-5 h-5 text-purple-600" /> Historial de Actividad (Auditoría)</h3>
-                <button onClick={() => setShowAuditLogs(false)} className="text-neutral-400 hover:text-neutral-600"><X className="w-5 h-5" /></button>
-              </div>
-              <p className="text-xs text-neutral-500 mb-4">Registro invisible de todos los movimientos realizados por los administradores en el sistema.</p>
-              
-              <div className="overflow-y-auto flex-1 border border-neutral-200 rounded-lg">
-                 <table className="min-w-full text-xs text-left">
-                    <thead className="bg-neutral-100 sticky top-0">
-                       <tr>
-                          <th className="p-3 font-bold text-neutral-600">Fecha y Hora</th>
-                          <th className="p-3 font-bold text-neutral-600">Grupo</th>
-                          <th className="p-3 font-bold text-neutral-600">Acción</th>
-                          <th className="p-3 font-bold text-neutral-600">Detalles de la Acción</th>
-                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-neutral-100">
-                       {auditLogsData.length === 0 ? (
-                         <tr><td colSpan="4" className="p-4 text-center text-neutral-400">No hay registros de actividad aún.</td></tr>
-                       ) : (
-                         auditLogsData.map(log => (
-                           <tr key={log.id} className="hover:bg-neutral-50">
-                              <td className="p-3 text-neutral-500 whitespace-nowrap">{new Date(log.created_at).toLocaleString()}</td>
-                              <td className="p-3 font-bold text-indigo-600">{log.group_name}</td>
-                              <td className="p-3 font-bold">{log.action}</td>
-                              <td className="p-3 text-neutral-600">{log.details}</td>
-                           </tr>
-                         ))
-                       )}
-                    </tbody>
-                 </table>
-              </div>
-              <div className="mt-4 flex justify-end">
-                <button onClick={() => {fetchAuditLogs()}} className="text-indigo-600 text-sm font-bold flex items-center gap-1 hover:text-indigo-800"><RefreshCw className="w-4 h-4"/> Refrescar Datos</button>
-              </div>
             </div>
           </div>
         )}
