@@ -28,7 +28,6 @@ const supabaseRequest = async (path, method = 'GET', body = null) => {
     return { data: null, error: error.message };
   }
 };
-// ==========================================
 
 const SIZES_ADULTS = ['P', 'M', 'G', 'XG', 'XXL', 'XXXL'];
 const SIZES_KIDS = ['2', '4', '6', '8', '10', '12', '14', '16'];
@@ -170,7 +169,7 @@ export default function App() {
 
   const [isGroupAdmin, setIsGroupAdmin] = useState(false);
   const [isMasterOwner, setIsMasterOwner] = useState(false); 
-  const [isCreator, setIsCreator] = useState(false); // Para habilitar "Todos los grupos" a marseo y lukasy67
+  const [isCreator, setIsCreator] = useState(false); 
   
   const [showGroupAuth, setShowGroupAuth] = useState(false);
   const [groupPin, setGroupPin] = useState('');
@@ -453,6 +452,49 @@ export default function App() {
     return [...new Set([...groupsFromSettings, ...groupsFromOrders])].filter(Boolean).filter(g => !archivedNames.includes(g));
   }, [groupSettings, orders, archivedNames]);
 
+  // FUNCIÓN MAESTRA PARA GENERAR ENLACES EXACTOS
+  const getGroupLink = (groupName) => {
+    const baseUrl = window.location.origin + window.location.pathname;
+    const params = new URLSearchParams();
+    params.append('grupo', groupName);
+    
+    const groupOrders = orders.filter(o => o.group_name === groupName && !o.deleted);
+    let e = urlAge, t = urlType, tela = urlFabric, c = urlCost;
+    
+    if (groupName === newGroupConfig.name && isPreviewMode) {
+       e = newGroupConfig.edad; t = newGroupConfig.tipo; tela = newGroupConfig.tela; c = newGroupConfig.costo;
+    } else if (groupOrders.length > 0) {
+       const isDep = groupOrders.some(o => o.observations && o.observations.includes('[#'));
+       const isKids = groupOrders.some(o => SIZES_KIDS.includes(o.size));
+       e = isKids ? 'Infantil' : 'Adultos';
+       
+       if (isDep) {
+          const isCamisillaOrder = groupOrders.some(o => o.observations && o.observations.toLowerCase().includes('camisilla'));
+          const basePrenda = isCamisillaOrder ? 'Camisilla' : 'Remera';
+          const hasShort = groupOrders.some(o => o.observations && o.observations.includes('Short:') && !o.observations.includes('Short: NO'));
+          const hasMedias = groupOrders.some(o => o.observations && o.observations.includes('Medias: SI'));
+          
+          if (hasShort && hasMedias) t = `${basePrenda} + Short + Medias`;
+          else if (hasShort) t = `${basePrenda} + Short`;
+          else t = isCamisillaOrder ? 'Solo Camisilla' : 'Solo Remera';
+       } else {
+          t = 'Remera Piqué';
+       }
+       
+       const matchCosto = groupOrders[0].observations?.match(/\[Precio:\s*(\d+)\]/);
+       if (matchCosto) {
+          c = parseInt(matchCosto[1]);
+          const options = PRECIOS_BASE[e];
+          for (const tk in options) {
+             if (options[tk][t] === c) { tela = tk; break; }
+          }
+       }
+    }
+    
+    params.append('edad', e); params.append('tipo', t); params.append('tela', tela); params.append('costo', c);
+    return `${baseUrl}?${params.toString()}`;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name.trim() || formData.quantity < 1) { alert("Completa el nombre y cantidad."); return; }
@@ -547,17 +589,6 @@ export default function App() {
     setArchivedGroups(newArchived);
     await saveToGlobalSettings('archived_groups', JSON.stringify(newArchived));
     logAction('Restauró Grupo', `El grupo ${groupName} fue restaurado de la papelera`);
-    fetchOrdersAndSettings();
-  };
-
-  const handlePermanentDeleteGroup = async (groupName) => {
-    if(!confirm(`ATENCIÓN: Estás a punto de eliminar el grupo "${groupName}" y todos sus pedidos para siempre. ¿Estás seguro?`)) return;
-    setLoading(true);
-    await supabaseRequest(`orders?group_name=eq.${groupName}`, 'DELETE');
-    const newArchived = archivedGroups.filter(g => g.name !== groupName);
-    setArchivedGroups(newArchived);
-    await saveToGlobalSettings('archived_groups', JSON.stringify(newArchived));
-    logAction('Eliminó Grupo Permanentemente', `Destruyó el grupo ${groupName}`);
     fetchOrdersAndSettings();
   };
 
@@ -658,10 +689,7 @@ export default function App() {
     e.preventDefault();
     if (!newGroupConfig.name.trim()) return;
     const cleanName = newGroupConfig.name.trim().replace(/\s+/g, '');
-    const baseUrl = window.location.origin + window.location.pathname;
-    const params = new URLSearchParams();
-    params.append('grupo', cleanName); params.append('edad', newGroupConfig.edad); params.append('tipo', newGroupConfig.tipo); params.append('tela', newGroupConfig.tela); params.append('costo', newGroupConfig.costo);
-    const link = `${baseUrl}?${params.toString()}`;
+    const link = getGroupLink(cleanName);
     const textArea = document.createElement("textarea"); textArea.value = link; document.body.appendChild(textArea); textArea.select();
     try { document.execCommand('copy'); } catch (err) {}
     document.body.removeChild(textArea);
@@ -670,10 +698,7 @@ export default function App() {
   };
 
   const copyExistingGroupLink = (groupName) => {
-    const baseUrl = window.location.origin + window.location.pathname;
-    const params = new URLSearchParams(window.location.search);
-    params.set('grupo', groupName);
-    const link = `${baseUrl}?${params.toString()}`;
+    const link = getGroupLink(groupName);
     const textArea = document.createElement("textarea"); textArea.value = link; document.body.appendChild(textArea); textArea.select();
     try { document.execCommand('copy'); } catch (err) {}
     document.body.removeChild(textArea);
@@ -681,10 +706,7 @@ export default function App() {
   };
 
   const handleShareCurrentGroup = () => {
-    const baseUrl = window.location.origin + window.location.pathname;
-    const params = new URLSearchParams(window.location.search);
-    params.set('grupo', displayGroup);
-    const link = `${baseUrl}?${params.toString()}`;
+    const link = getGroupLink(displayGroup);
     setQrModal({ isOpen: true, link: link, groupName: displayGroup });
   };
 
@@ -738,7 +760,7 @@ export default function App() {
   };
 
   const handlePermanentDelete = async (id) => {
-    if (!isAdmin) return;
+    if (!isGroupAdmin) return;
     if(!confirm("¿Estás seguro de eliminar esto permanentemente?")) return;
     await supabaseRequest(`orders?id=eq.${id}`, 'DELETE');
     logAction('Borro Permanente', `Destruyó pedido`); fetchOrdersAndSettings();
@@ -824,6 +846,12 @@ export default function App() {
   }, [groupStatsList, groupSort, archivedNames]);
 
   const progressPercent = totalRevenue === 0 ? 0 : Math.round((totalCollected / totalRevenue) * 100);
+
+  // NUEVA FUNCIÓN PARA FILTRAR DESDE EL DIRECTORIO MAESTRO
+  const handleFilterFromDirectory = (groupName) => {
+    setAdminGroupFilter(groupName);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const handleExportCSV = () => {
     let csv = "\uFEFF"; 
@@ -966,14 +994,54 @@ export default function App() {
   return (
     <div className={`min-h-screen font-sans p-4 md:p-8 transition-colors duration-500 relative ${t.page}`}>
       
+      <style>
+        {`
+          @keyframes anim-fall {
+            0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(110vh) rotate(360deg); opacity: 0; }
+          }
+          @keyframes anim-float {
+            0% { transform: translateY(110vh) scale(0.5); opacity: 0; }
+            50% { opacity: 1; transform: translateY(50vh) scale(1.2); }
+            100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+          }
+          @keyframes anim-bounce {
+            0% { transform: translateY(110vh); }
+            50% { transform: translateY(30vh); }
+            100% { transform: translateY(110vh); }
+          }
+          @keyframes anim-zoom {
+            0% { transform: scale(0); opacity: 0; }
+            50% { transform: scale(1.5); opacity: 1; }
+            100% { transform: scale(1); opacity: 0; }
+          }
+          @keyframes anim-rise {
+            0% { transform: translateY(110vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(-10vh) rotate(-360deg); opacity: 0; }
+          }
+        `}
+      </style>
+
       {activeAnimationTheme !== null && <SuccessAnimation themeIndex={activeAnimationTheme} />}
 
-      {/* Botón Flotante "?" (Ayuda de Administración) */}
-      {isAdmin && !showAdminLegend && (
-        <button onClick={() => setShowAdminLegend(true)} className="fixed bottom-24 right-6 bg-indigo-600 text-white w-12 h-12 rounded-full shadow-2xl flex items-center justify-center hover:bg-indigo-700 transition-all transform hover:scale-110 z-40 animate-in fade-in" title="Ver herramientas de administración">
-           <span className="text-xl font-bold">?</span>
+      {/* Botones Flotantes (Oscuro y Ayuda) reubicados juntos */}
+      <div className="fixed bottom-24 right-6 flex flex-col gap-3 z-40 items-end">
+        {/* Botón Flotante MODO OSCURO */}
+        <button 
+          onClick={() => setDarkMode(!darkMode)}
+          className={`w-12 h-12 rounded-full shadow-2xl flex items-center justify-center transition-all transform hover:scale-110 border-2 ${darkMode ? 'bg-slate-800 text-yellow-400 border-slate-600' : 'bg-white text-indigo-900 border-neutral-200'}`}
+          title={darkMode ? "Activar Modo Claro" : "Activar Modo Oscuro"}
+        >
+          {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
         </button>
-      )}
+
+        {/* Botón Flotante "?" (Ayuda de Administración) */}
+        {isAdmin && !showAdminLegend && (
+          <button onClick={() => setShowAdminLegend(true)} className="bg-indigo-600 text-white w-12 h-12 rounded-full shadow-2xl flex items-center justify-center hover:bg-indigo-700 transition-all transform hover:scale-110 animate-in fade-in" title="Ver herramientas de administración">
+             <span className="text-xl font-bold">?</span>
+          </button>
+        )}
+      </div>
 
       {/* Botón Flotante Deshacer Eliminación */}
       {undoDeleteId && (
@@ -1052,7 +1120,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* Caja de Grupo y Botón Modo Oscuro */}
+            {/* Caja de Grupo */}
             <div className="flex gap-2 w-full sm:w-auto">
               <div className={`p-3 rounded-xl border flex-1 sm:flex-none shadow-inner flex items-center justify-between min-w-[150px] transition-colors ${isPreviewMode ? 'bg-emerald-900/80 border-emerald-500' : 'bg-indigo-800/60 border-indigo-700'}`}>
                  <div>
@@ -1065,15 +1133,6 @@ export default function App() {
                    {isPreviewMode ? <Eye className="w-5 h-5 text-emerald-200" /> : <QrCode className="w-5 h-5 text-indigo-300" />}
                  </button>
               </div>
-
-              {/* Botón MODO OSCURO */}
-              <button 
-                onClick={() => setDarkMode(!darkMode)}
-                className="p-3 bg-indigo-800/60 border border-indigo-700 rounded-xl hover:bg-indigo-700 transition-colors flex items-center justify-center text-indigo-300 hover:text-white"
-                title={darkMode ? "Activar Modo Claro" : "Activar Modo Oscuro"}
-              >
-                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </button>
             </div>
           </div>
         </header>
@@ -1093,7 +1152,7 @@ export default function App() {
                   <li><b>🔹 Estado de Pago:</b> Clickea sobre 'Pendiente/Señado/Pagado' en la tabla para registrar entregas de dinero. Al hacerlo, te dará la opción de enviar un Recibo por WhatsApp.</li>
                   <li><b>🔹 Papelera:</b> Si borras un pedido, irá a la papelera. Tienes 48 horas para deshacerlo antes de que se autoelimine permanentemente para ahorrar espacio.</li>
                   <li><b>🔹 Cerrar Lista:</b> Bloquea el formulario para que los clientes ya no puedan agregar pedidos.</li>
-                  {isCreator && (
+                  {isGroupAdmin && (
                     <>
                       <li className="pt-1 mt-1 border-t border-indigo-300/30"><b>👑 Creador de Enlaces:</b> Genera links personalizados con precios bloqueados para cada colegio.</li>
                       <li><b>👑 Hojas de Corte:</b> Exporta un PDF resumido especial solo para el taller de costura.</li>
@@ -1760,7 +1819,11 @@ export default function App() {
                    ) : (
                      sortedGroupStats.map(group => (
                        <tr key={group.name} className={`${t.rowHover} transition-colors`}>
-                         <td className="px-4 py-3 font-bold text-indigo-500">{group.name}</td>
+                         <td className="px-4 py-3 font-bold text-indigo-500">
+                           <button onClick={() => handleFilterFromDirectory(group.name)} className="hover:underline text-left outline-none transition-colors" title={`Ver pedidos de ${group.name}`}>
+                             {group.name}
+                           </button>
+                         </td>
                          <td className={`px-4 py-3 ${t.muted}`}>{formatDate(group.firstOrder)}</td>
                          <td className={`px-4 py-3 ${t.muted}`}>{formatDate(group.lastOrder)}</td>
                          <td className={`px-4 py-3 text-right font-bold ${darkMode ? 'text-slate-300' : 'text-neutral-800'}`}>{group.count} und.</td>
@@ -1801,7 +1864,6 @@ export default function App() {
                         <td className="py-2 px-4 text-red-400 font-bold">{Math.ceil(daysLeft)} días</td>
                         <td className="py-2 px-4 text-right">
                            <button onClick={() => handleRestoreGroup(g.name)} className={`font-bold px-2 py-1 rounded transition-colors mr-2 ${darkMode ? 'text-indigo-400 hover:bg-slate-700' : 'text-indigo-600 hover:bg-indigo-50'}`}>Restaurar</button>
-                           <button onClick={() => handlePermanentDeleteGroup(g.name)} className={`px-2 py-1 rounded transition-colors ${darkMode ? 'text-red-400 hover:bg-slate-700' : 'text-red-400 hover:bg-red-50'}`}>Eliminar Ya</button>
                         </td>
                       </tr>
                       )
@@ -1836,7 +1898,9 @@ export default function App() {
                           </td>
                           <td className="py-2 text-right">
                              <button onClick={() => handleRestore(o)} className={`font-bold px-2 py-1 rounded transition-colors ${darkMode ? 'text-indigo-400 hover:bg-slate-700' : 'text-indigo-600 hover:bg-indigo-50'}`}>Restaurar</button>
-                             <button onClick={() => handlePermanentDelete(o.id)} className={`px-2 py-1 rounded transition-colors ${darkMode ? 'text-red-400 hover:bg-slate-700' : 'text-red-400 hover:bg-red-50'}`}>Eliminar Ya</button>
+                             {isGroupAdmin && (
+                                <button onClick={() => handlePermanentDelete(o.id)} className={`px-2 py-1 rounded transition-colors ${darkMode ? 'text-red-400 hover:bg-slate-700' : 'text-red-400 hover:bg-red-50'}`}>Eliminar Ya</button>
+                             )}
                           </td>
                         </tr>
                       )
