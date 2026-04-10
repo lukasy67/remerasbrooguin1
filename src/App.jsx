@@ -233,33 +233,27 @@ export default function App() {
   const costoMangaLarga = isContextDeportiva ? 15000 : 10000;
 
   // Lógica de Autocompletado del Arancel (Se dispara al cambiar opciones del Nuevo Grupo)
-  useEffect(() => {
+  const handleConfigChange = (e) => {
+    const { name, value } = e.target;
     setNewGroupConfig(prev => {
-      // Regla especial Piqué
-      if (prev.tipo === 'Remera Piqué') {
-        if (prev.tela !== 'Premium' || prev.costo !== 95000) {
-          return { ...prev, tela: 'Premium', costo: 95000 };
+      const next = { ...prev, [name]: name === 'costo' ? (parseInt(value) || 0) : value };
+      
+      if (['tipo', 'edad', 'tela'].includes(name)) {
+        if (next.tipo === 'Remera Piqué') {
+          next.tela = 'Premium';
+          next.costo = 95000;
+        } else {
+          let calcPrice = PRECIOS_BASE[next.edad]?.[next.tela]?.[next.tipo];
+          if (!calcPrice && next.tipo.includes('Camisilla + Short + Medias')) calcPrice = PRECIOS_BASE[next.edad]?.[next.tela]?.['Remera + Short + Medias'];
+          else if (!calcPrice && next.tipo.includes('Camisilla + Short')) calcPrice = PRECIOS_BASE[next.edad]?.[next.tela]?.['Remera + Short'];
+          else if (!calcPrice && next.tipo.includes('Solo Camisilla')) calcPrice = PRECIOS_BASE[next.edad]?.[next.tela]?.['Solo Remera'];
+          
+          if (calcPrice) next.costo = calcPrice;
         }
-        return prev;
       }
-      
-      // Auto-calcular costo para las demás opciones
-      let calcPrice = PRECIOS_BASE[prev.edad]?.[prev.tela]?.[prev.tipo];
-      if (!calcPrice && prev.tipo.includes('Camisilla + Short + Medias')) {
-        calcPrice = PRECIOS_BASE[prev.edad]?.[prev.tela]?.['Remera + Short + Medias'];
-      } else if (!calcPrice && prev.tipo.includes('Camisilla + Short')) {
-        calcPrice = PRECIOS_BASE[prev.edad]?.[prev.tela]?.['Remera + Short'];
-      } else if (!calcPrice && prev.tipo.includes('Solo Camisilla')) {
-        calcPrice = PRECIOS_BASE[prev.edad]?.[prev.tela]?.['Solo Remera'];
-      }
-
-      if (calcPrice && prev.costo !== calcPrice) {
-        return { ...prev, costo: calcPrice };
-      }
-      
-      return prev;
+      return next;
     });
-  }, [newGroupConfig.edad, newGroupConfig.tela, newGroupConfig.tipo]);
+  };
 
   const [searchTerm, setSearchTerm] = useState(''); 
   const [showSuccess, setShowSuccess] = useState(false);
@@ -772,6 +766,13 @@ export default function App() {
     logAction('Restauró Pedido', `Desde papelera`); fetchOrdersAndSettings();
   };
 
+  const handlePermanentDelete = async (id) => {
+    if (!isGroupAdmin) return; // SOLO ADMIN SUPREMO PUEDE ELIMINAR PERMANENTEMENTE
+    if(!confirm("¿Estás seguro de eliminar esto permanentemente?")) return;
+    await supabaseRequest(`orders?id=eq.${id}`, 'DELETE');
+    logAction('Borro Permanente', `Destruyó pedido`); fetchOrdersAndSettings();
+  };
+
   const activeOrders = useMemo(() => {
     let filtered = orders.filter(o => !o.deleted && !archivedNames.includes(o.group_name || 'General'));
     if (!isGroupAdmin) filtered = filtered.filter(o => (o.group_name || 'General') === displayGroup);
@@ -1168,7 +1169,7 @@ export default function App() {
                     <li className="pt-1 mt-1 border-t border-indigo-300/30"><b>👑 Todos los Grupos:</b> Verás un botón extra para acceder a un directorio completo y estadístico de todos los grupos y ventas.</li>
                   )}
                   {isMasterOwner && (
-                    <li className="pt-1 mt-1 border-t border-indigo-300/30"><b>🚀 Dueño Supremo:</b> Tienes acceso al total financiero de toda la empresa, directorio ordenable, papelera de grupos de 40 días, y al historial silencioso de los administradores.</li>
+                    <li className="pt-1 mt-1 border-t border-indigo-300/30"><b>🚀 Dueño Supremo:</b> Tienes acceso al total financiero de toda la empresa, papelera de grupos de 40 días, y al historial silencioso de los administradores.</li>
                   )}
                 </ul>
               </div>
