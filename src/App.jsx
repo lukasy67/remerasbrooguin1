@@ -184,28 +184,70 @@ export default function App() {
   const archivedNames = useMemo(() => archivedGroups.map(g => g.name), [archivedGroups]);
 
   // EL CEREBRO: Deduce los detalles visuales basándose en el ADN del grupo (o la URL si es visitante)
-  const savedConfig = groupConfigs[contextualGroup];
-  const displayAge = isPreviewMode ? newGroupConfig.edad : (savedConfig && isGroupAdmin && adminGroupFilter !== 'Todos' ? savedConfig.edad : urlAge);
-  const displayType = isPreviewMode ? newGroupConfig.tipo : (savedConfig && isGroupAdmin && adminGroupFilter !== 'Todos' ? savedConfig.tipo : urlType);
-  const displayFabric = isPreviewMode ? newGroupConfig.tela : (savedConfig && isGroupAdmin && adminGroupFilter !== 'Todos' ? savedConfig.tela : urlFabric);
-  const displayCost = isPreviewMode ? newGroupConfig.costo : (savedConfig && isGroupAdmin && adminGroupFilter !== 'Todos' ? savedConfig.costo : urlCost);
+  // Al cambiar el dropdown (o cargar la página), el sistema moldea todo el formulario
+  const activeGroupConfig = useMemo(() => {
+    if (isPreviewMode) return newGroupConfig;
+    const conf = groupConfigs[contextualGroup];
+    if (conf) return conf;
+
+    // Si no tiene ADN, infiere del historial (Legado) o de la URL
+    const groupOrders = orders.filter(o => o.group_name === contextualGroup && !o.deleted);
+    let e = urlAge, t = urlType, tela = urlFabric, c = urlCost;
+    if (groupOrders.length > 0) {
+       const isDep = groupOrders.some(o => o.observations && o.observations.includes('[#'));
+       const isKids = groupOrders.some(o => SIZES_KIDS.includes(o.size));
+       e = isKids ? 'Infantil' : 'Adultos';
+       
+       if (isDep) {
+          const isCamisillaOrder = groupOrders.some(o => o.observations && o.observations.toLowerCase().includes('camisilla'));
+          const basePrenda = isCamisillaOrder ? 'Camisilla' : 'Remera';
+          const hasShort = groupOrders.some(o => o.observations && o.observations.includes('Short:') && !o.observations.includes('Short: NO'));
+          const hasMedias = groupOrders.some(o => o.observations && o.observations.includes('Medias: SI'));
+          
+          if (hasShort && hasMedias) t = `${basePrenda} + Short + Medias`;
+          else if (hasShort) t = `${basePrenda} + Short`;
+          else t = isCamisillaOrder ? 'Solo Camisilla' : 'Solo Remera';
+       } else {
+          t = 'Remera Piqué';
+       }
+       
+       const matchCosto = groupOrders[0].observations?.match(/\[Precio:\s*(\d+)\]/);
+       if (matchCosto) {
+          c = parseInt(matchCosto[1]);
+       }
+    }
+    return { edad: e, tipo: t, tela: tela, costo: c };
+  }, [contextualGroup, groupConfigs, orders, isPreviewMode, newGroupConfig, urlAge, urlType, urlFabric, urlCost]);
+
+  const displayAge = activeGroupConfig.edad;
+  const displayType = activeGroupConfig.tipo;
+  const displayFabric = activeGroupConfig.tela;
+  const displayCost = activeGroupConfig.costo;
 
   const isContextDeportiva = displayType !== 'Remera Piqué';
-
   const activeSizes = displayAge === 'Infantil' ? SIZES_KIDS : SIZES_ADULTS;
   const isCamisilla = displayType.toLowerCase().includes('camisilla');
   const costoMangaLarga = isContextDeportiva ? 15000 : 10000;
 
-  useEffect(() => {
-    if (newGroupConfig.tipo === 'Remera Piqué') {
-      if (newGroupConfig.tela !== 'Premium') setNewGroupConfig(prev => ({ ...prev, tela: 'Premium' }));
-      return; 
-    }
-    let calcPrice = PRECIOS_BASE[newGroupConfig.edad]?.[newGroupConfig.tela]?.[newGroupConfig.tipo];
-    if (!calcPrice && newGroupConfig.tipo.includes('Camisilla + Short + Medias')) calcPrice = PRECIOS_BASE[newGroupConfig.edad]?.[newGroupConfig.tela]?.['Remera + Short + Medias'];
-    else if (!calcPrice && newGroupConfig.tipo.includes('Camisilla + Short')) calcPrice = PRECIOS_BASE[newGroupConfig.edad]?.[newGroupConfig.tela]?.['Remera + Short'];
-    if (calcPrice) setNewGroupConfig(prev => ({ ...prev, costo: calcPrice }));
-  }, [newGroupConfig.edad, newGroupConfig.tela, newGroupConfig.tipo]);
+  // Manejador centralizado para "Nuevo Grupo" en Supremo (Resuelve precios Piqué automáticos)
+  const handleConfigChange = (e) => {
+    const { name, value } = e.target;
+    setNewGroupConfig(prev => {
+        const next = { ...prev, [name]: value };
+        if (['tipo', 'edad', 'tela'].includes(name)) {
+            if (next.tipo === 'Remera Piqué') {
+                next.tela = 'Premium';
+                next.costo = 95000;
+            } else {
+                let calcPrice = PRECIOS_BASE[next.edad]?.[next.tela]?.[next.tipo];
+                if (!calcPrice && next.tipo.includes('Camisilla + Short + Medias')) calcPrice = PRECIOS_BASE[next.edad]?.[next.tela]?.['Remera + Short + Medias'];
+                else if (!calcPrice && next.tipo.includes('Camisilla + Short')) calcPrice = PRECIOS_BASE[next.edad]?.[next.tela]?.['Remera + Short'];
+                if (calcPrice) next.costo = calcPrice;
+            }
+        }
+        return next;
+    });
+  };
 
   const [searchTerm, setSearchTerm] = useState(''); 
   const [showSuccess, setShowSuccess] = useState(false);
@@ -230,14 +272,13 @@ export default function App() {
     trackVisit();
   }, []);
 
-  // Si un visitante entra a un link viejo que no tiene ADN guardado, lo guarda usando los datos de la URL.
+  // Guarda automáticamente el ADN de los grupos viejos que no lo tengan
   useEffect(() => {
-    if (!loading && activeGroup !== 'General' && !groupConfigs[activeGroup] && orders.length > 0) {
-      const currentConf = { edad: urlAge, tipo: urlType, tela: urlFabric, costo: urlCost };
-      saveToGlobalSettings(`conf_${activeGroup}`, JSON.stringify(currentConf));
-      setGroupConfigs(prev => ({...prev, [activeGroup]: currentConf}));
+    if (!loading && activeGroup !== 'General' && !groupConfigs[activeGroup] && orders.some(o => o.group_name === activeGroup && !o.deleted)) {
+      saveToGlobalSettings(`conf_${activeGroup}`, JSON.stringify(activeGroupConfig));
+      setGroupConfigs(prev => ({...prev, [activeGroup]: activeGroupConfig}));
     }
-  }, [loading, activeGroup, urlAge, urlType, urlFabric, urlCost, groupConfigs, orders.length]);
+  }, [loading, activeGroup, groupConfigs, orders, activeGroupConfig]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -360,7 +401,6 @@ export default function App() {
       }
       setArchivedGroups(parsedArchived);
 
-      // Cargar los "ADN" de todos los grupos
       resGlobal.data.forEach(item => {
         if (item.id.startsWith('conf_')) {
           try { parsedConfigs[item.id.replace('conf_', '')] = JSON.parse(item.value); } catch(e){}
@@ -440,40 +480,14 @@ export default function App() {
     const params = new URLSearchParams();
     params.append('grupo', groupName);
     
-    const conf = groupConfigs[groupName];
-    let e = urlAge, t = urlType, tela = urlFabric, c = urlCost;
-    
+    let conf = groupConfigs[groupName];
     if (groupName === newGroupConfig.name && isPreviewMode) {
-       e = newGroupConfig.edad; t = newGroupConfig.tipo; tela = newGroupConfig.tela; c = newGroupConfig.costo;
-    } else if (conf) {
-       e = conf.edad; t = conf.tipo; tela = conf.tela; c = conf.costo;
-    } else {
-       // Legado
-       const groupOrders = orders.filter(o => o.group_name === groupName && !o.deleted);
-       if (groupOrders.length > 0) {
-          const isDep = groupOrders.some(o => o.observations && o.observations.includes('[#'));
-          const isKids = groupOrders.some(o => SIZES_KIDS.includes(o.size));
-          e = isKids ? 'Infantil' : 'Adultos';
-          if (isDep) {
-             const isCamisillaOrder = groupOrders.some(o => o.observations && o.observations.toLowerCase().includes('camisilla'));
-             const basePrenda = isCamisillaOrder ? 'Camisilla' : 'Remera';
-             const hasShort = groupOrders.some(o => o.observations && o.observations.includes('Short:') && !o.observations.includes('Short: NO'));
-             const hasMedias = groupOrders.some(o => o.observations && o.observations.includes('Medias: SI'));
-             if (hasShort && hasMedias) t = `${basePrenda} + Short + Medias`;
-             else if (hasShort) t = `${basePrenda} + Short`;
-             else t = isCamisillaOrder ? 'Solo Camisilla' : 'Solo Remera';
-          } else t = 'Remera Piqué';
-          
-          const matchCosto = groupOrders[0].observations?.match(/\[Precio:\s*(\d+)\]/);
-          if (matchCosto) {
-             c = parseInt(matchCosto[1]);
-             const options = PRECIOS_BASE[e];
-             for (const tk in options) { if (options[tk][t] === c) { tela = tk; break; } }
-          }
-       }
+       conf = newGroupConfig;
     }
     
-    params.append('edad', e); params.append('tipo', t); params.append('tela', tela); params.append('costo', c);
+    if (conf) {
+       params.append('edad', conf.edad); params.append('tipo', conf.tipo); params.append('tela', conf.tela); params.append('costo', conf.costo);
+    }
     return `${baseUrl}?${params.toString()}`;
   };
 
@@ -549,7 +563,6 @@ export default function App() {
         await supabaseRequest('group_settings', 'POST', { group_name: cleanNewName, is_locked: setting.is_locked });
       }
       
-      // Mover el ADN guardado
       const oldConf = groupConfigs[renameModal.oldName];
       if (oldConf) {
          await saveToGlobalSettings(`conf_${cleanNewName}`, JSON.stringify(oldConf));
@@ -690,7 +703,6 @@ export default function App() {
     if (!newGroupConfig.name.trim()) return;
     const cleanName = newGroupConfig.name.trim().replace(/\s+/g, '');
     
-    // Guardar ADN del nuevo grupo
     await saveToGlobalSettings(`conf_${cleanName}`, JSON.stringify(newGroupConfig));
     setGroupConfigs(prev => ({...prev, [cleanName]: newGroupConfig}));
     
@@ -1408,7 +1420,7 @@ export default function App() {
                         <HelperTooltip darkMode={darkMode} text="El tamaño de tu prenda. Los talles especiales suelen ser unisex automáticamente." />
                       </label>
                       <select name="size" value={formData.size} onChange={handleChange} className={`block w-full px-3 py-2 rounded-lg sm:text-sm cursor-pointer font-bold outline-none focus:ring-2 ${t.input} ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>
-                        {activeSizes.map(s => (<option key={s} value={s}>{s}</option>))}
+                        {activeSizes.map(s => (<option key={s} value={s}>{s} {displayAge === 'Infantil' ? '(Años)' : ''}</option>))}
                       </select>
                     </div>
                     <div>
@@ -1460,7 +1472,7 @@ export default function App() {
                             </label>
                             {formData.includeShort && (
                                <select name="shortSize" value={formData.shortSize} onChange={handleChange} className={`px-2 py-1 rounded text-xs font-bold outline-none ${t.input}`}>
-                                 {activeSizes.map(s => (<option key={s} value={s}>{s}</option>))}
+                                 {activeSizes.map(s => (<option key={s} value={s}>{s} {displayAge === 'Infantil' ? '(Años)' : ''}</option>))}
                                </select>
                             )}
                           </div>
