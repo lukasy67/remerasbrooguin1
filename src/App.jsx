@@ -334,7 +334,7 @@ export default function App() {
   };
 
   const handleCatalogContact = () => {
-    const msg = "Hola, vengo desde la pagina de brooguin, estoy interesado/a en realizar un pedido personalizado y me gustaron los diseños!";
+    const msg = "Hola, vengo desde la página de Brooguin Sport. ¡Estoy interesado/a en realizar un pedido personalizado y me gustaron los diseños!";
     window.open(`https://wa.me/595984948834?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
@@ -999,7 +999,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* MODAL CATÁLOGO */}
+        {/* MODAL CATÁLOGO MEJORADO */}
         {showCatalogModal && (
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[80] p-4 backdrop-blur-sm overflow-y-auto">
              <div className={`rounded-2xl w-full max-w-4xl shadow-2xl animate-in zoom-in my-auto ${darkMode ? 'bg-slate-900 border border-slate-700' : 'bg-white'}`}>
@@ -1017,7 +1017,7 @@ export default function App() {
                     Explora nuestros estilos de fabricación. Haz clic en cualquier imagen para comunicarte directamente con nuestro equipo de diseño vía WhatsApp y empezar tu pedido.
                   </p>
 
-                  {/* Galería Visual */}
+                  {/* Galería Visual Mejorada */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-8">
                      {CATALOG_ITEMS.map((item, idx) => (
                        <div 
@@ -1025,8 +1025,9 @@ export default function App() {
                          onClick={handleCatalogContact}
                          className={`group relative rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all cursor-pointer border-2 ${darkMode ? 'border-slate-800 hover:border-indigo-500' : 'border-neutral-100 hover:border-indigo-400'}`}
                        >
-                         <div className="h-48 overflow-hidden bg-slate-100">
-                           <img src={item.img} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                         {/* Altura responsiva y object-contain para no cortar fotos verticales */}
+                         <div className="h-64 sm:h-72 md:h-80 w-full overflow-hidden bg-slate-100 flex items-center justify-center p-2">
+                           <img src={item.img} alt={item.name} className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105" />
                          </div>
                          <div className={`absolute inset-0 bg-indigo-900/0 group-hover:bg-indigo-900/60 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100`}>
                             <div className="bg-[#25D366] text-white px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform">
@@ -1094,59 +1095,6 @@ export default function App() {
                   )}
                 </div>
              </div>
-          </div>
-        )}
-
-        {/* MODAL CÓDIGO QR */}
-        {qrModal.isOpen && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
-            <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in text-center ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
-              <div className="flex justify-between items-center mb-4">
-                <h3 className={`font-bold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}><QrCode className="w-5 h-5 text-indigo-500" /> Compartir Grupo</h3>
-                <button onClick={() => setQrModal({isOpen: false, link: '', groupName: ''})} className={`${t.muted} hover:text-slate-200`}><X className="w-5 h-5" /></button>
-              </div>
-              <p className={`text-sm mb-4 ${t.muted}`}>Comparte este código con tu equipo para que ingresen directo al grupo <strong>{qrModal.groupName}</strong>.</p>
-              <div className={`p-4 rounded-xl flex justify-center mb-4 border ${darkMode ? 'bg-slate-200 border-slate-400' : 'bg-neutral-100 border-neutral-200'}`}>
-                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrModal.link)}&margin=10`} alt="QR Code" className="rounded-lg shadow-sm" />
-              </div>
-              <div className="flex gap-2 mb-4">
-                <a href={`https://wa.me/?text=${encodeURIComponent(`¡Hola! Haz tu pedido de indumentaria para el grupo *${qrModal.groupName}* aquí:\n\n${qrModal.link}`)}`} target="_blank" rel="noopener noreferrer" className="flex-1 bg-[#25D366] text-white font-bold py-2 px-3 rounded-xl hover:bg-[#20bd5a] transition-all flex items-center justify-center gap-2 text-sm shadow-sm">
-                  <MessageCircle className="w-4 h-4" /> Enviar
-                </a>
-                <button onClick={() => { const textArea = document.createElement("textarea"); textArea.value = qrModal.link; document.body.appendChild(textArea); textArea.select(); try { document.execCommand('copy'); alert("¡Enlace copiado al portapapeles!"); } catch (err) {} document.body.removeChild(textArea); }} className={`flex-1 font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-2 text-sm shadow-sm border-none ${darkMode ? 'bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/40' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'}`}>
-                  <Link2 className="w-4 h-4" /> Copiar
-                </button>
-              </div>
-              <button onClick={() => setQrModal({isOpen: false, link: '', groupName: ''})} className={`w-full font-bold py-2 rounded-xl transition-all text-sm border-none ${darkMode ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-neutral-800 text-white hover:bg-neutral-900'}`}>Cerrar Ventana</button>
-            </div>
-          </div>
-        )}
-
-        {/* MODAL RENOMBRAR */}
-        {renameModal.isOpen && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
-            <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
-              <div className="flex justify-between items-center mb-4">
-                <h3 className={`font-bold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}><Edit className="w-5 h-5 text-amber-500" /> Renombrar Grupo</h3>
-                <button onClick={() => setRenameModal({isOpen: false, oldName: '', newName: ''})} className={`${t.muted} hover:text-slate-200`}><X className="w-5 h-5" /></button>
-              </div>
-              <div className="space-y-3 mb-4">
-                <div>
-                  <label className={`block text-[10px] uppercase font-bold mb-1 ${t.muted}`}>Nombre Actual</label>
-                  <input type="text" value={renameModal.oldName} disabled className={`w-full px-4 py-2 border rounded-xl text-sm cursor-not-allowed ${darkMode ? 'bg-slate-900 border-slate-700 text-slate-500' : 'bg-neutral-100 border-neutral-200 text-neutral-500'}`} />
-                </div>
-                <div>
-                  <label className={`block text-[10px] uppercase font-bold mb-1 ${darkMode ? 'text-indigo-400' : 'text-indigo-500'}`}>Nuevo Nombre (Sin Espacios)</label>
-                  <input type="text" value={renameModal.newName} onChange={(e) => setRenameModal({...renameModal, newName: e.target.value})} placeholder="Ej. ColegioNacional" className={`w-full px-4 py-2 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold ${t.input} ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`} />
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => setRenameModal({isOpen: false, oldName: '', newName: ''})} className={`flex-1 font-bold py-2 rounded-xl transition-all text-sm border-none ${darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'}`}>Cancelar</button>
-                <button onClick={handleRenameGroupSubmit} disabled={loading} className="flex-1 bg-amber-500 text-white font-bold py-2 rounded-xl hover:bg-amber-600 transition-all text-sm flex items-center justify-center gap-2 border-none">
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Guardar Cambio'}
-                </button>
-              </div>
-            </div>
           </div>
         )}
 
