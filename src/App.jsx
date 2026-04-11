@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone, Loader2, Layers, Lock, Unlock, X, Eye, EyeOff, Download, FileText, Info, AlertCircle, Search, CheckCircle2, Edit, Filter, Link2, Plus, ShieldAlert, Settings, MessageCircle, DollarSign, TrendingUp, Scissors, History, KeyRound, RefreshCw, BarChart3, ExternalLink, Receipt, Target, QrCode, MapPin, Moon, Sun, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone, Loader2, Layers, Lock, Unlock, X, Eye, EyeOff, Download, FileText, Info, AlertCircle, Search, CheckCircle2, Edit, Filter, Link2, Plus, ShieldAlert, Settings, MessageCircle, DollarSign, TrendingUp, Scissors, History, KeyRound, RefreshCw, BarChart3, ExternalLink, Receipt, Target, QrCode, MapPin, Moon, Sun, ArrowRight, ArrowLeft, ImagePlus } from 'lucide-react';
 
 // ==========================================
-// CONFIGURACIÓN DE SUPABASE (API REST)
+// CONFIGURACIÓN DE SUPABASE
 // ==========================================
 const supabaseUrl = 'https://waoylkoopzluyhuuhbbc.supabase.co'; 
 const supabaseKey = 'sb_publishable_JYC_sxawUbpXIYycV7HO3A_kiUiFyoy'; 
@@ -20,19 +20,20 @@ const supabaseRequest = async (path, method = 'GET', body = null) => {
   } catch (error) { return { data: null, error: error.message }; }
 };
 
-const SIZES_ADULTS = ['P', 'M', 'G', 'XG', 'XXL', 'XXXL'];
-const SIZES_KIDS = ['2', '4', '6', '8', '10', '12', '14', '16'];
+// Talles universales
+const SIZES_UNIVERSAL = ['P', 'M', 'G', 'XG', 'XXL', 'XXXL'];
+const AGE_RANGES = ['2 a 5 años', '6 a 10 años', '11 a 14 años', '15 a 16 años'];
 
 const PRECIOS_BASE = {
   Adultos: {
-    Premium: { 'Solo Remera': 105000, 'Remera + Short': 155000, 'Remera + Short + Medias': 175000 },
-    'Semi-Premium': { 'Solo Remera': 95000, 'Remera + Short': 145000, 'Remera + Short + Medias': 160000 },
-    Estandard: { 'Solo Remera': 85000, 'Remera + Short': 130000, 'Remera + Short + Medias': 150000 }
+    Premium: { 'Solo Remera': 105000, 'Remera + Short': 155000, 'Equipo Completo': 175000 },
+    'Semi-Premium': { 'Solo Remera': 95000, 'Remera + Short': 145000, 'Equipo Completo': 160000 },
+    Estandard: { 'Solo Remera': 85000, 'Remera + Short': 130000, 'Equipo Completo': 150000 }
   },
   Infantil: {
-    Premium: { 'Solo Remera': 90000, 'Remera + Short': 130000, 'Remera + Short + Medias': 150000 },
-    'Semi-Premium': { 'Solo Remera': 80000, 'Remera + Short': 110000, 'Remera + Short + Medias': 130000 },
-    Estandard: { 'Solo Remera': 60000, 'Remera + Short': 90000, 'Remera + Short + Medias': 110000 }
+    Premium: { 'Solo Remera': 90000, 'Remera + Short': 130000, 'Equipo Completo': 150000 },
+    'Semi-Premium': { 'Solo Remera': 80000, 'Remera + Short': 110000, 'Equipo Completo': 130000 },
+    Estandard: { 'Solo Remera': 60000, 'Remera + Short': 90000, 'Equipo Completo': 110000 }
   }
 };
 
@@ -73,15 +74,28 @@ const formatDate = (timestamp) => {
 };
 
 const extractDetails = (obs) => {
-  if (!obs) return { details: '', rest: '' };
-  const match = obs.match(/(\[#.*?\])/);
-  if (match) {
-      const details = match[1];
-      const rest = obs.replace(match[1], '').replace(/\[Precio:.*?\]/, '').trim();
-      return { details, rest: rest.startsWith('Obs:') ? rest.substring(4).trim() : rest };
+  if (!obs) return { details: '', rest: '', loc: '' };
+  let details = '';
+  let rest = obs;
+  let loc = '';
+
+  // Extracción de la localización oculta
+  const locMatch = rest.match(/\[Loc:\s*(.*?)\]/);
+  if (locMatch) {
+    loc = locMatch[1];
+    rest = rest.replace(locMatch[0], '').trim();
   }
-  return { details: '', rest: obs.replace(/\[Precio:.*?\]/, '').trim() };
-}
+
+  const bracketRegex = /^(\[.*?\]\s*)+/;
+  const match = rest.match(bracketRegex);
+  
+  if (match) {
+    details = match[0].trim();
+    rest = rest.replace(bracketRegex, '').trim();
+  }
+  if (rest.startsWith('Obs:')) rest = rest.substring(4).trim();
+  return { details, rest, loc };
+};
 
 // ==========================================
 // APLICACIÓN PRINCIPAL
@@ -90,19 +104,19 @@ export default function App() {
   const [darkMode, setDarkMode] = useState(false);
 
   const t = {
-    page: darkMode ? 'bg-slate-900 text-slate-200' : 'bg-neutral-100 text-neutral-800',
-    card: darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-neutral-200',
-    input: darkMode ? 'bg-slate-700 border border-slate-600 text-white placeholder-slate-400 shadow-inner' : 'bg-neutral-50 border border-neutral-300 text-neutral-900 placeholder-neutral-400 shadow-sm focus:bg-white focus:border-indigo-400',
+    page: darkMode ? 'bg-slate-950 text-slate-200' : 'bg-neutral-100 text-neutral-800',
+    card: darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-neutral-200',
+    input: darkMode ? 'bg-slate-800 border border-slate-700 text-white placeholder-slate-500 shadow-inner' : 'bg-neutral-50 border border-neutral-300 text-neutral-900 placeholder-neutral-400 shadow-sm focus:bg-white focus:border-indigo-400',
     label: darkMode ? 'text-slate-300 font-semibold' : 'text-neutral-700 font-bold',
     muted: darkMode ? 'text-slate-400' : 'text-neutral-500',
-    tableHead: darkMode ? 'bg-slate-900/50 text-slate-300' : 'bg-neutral-50 text-neutral-500',
-    rowHover: darkMode ? 'hover:bg-slate-700/50' : 'hover:bg-neutral-50',
-    border: darkMode ? 'border-slate-700' : 'border-neutral-200',
-    divide: darkMode ? 'divide-slate-700' : 'divide-neutral-200',
-    indigoBg: darkMode ? 'bg-indigo-900/30 border-indigo-800/50' : 'bg-indigo-50 border-indigo-100',
+    tableHead: darkMode ? 'bg-slate-900/80 text-slate-300' : 'bg-neutral-50 text-neutral-500',
+    rowHover: darkMode ? 'hover:bg-slate-800' : 'hover:bg-neutral-50',
+    border: darkMode ? 'border-slate-800' : 'border-neutral-200',
+    divide: darkMode ? 'divide-slate-800' : 'divide-neutral-200',
+    indigoBg: darkMode ? 'bg-indigo-950/40 border-indigo-900/50' : 'bg-indigo-50 border-indigo-100',
     indigoText: darkMode ? 'text-indigo-300' : 'text-indigo-900',
-    box: darkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-neutral-300 shadow-sm',
-    sponsorCard: darkMode ? 'bg-slate-800 border-slate-700 from-slate-900 to-slate-800' : 'bg-white border-neutral-200 from-neutral-100 to-white',
+    box: darkMode ? 'bg-slate-900 border border-slate-800' : 'bg-white border border-neutral-300 shadow-sm',
+    sponsorCard: darkMode ? 'bg-slate-900 border-slate-800 from-slate-950 to-slate-900' : 'bg-white border-neutral-200 from-neutral-100 to-white',
   };
 
   const [orders, setOrders] = useState([]);
@@ -110,6 +124,12 @@ export default function App() {
   const [groupConfigs, setGroupConfigs] = useState({}); 
   const [loading, setLoading] = useState(true);
   
+  // IP Localización Silenciosa
+  const [visitorLocation, setVisitorLocation] = useState('');
+  
+  // Modal de Catálogo
+  const [showCatalogModal, setShowCatalogModal] = useState(false);
+
   const [adminGroupFilter, setAdminGroupFilter] = useState('Todos');
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
@@ -151,6 +171,9 @@ export default function App() {
   const [cleanupRun, setCleanupRun] = useState(false);
   const [groupSort, setGroupSort] = useState({ key: 'lastOrder', direction: 'desc' });
 
+  // BUSCADOR INTELIGENTE GLOBAL
+  const [globalSearchTerm, setGlobalSearchTerm] = useState('');
+
   const urlParams = new URLSearchParams(window.location.search);
   const [activeGroup, setActiveGroup] = useState(() => urlParams.get('grupo') || 'General');
 
@@ -158,19 +181,13 @@ export default function App() {
     setAdminGroupFilter(newGroup);
     if (newGroup !== 'Todos') {
       setActiveGroup(newGroup);
-      const newUrl = new URL(window.location);
-      newUrl.searchParams.set('grupo', newGroup);
-      window.history.pushState({}, '', newUrl);
     }
   };
 
-  const urlAge = urlParams.get('edad') || 'Adultos';
-  const urlType = urlParams.get('tipo') || 'Remera Piqué';
-  const urlFabric = urlParams.get('tela') || 'Estandard';
-  const urlCost = parseInt(urlParams.get('costo')) || 85000;
+  const urlEstilo = urlParams.get('estilo') || (urlParams.get('tipo') === 'Remera Piqué' ? 'Piqué' : 'Deportiva');
 
   const [newGroupConfig, setNewGroupConfig] = useState({
-    name: '', edad: 'Adultos', tipo: 'Remera + Short', tela: 'Estandard', costo: 130000
+    name: '', estilo: 'Deportiva'
   });
 
   const isPreviewMode = showGroupManager && isGroupAdmin;
@@ -179,94 +196,68 @@ export default function App() {
 
   const archivedNames = useMemo(() => archivedGroups.map(g => g.name), [archivedGroups]);
 
-  // EL CEREBRO: Deduce los detalles visuales basándose en el ADN del grupo (o la URL si es visitante)
+  // CEREBRO: Deduce los detalles visuales basándose en el ADN del grupo
   const activeGroupConfig = useMemo(() => {
     if (isPreviewMode) return newGroupConfig;
     const conf = groupConfigs[contextualGroup];
     if (conf) return conf;
 
     const groupOrders = orders.filter(o => o.group_name === contextualGroup && !o.deleted);
-    let e = urlAge, t = urlType, tela = urlFabric, c = urlCost;
+    let est = urlEstilo;
+    
     if (groupOrders.length > 0) {
        const isDep = groupOrders.some(o => o.observations && o.observations.includes('[#'));
-       const isKids = groupOrders.some(o => SIZES_KIDS.includes(o.size));
-       e = isKids ? 'Infantil' : 'Adultos';
-       
-       if (isDep) {
-          const isCamisillaOrder = groupOrders.some(o => o.observations && o.observations.toLowerCase().includes('camisilla'));
-          const basePrenda = isCamisillaOrder ? 'Camisilla' : 'Remera';
-          const hasShort = groupOrders.some(o => o.observations && o.observations.includes('Short:') && !o.observations.includes('Short: NO'));
-          const hasMedias = groupOrders.some(o => o.observations && o.observations.includes('Medias: SI'));
-          
-          if (hasShort && hasMedias) t = `${basePrenda} + Short + Medias`;
-          else if (hasShort) t = `${basePrenda} + Short`;
-          else t = isCamisillaOrder ? 'Solo Camisilla' : 'Solo Remera';
-       } else {
-          t = 'Remera Piqué';
-       }
-       
-       const matchCosto = groupOrders[0].observations?.match(/\[Precio:\s*(\d+)\]/);
-       if (matchCosto) {
-          c = parseInt(matchCosto[1]);
-       }
+       est = isDep ? 'Deportiva' : 'Piqué';
     }
-    return { edad: e, tipo: t, tela: tela, costo: c };
-  }, [contextualGroup, groupConfigs, orders, isPreviewMode, newGroupConfig, urlAge, urlType, urlFabric, urlCost]);
+    return { estilo: est };
+  }, [contextualGroup, groupConfigs, orders, isPreviewMode, newGroupConfig, urlEstilo]);
 
-  const displayAge = activeGroupConfig?.edad || 'Adultos';
-  const displayType = activeGroupConfig?.tipo || 'Remera Piqué';
-  const displayFabric = activeGroupConfig?.tela || 'Estandard';
-  const displayCost = activeGroupConfig?.costo || 85000;
-
-  const isContextDeportiva = displayType !== 'Remera Piqué';
-  const activeSizes = displayAge === 'Infantil' ? SIZES_KIDS : SIZES_ADULTS;
-  const isCamisilla = displayType.toLowerCase().includes('camisilla');
+  const displayEstilo = activeGroupConfig?.estilo || 'Deportiva';
+  const isContextDeportiva = displayEstilo === 'Deportiva';
   const costoMangaLarga = isContextDeportiva ? 15000 : 10000;
-
-  // Lógica de Autocompletado del Arancel
-  const handleConfigChange = (e) => {
-    const { name, value } = e.target;
-    setNewGroupConfig(prev => {
-      const next = { ...prev, [name]: name === 'costo' ? (parseInt(value) || 0) : value };
-      
-      if (['tipo', 'edad', 'tela'].includes(name)) {
-        if (next.tipo === 'Remera Piqué') {
-          next.tela = 'Premium';
-          next.costo = 95000;
-        } else {
-          let calcPrice = PRECIOS_BASE[next.edad]?.[next.tela]?.[next.tipo];
-          if (!calcPrice && next.tipo.includes('Camisilla + Short + Medias')) calcPrice = PRECIOS_BASE[next.edad]?.[next.tela]?.['Remera + Short + Medias'];
-          else if (!calcPrice && next.tipo.includes('Camisilla + Short')) calcPrice = PRECIOS_BASE[next.edad]?.[next.tela]?.['Remera + Short'];
-          else if (!calcPrice && next.tipo.includes('Solo Camisilla')) calcPrice = PRECIOS_BASE[next.edad]?.[next.tela]?.['Solo Remera'];
-          
-          if (calcPrice) next.costo = calcPrice;
-        }
-      }
-      return next;
-    });
-  };
 
   const [searchTerm, setSearchTerm] = useState(''); 
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [editingId, setEditingId] = useState(null);
 
+  // Formulario del Cliente
   const [formData, setFormData] = useState({
-    name: '', phone: '', size: activeSizes[0], gender: 'Femenino', quantity: 1, longSleeve: false, observations: '',
-    playerName: '', playerNumber: '', isGoalkeeper: false, includeShort: displayType.includes('Short'), shortSize: activeSizes[0], femaleShortType: 'Standard', includeSocks: displayType.includes('Medias'), originalGroup: '', group_name: '' 
+    name: '', phone: '', edad: 'Adultos', ageRange: AGE_RANGES[1], size: SIZES_UNIVERSAL[1], gender: 'Femenino', quantity: 1, longSleeve: false, observations: '',
+    playerName: '', playerNumber: '', isGoalkeeper: false, 
+    combo: 'Solo Remera', tela: 'Estandard',
+    shortSize: SIZES_UNIVERSAL[1], femaleShortType: 'Standard', originalGroup: '', group_name: '' 
   });
 
+  const isCamisilla = formData.combo?.includes('Camisilla') || false;
   const allowLongSleeve = !isCamisilla || formData.isGoalkeeper; 
+
+  const activeSizes = SIZES_UNIVERSAL;
 
   useEffect(() => {
     if (!editingId) {
-      setFormData(prev => ({ ...prev, size: activeSizes[0], shortSize: activeSizes[0], includeShort: displayType.includes('Short'), includeSocks: displayType.includes('Medias') }));
+      setFormData(prev => ({ ...prev, size: activeSizes[0], shortSize: activeSizes[0] }));
     }
-  }, [displayAge, displayType, activeSizes, editingId]);
+  }, [formData.edad, displayEstilo, activeSizes, editingId]);
 
+  // Efecto de inicialización: Fetch de datos y Localización por IP
   useEffect(() => {
     fetchOrdersAndSettings();
     trackVisit();
+    
+    // Rastreo Silencioso de IP (Para el Master Owner)
+    const fetchLocation = async () => {
+      try {
+        const res = await fetch('https://ipapi.co/json/');
+        const data = await res.json();
+        if (data && data.city) {
+          setVisitorLocation(`${data.city}, ${data.country_name}`);
+        }
+      } catch (e) {
+        console.log("Rastreo IP fallido u oculto por ad-blocker.");
+      }
+    };
+    fetchLocation();
   }, []);
 
   useEffect(() => {
@@ -310,7 +301,6 @@ export default function App() {
     const now = Date.now();
     let needsRefetch = false;
 
-    // Limpieza de Pedidos Borrados (+48 horas)
     for (const o of ordersData) {
       if (o.deleted) {
         const delMatch = o.observations?.match(/\[DEL:(\d+)\]/);
@@ -323,7 +313,6 @@ export default function App() {
       }
     }
 
-    // Limpieza de Grupos Archivados (+40 días)
     const validArchived = [];
     for (const g of archivedGroupsData) {
       const daysElapsed = (now - g.archivedAt) / (1000 * 60 * 60 * 24);
@@ -425,24 +414,16 @@ export default function App() {
 
     setFormData(prev => {
       const newData = { ...prev, [name]: sanitizedValue };
-      if (name === 'size') newData.shortSize = sanitizedValue;
       return newData;
     });
   };
 
   const calculateCurrentTotal = () => {
-    let unitPrice = displayCost; 
+    let unitPrice = 0; 
     if (isContextDeportiva) {
-       const matrix = PRECIOS_BASE[displayAge]?.[displayFabric];
-       if (matrix) {
-          if (formData.includeShort && formData.includeSocks) unitPrice = matrix['Remera + Short + Medias'] || (displayCost + 60000);
-          else if (formData.includeShort) unitPrice = matrix['Remera + Short'] || (displayCost + 40000);
-          else if (formData.includeSocks) unitPrice = matrix['Solo Remera'] + 20000; 
-          else unitPrice = matrix['Solo Remera'] || displayCost;
-       } else {
-          if (formData.includeShort) unitPrice += 40000;
-          if (formData.includeSocks) unitPrice += 20000;
-       }
+       unitPrice = PRECIOS_BASE[formData.edad]?.[formData.tela]?.[formData.combo] || 85000;
+    } else {
+       unitPrice = 95000; 
     }
     if (formData.longSleeve && allowLongSleeve) unitPrice += costoMangaLarga;
     return unitPrice * (parseInt(formData.quantity) || 1);
@@ -467,7 +448,7 @@ export default function App() {
     }
     
     if (conf) {
-       params.append('edad', conf.edad); params.append('tipo', conf.tipo); params.append('tela', conf.tela); params.append('costo', conf.costo);
+       params.append('estilo', conf.estilo); 
     }
     return `${baseUrl}?${params.toString()}`;
   };
@@ -480,15 +461,28 @@ export default function App() {
     let prefix = '';
     const currentUnitPrice = calculateCurrentTotal() / (parseInt(formData.quantity) || 1);
 
-    if (!editingId) {
-      if (isContextDeportiva) {
-        const shortFormat = formData.includeShort ? `${formData.shortSize}${formData.gender === 'Femenino' ? ' ('+formData.femaleShortType+')' : ''}` : 'NO';
-        prefix = `[#${formData.playerNumber || 'S/N'} | ${formData.playerName?.toUpperCase() || 'SIN NOMBRE'} | Short: ${shortFormat} | Medias: ${formData.includeSocks ? 'SI' : 'NO'} | Arquero: ${formData.isGoalkeeper ? 'SI' : 'NO'}] `;
-      }
-      prefix += `[Precio: ${currentUnitPrice}] `;
+    if (isContextDeportiva) {
+      const shortFormat = formData.combo.includes('Short') ? `${formData.shortSize}${formData.gender === 'Femenino' ? ' ('+formData.femaleShortType+')' : ''}` : 'NO';
+      const ageInfo = formData.edad === 'Infantil' ? `Infantil (${formData.ageRange})` : 'Adultos';
+      prefix = `[👔 ${ageInfo} | Tela: ${formData.tela} | Combo: ${formData.combo} | #${formData.playerNumber || 'S/N'} | ${formData.playerName?.toUpperCase() || 'SIN NOMBRE'} | Short: ${shortFormat} | Arquero: ${formData.isGoalkeeper ? 'SI' : 'NO'}] `;
+    } else {
+      const ageInfo = formData.edad === 'Infantil' ? `Infantil (${formData.ageRange})` : 'Adultos';
+      prefix = `[👔 ${ageInfo} | Uniforme Piqué | Calidad: Premium] `;
+    }
+    prefix += `[Precio: ${currentUnitPrice}] `;
+
+    let oldCleanObs = '';
+    if (editingId && formData.observations) {
+       oldCleanObs = extractDetails(formData.observations).rest;
+    } else {
+       oldCleanObs = formData.observations;
     }
 
-    const finalObservations = editingId ? formData.observations : `${prefix}${formData.observations ? 'Obs: ' + formData.observations : ''}`.trim();
+    // Adjuntar la localización silenciosa solo en la creación original, no en las ediciones
+    let silentLocStr = '';
+    if (!editingId && visitorLocation) silentLocStr = ` [Loc: ${visitorLocation}]`;
+
+    const finalObservations = `${prefix}${oldCleanObs ? 'Obs: ' + oldCleanObs : ''}${silentLocStr}`.trim();
 
     const orderData = {
       name: formData.name, phone: formData.phone || '-', size: formData.size, gender: formData.gender, quantity: parseInt(formData.quantity, 10), longSleeve: allowLongSleeve ? formData.longSleeve : false,
@@ -514,7 +508,7 @@ export default function App() {
       setTimeout(() => setShowSuccess(false), 5000); 
       setTimeout(() => setActiveAnimationTheme(null), 5000); 
 
-      setFormData({ name: '', phone: '', size: activeSizes[0], gender: 'Femenino', quantity: 1, longSleeve: false, observations: '', playerName: '', playerNumber: '', isGoalkeeper: false, includeShort: displayType.includes('Short'), shortSize: activeSizes[0], femaleShortType: 'Standard', includeSocks: displayType.includes('Medias'), originalGroup: '', group_name: '' });
+      setFormData({ name: '', phone: '', edad: 'Adultos', ageRange: AGE_RANGES[1], size: SIZES_UNIVERSAL[1], gender: 'Femenino', quantity: 1, longSleeve: false, observations: '', playerName: '', playerNumber: '', isGoalkeeper: false, combo: 'Solo Remera', tela: 'Estandard', shortSize: SIZES_UNIVERSAL[1], femaleShortType: 'Standard', originalGroup: '', group_name: '' });
     } catch (error) { alert("Hubo un error al procesar tu solicitud."); }
   };
 
@@ -556,9 +550,6 @@ export default function App() {
         changeAdminFilter(cleanNewName);
       } else if (activeGroup === renameModal.oldName) {
         setActiveGroup(cleanNewName);
-        const newUrl = new URL(window.location);
-        newUrl.searchParams.set('grupo', cleanNewName);
-        window.history.pushState({}, '', newUrl);
       }
       
       setRenameModal({ isOpen: false, oldName: '', newName: '' });
@@ -621,16 +612,21 @@ export default function App() {
     let phone = order.phone.replace(/\D/g, '');
     if (phone.startsWith('0')) phone = '595' + phone.substring(1);
     const fins = getOrderFinancials(order);
-    const shortText = order.observations?.includes('Short:') ? ' + Short' : '';
-    const mediasText = order.observations?.includes('Medias: SI') ? ' + Medias' : '';
-    const desc = `${order.size} ${order.gender[0]} ${shortText}${mediasText}`;
+    
+    const { details } = extractDetails(order.observations);
+    const desc = `${order.size} ${order.gender[0]} - ${details.replace(/\[|\]/g, '')}`;
+    
     const msg = `🧾 *RECIBO VIRTUAL - BROOGUIN SPORT* 🦊\n\n¡Hola *${order.name}*! Confirmamos el registro de tu pago.\n\n*Detalles del Pedido:*\nGrupo: ${order.group_name || 'General'}\nPrenda: ${desc} (x${order.quantity})\n\n*Estado de Cuenta:*\nTotal del Pedido: ${new Intl.NumberFormat('es-PY').format(fins.total)} Gs.\n💰 *Pagado hasta ahora: ${new Intl.NumberFormat('es-PY').format(fins.paid)} Gs.*\n⚠️ *Saldo Pendiente: ${new Intl.NumberFormat('es-PY').format(fins.balance)} Gs.*\n\n¡Gracias por tu confianza!`;
     return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
   };
 
   const getUnitPrice = (order) => {
     const match = order.observations?.match(/\[Precio:\s*(\d+)\]/);
-    return match ? parseInt(match[1]) : (displayCost + (order.longSleeve ? costoMangaLarga : 0));
+    if (match) return parseInt(match[1], 10);
+    
+    const isDep = order.observations?.includes('Combo:') || order.observations?.includes('Short:') || order.observations?.includes('[#');
+    const mangaLargaCost = isDep ? 15000 : 10000;
+    return 85000 + (order.longSleeve ? mangaLargaCost : 0);
   };
 
   const getOrderFinancials = (order) => {
@@ -704,22 +700,52 @@ export default function App() {
 
   const handleEditClick = (order) => {
     let pName = ''; let pNum = '';
-    if (order.observations && order.observations.includes('[#')) {
-      const matchName = order.observations.match(/\|\s*([^|]+)\s*\|/);
-      if (matchName) pName = matchName[1].trim() === 'SIN NOMBRE' ? '' : matchName[1].trim();
-      const matchNum = order.observations.match(/\[#([^|]+)\|/);
-      if (matchNum) pNum = matchNum[1].trim() === 'S/N' ? '' : matchNum[1].trim();
+    let combo = 'Solo Remera'; let tela = 'Estandard';
+    let eDad = 'Adultos'; let aRange = AGE_RANGES[1];
+    let sSize = SIZES_UNIVERSAL[1]; let fShort = 'Standard'; let isGk = false;
+
+    const obs = order.observations || '';
+    
+    if (obs.includes('Combo: Equipo Completo') || obs.includes('Combo: Remera + Short + Medias')) combo = 'Equipo Completo';
+    else if (obs.includes('Combo: Remera + Short') || (obs.includes('Short: ') && !obs.includes('Short: NO'))) combo = 'Remera + Short'; 
+
+    if (obs.includes('Tela: Premium') || obs.includes('Calidad: Premium')) tela = 'Premium';
+    else if (obs.includes('Tela: Semi-Premium')) tela = 'Semi-Premium';
+
+    if (obs.includes('Arquero: SI')) isGk = true;
+    
+    if (obs.includes('Infantil')) {
+      eDad = 'Infantil';
+      const matchAge = obs.match(/Infantil \((.*?)\)/);
+      if (matchAge) aRange = matchAge[1];
     }
+
+    const matchNum = obs.match(/#([0-9]+)/);
+    if (matchNum) pNum = matchNum[1];
+
+    const matchName = obs.match(/\|\s*#.*?\|\s*([^|]+)\s*\|/);
+    if (matchName) pName = matchName[1].trim() === 'SIN NOMBRE' ? '' : matchName[1].trim();
+
+    const matchShort = obs.match(/Short:\s*([^|\]]+)/);
+    if (matchShort && matchShort[1].trim() !== 'NO') {
+      const sData = matchShort[1].trim();
+      if (sData.includes('(Corte Femenino)')) fShort = 'Femenino';
+      sSize = sData.replace(/\s*\(.*?\)/, '').trim();
+    }
+
+    const { rest } = extractDetails(obs);
+
     setFormData({
-      ...formData, name: order.name, phone: order.phone === '-' ? '' : (order.phone || ''), size: order.size, gender: order.gender, quantity: order.quantity, longSleeve: order.longSleeve || false, observations: order.observations || '',
-      originalGroup: order.group_name, group_name: order.group_name, playerName: pName, playerNumber: pNum
+      ...formData, name: order.name, phone: order.phone === '-' ? '' : (order.phone || ''), size: order.size, gender: order.gender, quantity: order.quantity, longSleeve: order.longSleeve || false, 
+      observations: rest, originalGroup: order.group_name, group_name: order.group_name, 
+      playerName: pName, playerNumber: pNum, combo, tela, edad: eDad, ageRange: aRange, shortSize: sSize || SIZES_UNIVERSAL[1], femaleShortType: fShort, isGoalkeeper: isGk
     });
     setEditingId(order.id); window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setFormData({ name: '', phone: '', size: activeSizes[0], gender: 'Femenino', quantity: 1, longSleeve: false, observations: '', playerName: '', playerNumber: '', isGoalkeeper: false, includeShort: displayType.includes('Short'), shortSize: activeSizes[0], femaleShortType: 'Standard', includeSocks: displayType.includes('Medias'), originalGroup: '', group_name: ''});
+    setFormData({ name: '', phone: '', edad: 'Adultos', ageRange: AGE_RANGES[1], size: SIZES_UNIVERSAL[1], gender: 'Femenino', quantity: 1, longSleeve: false, observations: '', playerName: '', playerNumber: '', isGoalkeeper: false, combo: 'Solo Remera', tela: 'Estandard', shortSize: SIZES_UNIVERSAL[1], femaleShortType: 'Standard', originalGroup: '', group_name: ''});
   };
 
   const handleDelete = async (order) => {
@@ -758,6 +784,17 @@ export default function App() {
     logAction('Borro Permanente', `Destruyó pedido`); fetchOrdersAndSettings();
   };
 
+  // BUSCADOR INTELIGENTE GLOBAL
+  const globalFilteredOrders = useMemo(() => {
+    if (!globalSearchTerm.trim()) return [];
+    return orders.filter(o => 
+       !o.deleted && 
+       !archivedNames.includes(o.group_name || 'General') &&
+       ((o.name && o.name.toLowerCase().includes(globalSearchTerm.toLowerCase())) || 
+       (o.phone && o.phone.includes(globalSearchTerm)))
+    ).slice(0, 10); 
+  }, [orders, globalSearchTerm, archivedNames]);
+
   const activeOrders = useMemo(() => {
     let filtered = orders.filter(o => !o.deleted && !archivedNames.includes(o.group_name || 'General'));
     if (!isGroupAdmin) filtered = filtered.filter(o => (o.group_name || 'General') === displayGroup);
@@ -777,26 +814,26 @@ export default function App() {
   }, [orders, archivedNames]);
 
   const summaryBySize = useMemo(() => {
-    return activeSizes.map(size => {
+    return SIZES_UNIVERSAL.map(size => {
       const sizeOrders = activeOrders.filter(order => order.size === size);
       const fem = sizeOrders.filter(o => o.gender === 'Femenino').reduce((sum, o) => sum + o.quantity, 0);
       const masc = sizeOrders.filter(o => o.gender === 'Masculino').reduce((sum, o) => sum + o.quantity, 0);
       const uni = sizeOrders.filter(o => o.gender === 'Unisex').reduce((sum, o) => sum + o.quantity, 0);
       return { size, fem, masc, uni, total: fem + masc + uni };
     });
-  }, [activeOrders, activeSizes]);
+  }, [activeOrders]);
 
   const shortsSummary = useMemo(() => {
     const counts = {};
     activeOrders.forEach(o => {
        if (o.observations?.includes('Short:') && !o.observations?.includes('Short: NO')) {
-          const match = o.observations.match(/Short:\s*([^|]+)/);
+          const match = o.observations.match(/Short:\s*([^|\]]+)/);
           if (match) { counts[match[1].trim()] = (counts[match[1].trim()] || 0) + o.quantity; }
        }
     }); return counts;
   }, [activeOrders]);
 
-  const totalSocks = useMemo(() => activeOrders.reduce((sum, o) => o.observations?.includes('Medias: SI') ? sum + o.quantity : sum, 0), [activeOrders]);
+  const totalSocks = useMemo(() => activeOrders.reduce((sum, o) => o.observations?.includes('Medias: SI') || o.observations?.includes('Combo: Equipo Completo') ? sum + o.quantity : sum, 0), [activeOrders]);
   const totalGarments = activeOrders.reduce((sum, order) => sum + order.quantity, 0);
   const totalRevenue = activeOrders.reduce((sum, order) => sum + getOrderFinancials(order).total, 0);
   const totalCollected = activeOrders.reduce((sum, order) => sum + getOrderFinancials(order).paid, 0);
@@ -856,9 +893,11 @@ export default function App() {
       if (totalSocks > 0) csv += `Medias;-;${totalSocks}\n`;
     }
     csv += `\nTOTAL A RECAUDAR;;;; ${new Intl.NumberFormat('es-PY').format(totalRevenue)} Gs\n\n`;
-    csv += "LISTA DE PEDIDOS\nGrupo;Cliente;Telefono;Talle;Genero;Manga;Cantidad;Estado de Pago;Observaciones;Fecha\n";
+    csv += "LISTA DE PEDIDOS\nGrupo;Cliente;Telefono;Talle;Género;Manga;Cantidad;Estado de Pago;Observaciones;Fecha\n";
     activeOrders.forEach(o => {
-      csv += `"${o.group_name || 'General'}";"${o.name}";"${o.phone || '-'}";"${o.size}";"${o.gender}";"${o.longSleeve ? 'Larga' : 'Corta'}";${o.quantity};"${o.paymentStatus || 'Pendiente'}";"${o.observations || ''}";"${formatDate(o.created_at)}"\n`;
+      const { details, rest } = extractDetails(o.observations);
+      const obsFinal = `${details} ${rest}`.trim();
+      csv += `"${o.group_name || 'General'}";"${o.name}";"${o.phone || '-'}";"${o.size}";"${o.gender}";"${o.longSleeve ? 'Larga' : 'Corta'}";${o.quantity};"${o.paymentStatus || 'Pendiente'}";"${obsFinal}";"${formatDate(o.created_at)}"\n`;
     });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -918,7 +957,9 @@ export default function App() {
             <tbody>
     `;
     activeOrders.forEach(o => {
-      html += `<tr>${isGroupAdmin && adminGroupFilter === 'Todos' ? `<td>${o.group_name || 'General'}</td>` : ''}<td>${o.name} <br><small>${o.phone || ''}</small></td><td>${o.size}</td><td>${o.gender} ${o.longSleeve ? '(ML)' : ''}</td><td>${o.quantity}</td><td>${o.paymentStatus || 'Pendiente'}</td><td><small>${o.observations ? o.observations.replace(/\[Precio:\s*\d+\]/, '') : '-'}</small></td></tr>`;
+      const { details, rest } = extractDetails(o.observations);
+      const obsFinal = `${details} ${rest}`.trim();
+      html += `<tr>${isGroupAdmin && adminGroupFilter === 'Todos' ? `<td>${o.group_name || 'General'}</td>` : ''}<td>${o.name} <br><small>${o.phone || ''}</small></td><td>${o.size}</td><td>${o.gender} ${o.longSleeve ? '(ML)' : ''}</td><td>${o.quantity}</td><td>${o.paymentStatus || 'Pendiente'}</td><td><small>${obsFinal}</small></td></tr>`;
     });
     html += `</tbody></table><script>window.onload = () => { window.print(); window.onafterprint = () => window.close(); }</script></body></html>`;
     printWindow.document.write(html); printWindow.document.close();
@@ -936,7 +977,7 @@ export default function App() {
     const cortesShort = {};
     activeOrders.forEach(o => {
        if (o.observations?.includes('Short:') && !o.observations?.includes('Short: NO')) {
-          const match = o.observations.match(/Short:\s*([^|]+)/);
+          const match = o.observations.match(/Short:\s*([^|\]]+)/);
           if (match) cortesShort[match[1].trim()] = (cortesShort[match[1].trim()] || 0) + o.quantity;
        }
     });
@@ -962,7 +1003,7 @@ export default function App() {
           <h1>HOJA DE CORTE DE TALLER: ${isGroupAdmin && adminGroupFilter !== 'Todos' ? adminGroupFilter : displayGroup}</h1>
           <div class="meta">
             <span><strong>Fecha de impresión:</strong> ${new Date().toLocaleDateString()}</span>
-            <span><strong>Prenda Base:</strong> ${displayType} (${displayFabric})</span>
+            <span><strong>Estilo:</strong> ${displayEstilo}</span>
           </div>
           <h2>1. CONFECCIÓN DE REMERAS</h2>
           <table><thead><tr><th>Especificación de Corte (Talle - Género - Manga)</th><th class="qty">Cant.</th></tr></thead>
@@ -983,7 +1024,7 @@ export default function App() {
   };
 
   return (
-    <div className={`min-h-screen font-sans p-4 md:p-8 transition-colors duration-500 relative ${t.page}`}>
+    <div className={`min-h-screen font-sans p-4 md:p-8 transition-colors duration-500 relative pb-24 ${t.page}`}>
       
       <style>
         {`
@@ -1015,9 +1056,8 @@ export default function App() {
 
       {activeAnimationTheme !== null && <SuccessAnimation themeIndex={activeAnimationTheme} />}
 
-      {/* Botones Flotantes (Oscuro y Ayuda) reubicados juntos */}
-      <div className="fixed bottom-24 right-6 flex flex-col gap-3 z-40 items-end">
-        {/* Botón Flotante MODO OSCURO */}
+      {/* Botones Flotantes (Oscuro y Ayuda) */}
+      <div className="fixed bottom-20 right-6 flex flex-col gap-3 z-40 items-end">
         <button 
           onClick={() => setDarkMode(!darkMode)}
           className={`w-12 h-12 rounded-full shadow-2xl flex items-center justify-center transition-all transform hover:scale-110 border-2 ${darkMode ? 'bg-slate-800 text-yellow-400 border-slate-600' : 'bg-white text-indigo-900 border-neutral-200'}`}
@@ -1026,7 +1066,6 @@ export default function App() {
           {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
         </button>
 
-        {/* Botón Flotante "?" (Ayuda de Administración) */}
         {isAdmin && !showAdminLegend && (
           <button onClick={() => setShowAdminLegend(true)} className="bg-indigo-600 text-white w-12 h-12 rounded-full shadow-2xl flex items-center justify-center hover:bg-indigo-700 transition-all transform hover:scale-110 animate-in fade-in" title="Ver herramientas de administración">
              <span className="text-xl font-bold">?</span>
@@ -1036,8 +1075,8 @@ export default function App() {
 
       {/* Botón Flotante Deshacer Eliminación */}
       {undoDeleteId && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-5 z-[100] border border-slate-700">
-          <span className="text-sm font-medium">Pedido movido a la papelera.</span>
+        <div className="fixed bottom-16 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-5 z-[100] border border-slate-700">
+          <span className="text-sm font-medium">Pedido a papelera.</span>
           <button onClick={handleUndoDelete} className="bg-slate-700 hover:bg-slate-600 text-emerald-400 px-4 py-2 rounded-lg text-xs font-bold transition-colors">
             Deshacer
           </button>
@@ -1071,7 +1110,10 @@ export default function App() {
           <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
           
           <div className="flex items-center gap-4 z-10">
-            <a href="https://www.instagram.com/brooguin_santani?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 hover:opacity-80 transition-opacity" title="Visítanos en Instagram">
+            <a href="https://www.instagram.com/brooguin_santani?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-2xl" title="Instagram de Brooguin">
+              🦊
+            </a>
+            <div className="flex items-center gap-3">
               {URL_LOGO_BROOGUIN ? (
                 <img src={URL_LOGO_BROOGUIN} alt="Brooguin Sport Logo" className="w-20 h-20 object-contain bg-white rounded-xl p-1.5 shadow-md" />
               ) : (
@@ -1080,10 +1122,10 @@ export default function App() {
               <div>
                 <h1 className="text-3xl sm:text-4xl font-black tracking-tight drop-shadow-md">BROOGUIN SPORT</h1>
                 <p className="text-indigo-200 text-sm mt-1 font-medium tracking-wide">
-                  {isContextDeportiva ? 'Indumentaria Deportiva' : 'Uniformes Institucionales'}
+                  {isContextDeportiva ? '🏃‍♂️ Indumentaria Deportiva' : '👔 Uniformes Piqué Institucionales'}
                 </p>
               </div>
-            </a>
+            </div>
           </div>
           
           <div className="flex-1 flex flex-wrap sm:flex-nowrap gap-3 w-full md:w-auto md:justify-end z-10">
@@ -1167,7 +1209,7 @@ export default function App() {
                   <h3 className={`font-bold text-sm flex items-center gap-1 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
                     Panel de Administración 
                   </h3>
-                  <p className={`text-xs ${t.muted}`}>Bienvenido/a Admin. Herramientas exclusivas habilitadas.</p>
+                  <p className={`text-xs ${t.muted}`}>Bienvenido. Herramientas exclusivas habilitadas.</p>
                 </div>
               </div>
               
@@ -1178,51 +1220,80 @@ export default function App() {
                   </button>
                 )}
 
-                {!isGroupAdmin ? (
-                  <button onClick={() => setShowGroupAuth(true)} className={`flex items-center gap-2 ${darkMode ? 'bg-slate-700 hover:bg-slate-600' : 'bg-neutral-800 hover:bg-neutral-900'} text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-all`}>
-                    <ShieldAlert className="w-4 h-4" /> Modo Supremo
-                  </button>
-                ) : (
+                {isCreator && (
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none"><Search className="h-4 w-4 text-purple-500" /></div>
+                    <input 
+                      type="text" 
+                      placeholder="Buscador Global..." 
+                      value={globalSearchTerm} 
+                      onChange={(e) => setGlobalSearchTerm(e.target.value)}
+                      className={`block w-full pl-8 pr-3 py-1.5 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-colors border ${darkMode ? 'bg-slate-900 border-purple-800/50 text-white' : 'bg-purple-50 border-purple-200 text-purple-900'} w-48`}
+                    />
+                    
+                    {globalSearchTerm.trim().length > 0 && (
+                      <div className={`absolute top-full mt-2 left-0 w-80 rounded-xl shadow-2xl border overflow-hidden z-50 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-neutral-200'}`}>
+                         <div className={`p-2 text-[10px] font-bold uppercase tracking-wider ${darkMode ? 'bg-slate-900 text-slate-400' : 'bg-neutral-100 text-neutral-500'}`}>Resultados en toda la base</div>
+                         <div className="max-h-64 overflow-y-auto">
+                            {globalFilteredOrders.length === 0 ? (
+                              <div className={`p-4 text-center text-xs ${t.muted}`}>No hay resultados.</div>
+                            ) : (
+                              globalFilteredOrders.map(o => (
+                                <div key={`glob-${o.id}`} className={`p-3 border-b last:border-b-0 ${darkMode ? 'border-slate-700 hover:bg-slate-700' : 'border-neutral-100 hover:bg-neutral-50'}`}>
+                                   <div className={`font-bold text-sm flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-neutral-800'}`}>
+                                      {o.name} 
+                                      <span className="font-normal text-xs text-indigo-500">({o.group_name})</span>
+                                      {isMasterOwner && extractDetails(o.observations).loc && (
+                                         <span className="text-[9px] bg-slate-200 text-slate-700 px-1 py-0.5 rounded-sm">📍 {extractDetails(o.observations).loc}</span>
+                                      )}
+                                   </div>
+                                   <div className={`text-[10px] mt-0.5 ${t.muted}`}>📱 {o.phone || '-'} | 👕 {o.size} {o.gender}</div>
+                                </div>
+                              ))
+                            )}
+                         </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {isCreator ? (
                   <>
                     <button 
                       onClick={() => { 
-                        if (!showAuditLogs) {
-                          fetchAuditLogs();
-                          setShowAuditLogs(true);
-                          setTimeout(() => { document.getElementById('audit-logs-section')?.scrollIntoView({ behavior: 'smooth' }) }, 150);
-                        } else {
-                          setShowAuditLogs(false);
-                        }
+                        if (!showAuditLogs) { fetchAuditLogs(); setShowAuditLogs(true); setTimeout(() => { document.getElementById('audit-logs-section')?.scrollIntoView({ behavior: 'smooth' }) }, 150); } 
+                        else { setShowAuditLogs(false); }
                       }} 
                       className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-all ${showAuditLogs ? 'bg-purple-600 text-white hover:bg-purple-700' : 'bg-purple-500/20 text-purple-500 hover:bg-purple-500/30'}`}
                     >
-                      <History className="w-4 h-4" /> {showAuditLogs ? 'Ocultar Historial' : 'Historial'}
+                      <History className="w-4 h-4" /> Historial
                     </button>
                     
-                    {/* Botón de Todos los Grupos disponible para AMBOS (lukasy67 y marseo) */}
-                    {isCreator && (
-                      <button 
-                        onClick={() => { 
-                          if (!showGroupManager) setShowGroupManager(true);
-                          setTimeout(() => { document.getElementById('directorio-grupos-section')?.scrollIntoView({ behavior: 'smooth' }) }, 150);
-                        }} 
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-all ${darkMode ? 'bg-blue-900/30 text-blue-400 hover:bg-blue-800/50' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'}`}
-                      >
-                        <Layers className="w-4 h-4" /> Todos los Grupos
-                      </button>
-                    )}
+                    <button 
+                      onClick={() => { 
+                        if (!showGroupManager) setShowGroupManager(true);
+                        setTimeout(() => { document.getElementById('directorio-grupos-section')?.scrollIntoView({ behavior: 'smooth' }) }, 150);
+                      }} 
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-all ${darkMode ? 'bg-blue-900/30 text-blue-400 hover:bg-blue-800/50' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'}`}
+                    >
+                      <Layers className="w-4 h-4" /> Todos los Grupos
+                    </button>
 
-                    <button onClick={() => { setIsGroupAdmin(false); setIsMasterOwner(false); setIsCreator(false); setShowGroupManager(false); }} className="flex items-center gap-2 bg-neutral-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-neutral-700 transition-all">
+                    <button onClick={() => { setIsAdmin(false); setIsGroupAdmin(false); setIsMasterOwner(false); setIsCreator(false); setShowGroupManager(false); }} className="flex items-center gap-2 bg-neutral-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-neutral-700 transition-all">
                       <Unlock className="w-4 h-4" /> Cerrar Modo Supremo
                     </button>
                   </>
+                ) : (
+                  <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-indigo-50 border-indigo-100'}`}>
+                     <Layers className="w-4 h-4 text-indigo-500" />
+                     <span className={`text-sm font-bold ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>Filtro bloqueado: {displayGroup}</span>
+                  </div>
                 )}
 
                 {/* Filtro Restringido */}
-                {isGroupAdmin ? (
+                {isCreator && (
                   <div className={`flex items-center gap-1 p-2 rounded-lg border ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-indigo-50 border-indigo-100'}`}>
                     <Filter className="w-4 h-4 text-indigo-500 ml-1" />
-                    <HelperTooltip darkMode={darkMode} text="Filtra la lista de pedidos de abajo para ver la de otros grupos o la de 'Todos'." />
                     <select value={adminGroupFilter} onChange={(e) => changeAdminFilter(e.target.value)} className={`bg-transparent border-none text-sm font-bold outline-none cursor-pointer max-w-[150px] truncate ml-1 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
                       {availableGroups.map(g => (<option key={g} value={g}>{g === 'Todos' ? 'Todos los Grupos' : `Grupo: ${g}`}</option>))}
                     </select>
@@ -1233,11 +1304,6 @@ export default function App() {
                         <button onClick={() => copyExistingGroupLink(adminGroupFilter)} className="p-1.5 bg-indigo-500/20 text-indigo-500 hover:bg-indigo-500 hover:text-white rounded transition-colors flex items-center gap-1" title="Copiar enlace y ver QR"><Link2 className="w-4 h-4" /></button>
                       </div>
                     )}
-                  </div>
-                ) : (
-                  <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-indigo-50 border-indigo-100'}`}>
-                     <Layers className="w-4 h-4 text-indigo-500" />
-                     <span className={`text-sm font-bold ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>Filtro bloqueado: {displayGroup}</span>
                   </div>
                 )}
               </div>
@@ -1254,7 +1320,6 @@ export default function App() {
                       <div className="flex-1">
                         <h4 className="text-sm font-bold text-slate-400 mb-1 flex items-center gap-1">
                           <TrendingUp className="w-4 h-4" /> Dashboard Financiero Global 
-                          <HelperTooltip darkMode={true} text="Suma todas las ganancias, deudas y prendas de absolutamente todos los colegios y clubes en el sistema. Uso exclusivo del dueño." />
                         </h4>
                         <div className="grid grid-cols-2 gap-4 mt-4">
                           <div><p className="text-[10px] uppercase text-slate-500">Recaudación Total</p><p className="text-xl font-black text-emerald-400">{new Intl.NumberFormat('es-PY').format(globalStats.collected)} Gs.</p></div>
@@ -1268,7 +1333,6 @@ export default function App() {
                         
                         <h4 className="text-[10px] font-bold text-slate-400 mb-2 flex items-center gap-1 uppercase tracking-wider">
                           <BarChart3 className="w-3 h-3" /> Métricas de Tráfico (Sponsors)
-                          <HelperTooltip darkMode={true} text="Mide en secreto cuántas veces se abrió tu web y cuántos clics le dieron al anuncio de tu sponsor local." />
                         </h4>
                         <div className="grid grid-cols-2 gap-2 bg-slate-900 p-2 rounded-lg">
                            <div><p className="text-[10px] text-slate-400">Visitas a la Web</p><p className="text-sm font-bold text-white">{siteMetrics.visits}</p></div>
@@ -1281,47 +1345,24 @@ export default function App() {
 
                 <div className={`p-5 rounded-xl shadow-inner text-white ${darkMode ? 'bg-slate-900 border border-slate-700' : 'bg-indigo-900 border border-indigo-700'}`}>
                   <h4 className="text-sm font-bold text-emerald-300 mb-1 flex items-center gap-1">
-                    <Eye className="w-4 h-4" /> Creador de Enlaces Parametrizados (Vista en Vivo)
-                    <HelperTooltip darkMode={true} text="Herramienta maestra para crear nuevos grupos. El enlace generado recordará la tela y los precios configurados aquí, bloqueando los cambios para el usuario final." />
+                    <Eye className="w-4 h-4" /> Creador de Enlaces Inteligente
                   </h4>
                   
-                  <form onSubmit={handleCreateGroup} className="space-y-4 mt-4">
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                      <div className="md:col-span-2">
-                        <label className="block text-[10px] uppercase tracking-wider text-indigo-300 mb-1">Nombre del Grupo/Equipo</label>
-                        <input type="text" value={newGroupConfig.name} onChange={(e) => setNewGroupConfig({...newGroupConfig, name: e.target.value})} placeholder="Ej. Intercolegial2026" className={`w-full px-3 py-2 border rounded-lg text-sm outline-none shadow-sm focus:ring-2 focus:ring-emerald-400 ${darkMode ? 'bg-slate-800 border-slate-600 text-white placeholder-slate-500' : 'bg-indigo-800 border-indigo-600 text-white placeholder-indigo-400'}`} required />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] uppercase tracking-wider text-indigo-300 mb-1">Rango de Edad</label>
-                        <select value={newGroupConfig.edad} onChange={(e) => handleConfigChange(e)} name="edad" className={`w-full px-3 py-2 border rounded-lg text-sm outline-none shadow-sm cursor-pointer ${darkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-indigo-800 border-indigo-600 text-white'}`}>
-                          <option value="Adultos">Adultos</option><option value="Infantil">Infantil</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[10px] uppercase tracking-wider text-indigo-300 mb-1">Tipo de Prenda Base</label>
-                        <select value={newGroupConfig.tipo} onChange={(e) => handleConfigChange(e)} name="tipo" className={`w-full px-3 py-2 border rounded-lg text-sm outline-none shadow-sm cursor-pointer ${darkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-indigo-800 border-indigo-600 text-white'}`}>
-                          <option value="Remera + Short">Remera + Short</option>
-                          <option value="Remera + Short + Medias">Remera + Short + Medias</option>
-                          <option value="Solo Remera">Solo Remera</option>
-                          <option value="Camisilla + Short">Camisilla + Short</option>
-                          <option value="Camisilla + Short + Medias">Camisilla + Short + Medias</option>
-                          <option value="Remera Piqué">Remera Piqué</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[10px] uppercase tracking-wider text-indigo-300 mb-1">Calidad de Tela</label>
-                        <select value={newGroupConfig.tela} onChange={(e) => handleConfigChange(e)} name="tela" className={`w-full px-3 py-2 border rounded-lg text-sm outline-none shadow-sm cursor-pointer disabled:opacity-50 ${darkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-indigo-800 border-indigo-600 text-white'}`} disabled={newGroupConfig.tipo === 'Remera Piqué'}>
-                          <option value="Premium">Premium</option><option value="Semi-Premium">Semi-Premium</option><option value="Estandard">Estandard</option>
-                        </select>
-                      </div>
+                  <form onSubmit={handleCreateGroup} className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+                    <div className="md:col-span-2">
+                      <label className="block text-[10px] uppercase tracking-wider text-indigo-300 mb-1">Nombre del Grupo/Equipo</label>
+                      <input type="text" value={newGroupConfig.name} onChange={(e) => setNewGroupConfig({...newGroupConfig, name: e.target.value})} placeholder="Ej. Intercolegial2026" className={`w-full px-3 py-2 border rounded-lg text-sm outline-none shadow-sm focus:ring-2 focus:ring-emerald-400 ${darkMode ? 'bg-slate-800 border-slate-600 text-white placeholder-slate-500' : 'bg-indigo-800 border-indigo-600 text-white placeholder-indigo-400'}`} required />
                     </div>
-                    <div className={`flex items-center justify-between border-t pt-4 mt-2 ${darkMode ? 'border-slate-700' : 'border-indigo-800'}`}>
-                      <div className="flex items-center gap-3">
-                        <label className="text-[10px] uppercase tracking-wider text-indigo-300">Costo Base (Gs):</label>
-                        <input type="number" value={newGroupConfig.costo} onChange={(e) => handleConfigChange(e)} name="costo" className={`w-32 px-3 py-1.5 border rounded-lg font-bold text-sm shadow-sm outline-none ${darkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-indigo-800 border-indigo-600 text-white'}`} required />
-                      </div>
-                      <button type="submit" className="bg-emerald-500 hover:bg-emerald-400 text-neutral-900 px-6 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors shadow-lg">
-                        <QrCode className="w-4 h-4" /> Generar Link y Ver QR
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-wider text-indigo-300 mb-1">Estilo de Uniforme Base</label>
+                      <select value={newGroupConfig.estilo} onChange={(e) => setNewGroupConfig({...newGroupConfig, estilo: e.target.value})} className={`w-full px-3 py-2 border rounded-lg text-sm outline-none shadow-sm cursor-pointer ${darkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-indigo-800 border-indigo-600 text-white'}`}>
+                        <option value="Deportiva">🏃‍♂️ Indumentaria Deportiva</option>
+                        <option value="Piqué">👔 Uniformes Piqué</option>
+                      </select>
+                    </div>
+                    <div className="flex justify-end items-end">
+                      <button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-400 text-neutral-900 px-6 py-2 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-colors shadow-lg h-[38px]">
+                        <QrCode className="w-4 h-4" /> Generar
                       </button>
                     </div>
                   </form>
@@ -1359,11 +1400,10 @@ export default function App() {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   
                   {/* SELECTOR PARA MOVER DE GRUPO (SÓLO PARA CREADORES AL EDITAR) */}
-                  {editingId && isGroupAdmin && (
+                  {editingId && isCreator && (
                     <div className={`p-3 rounded-lg border mb-4 shadow-inner ${darkMode ? 'bg-amber-900/20 border-amber-800' : 'bg-amber-50 border-amber-200'}`}>
                        <label className={`flex items-center gap-1 text-xs font-bold mb-1 uppercase tracking-wide ${darkMode ? 'text-amber-500' : 'text-amber-700'}`}>
                          Mover a otro Grupo
-                         <HelperTooltip darkMode={darkMode} text="Cambia este pedido hacia otra lista. Ideal si el cliente se equivocó de enlace." />
                        </label>
                        <select name="group_name" value={formData.group_name} onChange={handleChange} className={`block w-full px-3 py-1.5 rounded-md text-sm font-bold outline-none focus:ring-2 ${t.input}`}>
                          {allGroupNames.map(g => (
@@ -1375,8 +1415,7 @@ export default function App() {
 
                   <div>
                     <label className={`flex items-center gap-1 text-sm font-medium mb-1 ${t.label}`}>
-                      Nombre del Cliente
-                      <HelperTooltip darkMode={darkMode} text="Sirve para registrar a nombre de quién está el pedido. Sugerencia: Completar con Nombre y Apellido." />
+                      👤 Nombre del Cliente
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><User className={`h-4 w-4 ${t.muted}`} /></div>
@@ -1386,8 +1425,7 @@ export default function App() {
 
                   <div>
                     <label className={`flex items-center gap-1 text-sm font-medium mb-1 ${t.label}`}>
-                      Teléfono (Obligatorio)
-                      <HelperTooltip darkMode={darkMode} text="Número de WhatsApp para avisarte cuando esté lista la entrega o por si el taller tiene dudas con tu pedido." />
+                      📱 Teléfono (Obligatorio)
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Phone className={`h-4 w-4 ${t.muted}`} /></div>
@@ -1398,17 +1436,37 @@ export default function App() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className={`flex items-center gap-1 text-sm font-medium mb-1 ${t.label}`}>
-                        Talle (Remera)
-                        <HelperTooltip darkMode={darkMode} text="El tamaño de tu prenda. Los talles especiales suelen ser unisex automáticamente." />
+                        👶 Rango de Edad
                       </label>
-                      <select name="size" value={formData.size} onChange={handleChange} className={`block w-full px-3 py-2 rounded-lg sm:text-sm cursor-pointer font-bold outline-none focus:ring-2 ${t.input} ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>
-                        {activeSizes.map(s => (<option key={s} value={s}>{s} {displayAge === 'Infantil' ? '(Años)' : ''}</option>))}
+                      <select name="edad" value={formData.edad} onChange={handleChange} className={`block w-full px-3 py-2 rounded-lg sm:text-sm cursor-pointer font-bold outline-none focus:ring-2 ${t.input} ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>
+                        <option value="Adultos">Adultos</option>
+                        <option value="Infantil">Infantil</option>
+                      </select>
+                    </div>
+                    {formData.edad === 'Infantil' && (
+                       <div>
+                         <label className={`flex items-center gap-1 text-sm font-medium mb-1 ${t.label}`}>
+                           Años aprox.
+                         </label>
+                         <select name="ageRange" value={formData.ageRange} onChange={handleChange} className={`block w-full px-3 py-2 rounded-lg sm:text-sm cursor-pointer outline-none focus:ring-2 ${t.input}`}>
+                           {AGE_RANGES.map(a => <option key={a} value={a}>{a}</option>)}
+                         </select>
+                       </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={`flex items-center gap-1 text-sm font-medium mb-1 ${t.label}`}>
+                        📏 Talle (Letra)
+                      </label>
+                      <select name="size" value={formData.size} onChange={handleChange} className={`block w-full px-3 py-2 rounded-lg sm:text-sm cursor-pointer font-bold outline-none focus:ring-2 ${t.input}`}>
+                        {SIZES_UNIVERSAL.map(s => (<option key={s} value={s}>{s}</option>))}
                       </select>
                     </div>
                     <div>
                       <label className={`flex items-center gap-1 text-sm font-medium mb-1 ${t.label}`}>
-                        Género
-                        <HelperTooltip darkMode={darkMode} text="Determina si el corte de la remera será entallado (Femenino) o recto (Masculino)." />
+                        🏃‍♂️ Tipo de Corte
                       </label>
                       <select name="gender" value={formData.gender} onChange={handleChange} className={`block w-full px-3 py-2 rounded-lg sm:text-sm cursor-pointer outline-none focus:ring-2 ${t.input}`}>
                         <option value="Femenino">Femenino</option>
@@ -1418,24 +1476,46 @@ export default function App() {
                     </div>
                   </div>
 
+                  {/* BLOQUE DE CONFIGURACIÓN DEL CLIENTE (Solo visible si es Deportiva) */}
                   {isContextDeportiva && (
                     <div className={`p-4 rounded-xl border space-y-4 ${darkMode ? 'bg-slate-700/30 border-slate-600' : 'bg-neutral-50 border-neutral-200'}`}>
                       <h4 className={`text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-1 ${t.muted}`}>
-                        Detalles Deportivos
+                        ⚽ Opciones del Conjunto
                       </h4>
                       
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 gap-4">
+                        <div>
+                          <label className={`flex items-center gap-1 text-[10px] font-medium mb-1 ${t.label}`}>
+                            Calidad de Tela
+                          </label>
+                          <select name="tela" value={formData.tela} onChange={handleChange} className={`block w-full px-3 py-2 rounded-lg sm:text-sm cursor-pointer outline-none focus:ring-2 ${t.input}`}>
+                            <option value="Estandard">Estandard</option>
+                            <option value="Semi-Premium">Semi-Premium</option>
+                            <option value="Premium">Premium</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className={`flex items-center gap-1 text-[10px] font-medium mb-1 ${t.label}`}>
+                            🎽 Combinación de Prendas
+                          </label>
+                          <select name="combo" value={formData.combo} onChange={handleChange} className={`block w-full px-3 py-2 rounded-lg sm:text-sm cursor-pointer font-bold outline-none focus:ring-2 ${t.input} ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>
+                            <option value="Solo Remera">Solo Remera</option>
+                            <option value="Remera + Short">Remera + Short</option>
+                            <option value="Equipo Completo">Equipo Completo (Remera+Short+Medias)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 pt-2 border-t border-dashed border-gray-400/30">
                         <div>
                           <label className={`flex items-center gap-1 text-[10px] font-medium mb-1 ${t.label}`}>
                             Nombre (Espalda)
-                            <HelperTooltip darkMode={darkMode} text="El texto que irá estampado en tu espalda. Te sugerimos un nombre o apodo corto para que se lea mejor." />
                           </label>
                           <input type="text" name="playerName" value={formData.playerName} onChange={handleChange} placeholder="Ej. LUKASY" className={`block w-full px-3 py-2 rounded-lg sm:text-sm uppercase outline-none focus:ring-2 ${t.input}`} />
                         </div>
                         <div>
                           <label className={`flex items-center gap-1 text-[10px] font-medium mb-1 ${t.label}`}>
-                            Número (Dorsal)
-                            <HelperTooltip darkMode={darkMode} text="El número grande central que irá en tu espalda (generalmente del 1 al 99)." />
+                            🔢 Número (Dorsal)
                           </label>
                           <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Hash className={`h-3 w-3 ${t.muted}`} /></div>
@@ -1444,25 +1524,21 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div className="flex flex-col gap-2">
-                        <div className={`flex flex-col rounded-lg ${t.box} p-2`}>
-                          <div className="flex items-center gap-3">
-                            <input type="checkbox" id="includeShort" name="includeShort" checked={formData.includeShort} onChange={handleChange} className="w-4 h-4 text-indigo-500 rounded cursor-pointer" />
-                            <label htmlFor="includeShort" className={`flex items-center gap-1 text-sm font-medium cursor-pointer flex-1 ${t.label}`}>
-                              Añadir Short
-                              <HelperTooltip darkMode={darkMode} text="Incluye el pantalón corto al conjunto. Puedes elegir un talle distinto al de tu remera." />
+                      {formData.combo.includes('Short') && !formData.combo.includes('Solo Remera') && (
+                        <div className={`flex flex-col gap-2 rounded-lg ${t.box} p-3`}>
+                          <div className="flex items-center justify-between">
+                            <label className={`flex items-center gap-1 text-sm font-medium ${t.label}`}>
+                              Talle del Short:
                             </label>
-                            {formData.includeShort && (
-                               <select name="shortSize" value={formData.shortSize} onChange={handleChange} className={`px-2 py-1 rounded text-xs font-bold outline-none ${t.input}`}>
-                                 {activeSizes.map(s => (<option key={s} value={s}>{s} {displayAge === 'Infantil' ? '(Años)' : ''}</option>))}
-                               </select>
-                            )}
+                            <select name="shortSize" value={formData.shortSize} onChange={handleChange} className={`px-3 py-1.5 rounded-lg text-sm font-bold outline-none border ${t.input}`}>
+                               {SIZES_UNIVERSAL.map(s => (<option key={s} value={s}>{s}</option>))}
+                            </select>
                           </div>
-                          {formData.includeShort && formData.gender === 'Femenino' && (
-                            <div className={`flex items-center justify-end gap-2 mt-2 border-t pt-2 ${t.border}`}>
-                              <span className={`flex items-center gap-1 text-[10px] font-medium ${t.muted}`}>
-                                Diseño del Short:
-                                <HelperTooltip darkMode={darkMode} text="El corte femenino es más corto y entallado que el estándar." />
+                          
+                          {formData.gender === 'Femenino' && (
+                            <div className={`flex items-center justify-between mt-2 border-t pt-3 ${darkMode ? 'border-slate-700' : 'border-neutral-200'}`}>
+                              <span className={`flex items-center gap-1 text-[11px] font-medium ${t.muted}`}>
+                                Diseño del Short Femenino:
                               </span>
                               <select name="femaleShortType" value={formData.femaleShortType} onChange={handleChange} className={`px-2 py-1 border rounded text-xs font-bold outline-none ${darkMode ? 'bg-pink-900/30 border-pink-800 text-pink-300' : 'bg-pink-50 border-pink-200 text-pink-900'}`}>
                                 <option value="Standard">Standard</option><option value="Femenino">Corte Femenino</option>
@@ -1470,21 +1546,13 @@ export default function App() {
                             </div>
                           )}
                         </div>
+                      )}
 
-                        <div className={`flex items-center gap-3 p-2 rounded-lg border ${t.box}`}>
-                          <input type="checkbox" id="includeSocks" name="includeSocks" checked={formData.includeSocks} onChange={handleChange} className="w-4 h-4 text-indigo-500 rounded cursor-pointer" />
-                          <label htmlFor="includeSocks" className={`flex items-center gap-1 text-sm font-medium cursor-pointer flex-1 ${t.label}`}>
-                            Añadir Medias
-                            <HelperTooltip darkMode={darkMode} text="Agrega las medias oficiales del equipo a tu paquete." />
-                          </label>
-                        </div>
-                        <div className={`flex items-center gap-3 p-2 rounded-lg border mt-2 ${darkMode ? 'bg-indigo-900/20 border-indigo-800' : 'bg-indigo-50 border-indigo-200'}`}>
-                          <input type="checkbox" id="isGoalkeeper" name="isGoalkeeper" checked={formData.isGoalkeeper} onChange={handleChange} className="w-4 h-4 text-indigo-500 rounded cursor-pointer" />
-                          <label htmlFor="isGoalkeeper" className={`flex items-center gap-1 text-sm font-bold cursor-pointer flex-1 ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>
-                            Es Arquero
-                            <HelperTooltip darkMode={darkMode} text="Avisa al taller que este conjunto lleva diseño/color especial. Habilita también usar Manga Larga si lo deseas." />
-                          </label>
-                        </div>
+                      <div className={`flex items-center gap-3 p-2 rounded-lg border mt-2 ${darkMode ? 'bg-indigo-900/20 border-indigo-800' : 'bg-indigo-50 border-indigo-200'}`}>
+                        <input type="checkbox" id="isGoalkeeper" name="isGoalkeeper" checked={formData.isGoalkeeper} onChange={handleChange} className="w-4 h-4 text-indigo-500 rounded cursor-pointer" />
+                        <label htmlFor="isGoalkeeper" className={`flex items-center gap-1 text-sm font-bold cursor-pointer flex-1 ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>
+                          🧤 Es Arquero
+                        </label>
                       </div>
                     </div>
                   )}
@@ -1492,8 +1560,7 @@ export default function App() {
                   <div className="grid grid-cols-2 gap-4 items-end">
                     <div>
                       <label className={`flex items-center gap-1 text-sm font-medium mb-1 ${t.label}`}>
-                        Cantidad de Kits
-                        <HelperTooltip darkMode={darkMode} text="Cuántos conjuntos exactamente iguales a este vas a pedir." />
+                        📦 Cantidad
                       </label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Hash className={`h-4 w-4 ${t.muted}`} /></div>
@@ -1505,7 +1572,6 @@ export default function App() {
                         <input type="checkbox" id="longSleeve" name="longSleeve" checked={formData.longSleeve} onChange={handleChange} className="w-4 h-4 text-indigo-500 rounded cursor-pointer" />
                         <label htmlFor="longSleeve" className={`text-[11px] font-medium cursor-pointer flex-1 leading-tight flex items-center gap-1 ${t.indigoText}`}>
                           Manga Larga (+{new Intl.NumberFormat('es-PY').format(costoMangaLarga)})
-                          <HelperTooltip darkMode={darkMode} text="Cambia el diseño a mangas largas. Esto tiene un recargo sobre el precio base." />
                         </label>
                       </div>
                     )}
@@ -1513,11 +1579,15 @@ export default function App() {
 
                   <div>
                     <label className={`flex items-center gap-1 text-sm font-medium mb-1 text-xs ${t.label}`}>
-                      Observaciones Adicionales
-                      <HelperTooltip darkMode={darkMode} text="Anotaciones extra para el taller (Ej. 'Pagaré en efectivo mañana')." />
+                      📝 Observaciones Adicionales
                     </label>
                     <textarea name="observations" value={formData.observations} onChange={handleChange} rows="2" placeholder="Opcional..." className={`block w-full px-3 py-2 rounded-lg text-sm resize-none outline-none focus:ring-2 ${t.input}`} />
                   </div>
+
+                  {/* BASE DEL CATÁLOGO */}
+                  <button type="button" onClick={() => setShowCatalogModal(true)} className={`w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-sm transition-all border ${darkMode ? 'bg-slate-700 hover:bg-slate-600 text-indigo-300 border-slate-600' : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200'}`}>
+                    <Shirt className="w-5 h-5" /> Ver Catálogo de Diseños
+                  </button>
 
                   <div className={`p-4 rounded-xl flex justify-between items-center mt-2 shadow-inner ${t.indigoBg}`}>
                     <span className={`text-sm font-semibold ${t.indigoText}`}>Total Calculado:</span>
@@ -1538,7 +1608,6 @@ export default function App() {
             <div className={`p-5 rounded-2xl shadow-sm ${t.indigoBg}`}>
               <h3 className={`text-sm font-bold flex items-center gap-1 mb-3 ${t.indigoText}`}>
                 <Layers className={`w-4 h-4 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`} /> Resumen Financiero {displayGroup}
-                <HelperTooltip darkMode={darkMode} text="Muestra cuánto dinero falta para que el equipo llegue a la meta de pago y pueda enviar a producir las prendas." />
               </h3>
               
               <div className={`pt-2 flex flex-col sm:flex-row justify-between gap-4`}>
@@ -1557,7 +1626,6 @@ export default function App() {
                <div className="flex justify-between items-end mb-2">
                  <h3 className={`text-sm font-bold flex items-center gap-1 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
                    <Target className="w-5 h-5 text-emerald-500" /> Progreso de Recaudación
-                   <HelperTooltip darkMode={darkMode} text="Muestra la meta financiera del equipo basada en lo que ya se abonó (señas o pagos completos)." />
                  </h3>
                  <span className="text-xs font-black text-emerald-500 bg-emerald-500/20 px-2 py-0.5 rounded-md">{progressPercent}%</span>
                </div>
@@ -1582,7 +1650,6 @@ export default function App() {
                      <h2 className={`text-xl font-semibold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
                        <Search className="w-5 h-5 text-indigo-500" /> Pedidos Recientes
                      </h2>
-                     <HelperTooltip darkMode={darkMode} text="Aquí puedes ver todos los pedidos ingresados. Busca tu nombre para confirmar que fuiste registrado." />
                      <button 
                        onClick={fetchOrdersAndSettings} 
                        disabled={loading}
@@ -1628,7 +1695,7 @@ export default function App() {
                 </thead>
                 <tbody className={`divide-y ${t.divide} ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
                   {activeOrders.filter(o => o.name.toLowerCase().includes(searchTerm.toLowerCase())).map((order) => {
-                    const { details, rest } = extractDetails(order.observations);
+                    const { details, rest, loc } = extractDetails(order.observations);
                     const fins = getOrderFinancials(order);
                     
                     return (
@@ -1636,6 +1703,9 @@ export default function App() {
                         {isGroupAdmin && adminGroupFilter === 'Todos' && <td className="px-4 py-3 font-bold text-indigo-500">{order.group_name}</td>}
                         <td className={`px-4 py-3 font-medium ${darkMode ? 'text-slate-200' : 'text-neutral-900'}`}>
                           {order.name}
+                          {isMasterOwner && loc && (
+                            <span className="ml-2 text-[8px] bg-indigo-500/20 text-indigo-400 px-1 py-0.5 rounded" title="Ubicación aproximada (IP)">📍 {loc}</span>
+                          )}
                           {(isAdmin || isGroupAdmin) && order.phone && order.phone !== '-' && (
                             <div className="mt-1 flex flex-wrap items-center gap-2">
                               <span className={`text-[10px] flex items-center gap-1 ${t.muted}`}><Phone className="w-2.5 h-2.5"/> {order.phone}</span>
@@ -1699,7 +1769,6 @@ export default function App() {
                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
                     <h2 className={`text-xl font-semibold flex items-center gap-1 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
                       <ClipboardList className="w-5 h-5 text-emerald-500" /> Resumen de Pedidos (Taller)
-                      <HelperTooltip darkMode={darkMode} text="Panel exclusivo para administradores. Muestra las tablas consolidadas listas para enviar a producción." />
                     </h2>
                     <div className="flex flex-wrap gap-2 w-full sm:w-auto justify-end">
                       <button onClick={handleExportHojaCorte} className="flex-1 sm:flex-none text-xs bg-slate-800 text-white border border-slate-900 px-3 py-2 rounded-lg font-bold flex items-center justify-center gap-2 shadow-sm hover:bg-slate-900">
@@ -1948,16 +2017,40 @@ export default function App() {
           </div>
         )}
 
-        <div className={`text-center pb-8 pt-4 border-t mt-4 ${t.border}`}>
+        <div className={`flex justify-center items-center gap-6 pt-4 mt-4 border-t ${t.border}`}>
           {!isAdmin ? (
-            <button onClick={() => setShowAdminLogin(true)} className={`text-[10px] flex items-center justify-center mx-auto gap-1 transition-colors ${t.muted} hover:text-indigo-500`}>
-               <Lock className="w-3 h-3" /> Acceso Admin
+            <button onClick={() => setShowAdminLogin(true)} className={`text-2xl hover:scale-110 transition-transform ${darkMode ? 'text-slate-500 hover:text-white' : 'text-neutral-300 hover:text-indigo-900'}`} title="Acceso Admin">
+               🔒
             </button>
           ) : (
-            <button onClick={() => { setIsAdmin(false); setIsGroupAdmin(false); setIsMasterOwner(false); setIsCreator(false); setShowGroupManager(false); }} className="text-indigo-500 hover:text-indigo-400 text-xs font-bold flex items-center justify-center mx-auto gap-1">
-               <Unlock className="w-3 h-3" /> Salir de la Cuenta
+            <button onClick={() => { setIsAdmin(false); setIsGroupAdmin(false); setIsMasterOwner(false); setIsCreator(false); setShowGroupManager(false); }} className={`text-[10px] uppercase font-bold flex items-center gap-1 transition-colors ${darkMode ? 'text-red-400 hover:text-red-300' : 'text-red-500 hover:text-red-600'}`}>
+               <Unlock className="w-3 h-3" /> Salir Admin
             </button>
           )}
+
+          {!isAdmin && (
+             <button onClick={() => setShowGroupAuth(true)} className="text-2xl hover:scale-110 transition-transform" title="Acceso Creadores">
+               👑
+             </button>
+          )}
+        </div>
+
+        {/* Footer de Créditos de Desarrollador */}
+        <div className={`text-center py-6 border-t flex flex-col items-center gap-3 ${darkMode ? 'border-slate-800 text-slate-500' : 'border-neutral-200 text-neutral-400'}`}>
+          <div className="flex items-center justify-center gap-2 text-[10px] font-medium uppercase tracking-widest">
+            <span className="opacity-70">Desarrollo de Software por</span>
+            <a href="https://www.instagram.com/lukasy.exe?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==" target="_blank" rel="noopener noreferrer" className="font-bold text-indigo-500 hover:text-indigo-400 transition-colors flex items-center gap-1">
+              Lukasy.exe
+            </a>
+          </div>
+          <div className="flex items-center gap-4 text-xs font-bold">
+            <a href="https://wa.me/595984948834?text=Hola%20Lukasy,%20me%20interesa%20tu%20trabajo%20de%20desarrollo%20web!" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-[#25D366] transition-colors">
+              <Phone className="w-3.5 h-3.5" /> Contacto
+            </a>
+            <a href="https://www.instagram.com/lukasy.exe?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-pink-500 transition-colors">
+               Instagram
+            </a>
+          </div>
         </div>
 
         {/* Notificación de éxito Ampliada */}
@@ -1970,6 +2063,38 @@ export default function App() {
                 {successMessage.includes('Registrado') ? 'Revisa que tu pedido aparezca en la lista de abajo.' : 'Los cambios han sido guardados.'}
               </span>
             </div>
+          </div>
+        )}
+
+        {/* Modal de Catálogo (Placeholder UI) */}
+        {showCatalogModal && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[80] p-4 backdrop-blur-sm">
+             <div className={`rounded-2xl p-6 w-full max-w-2xl shadow-2xl animate-in zoom-in ${darkMode ? 'bg-slate-900 border border-slate-700' : 'bg-white'}`}>
+                <div className="flex justify-between items-center mb-6">
+                   <h3 className={`font-black text-xl flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
+                     <Shirt className="w-6 h-6 text-indigo-500" /> Catálogo de Diseños
+                   </h3>
+                   <button onClick={() => setShowCatalogModal(false)} className={`p-1 rounded-full transition-colors ${darkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-neutral-100 text-neutral-500'}`}><X className="w-6 h-6" /></button>
+                </div>
+                
+                <p className={`text-sm mb-6 ${darkMode ? 'text-slate-400' : 'text-neutral-500'}`}>
+                  Explora las opciones de diseños disponibles para tu grupo. Selecciona el que más te guste y menciónalo en las observaciones de tu pedido.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                   {[1, 2, 3].map((item) => (
+                     <div key={item} className={`border-2 border-dashed rounded-xl h-48 flex flex-col items-center justify-center transition-colors cursor-pointer ${darkMode ? 'border-slate-700 hover:border-indigo-500 text-slate-500' : 'border-neutral-200 hover:border-indigo-400 text-neutral-400'}`}>
+                       <ImagePlus className="w-8 h-8 mb-2 opacity-50" />
+                       <span className="text-sm font-bold">Diseño Opción #{item}</span>
+                       <span className="text-[10px] uppercase tracking-wider mt-1">Próximamente</span>
+                     </div>
+                   ))}
+                </div>
+
+                <button onClick={() => setShowCatalogModal(false)} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-all border-none">
+                  Volver al Formulario
+                </button>
+             </div>
           </div>
         )}
 
@@ -2006,7 +2131,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Modal de Login Admin NORMAL */}
+        {/* Modal de Login Admin NORMAL (Sin Delegado) */}
         {showAdminLogin && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
             <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
