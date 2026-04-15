@@ -202,7 +202,7 @@ export default function App() {
   const [archivedGroups, setArchivedGroups] = useState([]);
   const [cleanupRun, setCleanupRun] = useState(false);
   const [groupSort, setGroupSort] = useState({ key: 'lastOrder', direction: 'desc' });
-
+  
   // IMPLEMENTACIÓN DE DEBOUNCE PARA OPTIMIZAR BUSCADORES
   const [searchTerm, setSearchTerm] = useState(''); 
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
@@ -1770,7 +1770,6 @@ export default function App() {
                        </div>
                      ))}
                   </div>
-
                   <div className="mb-8">
                      <h3 className={`text-lg font-black mb-4 flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
                        <span className="flex items-center justify-center w-6 h-6 bg-emerald-500/20 text-emerald-500 rounded-full font-black text-sm">₲</span> Tabla de Aranceles Base
@@ -1827,7 +1826,7 @@ export default function App() {
                    <p className={`text-xl font-black ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>{new Intl.NumberFormat('es-PY').format(getUnitPrice(paymentModal.order) * paymentModal.order.quantity)} Gs.</p>
                 </div>
                 <label className={`block text-xs font-bold mb-1 ${t.muted}`}>Monto entregado (Gs):</label>
-                <input type="number" value={paymentModal.amount} onChange={(e) => setPaymentModal({...paymentModal, amount: e.target.value})} className={`w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-lg text-center mb-4 ${t.input}`} />
+                <input type="number" value={paymentModal.amount} onChange={(e) => setPaymentModal({ ...paymentModal, amount: e.target.value })} className={`w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-lg text-center mb-4 ${t.input}`} />
                 <div className="space-y-2">
                   <button onClick={savePayment} className="w-full bg-emerald-500 text-white font-black py-3 rounded-xl hover:bg-emerald-400 transition-all shadow-md border-none">Guardar Pago</button>
                   {paymentModal.isSaved && (
