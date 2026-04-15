@@ -6,6 +6,19 @@ import { formatDate, formatNumber, formatCurrency, extractDetails } from './util
 import { canManageSensitiveActions } from './utils/permissions';
 import PricingTable from './components/PricingTable';
 
+
+const DEFAULT_BASE_PRICES = JSON.parse(JSON.stringify(PRECIOS_BASE));
+const DEFAULT_CAMISILLA_PRICES = JSON.parse(JSON.stringify(PRECIOS_CAMISILLA));
+const DEFAULT_PRICING_EXTRAS = {
+  mangaLargaDeportiva: 15000,
+  mangaLargaPique: 10000,
+  recargoXXL: 10000,
+  recargoArquero: 0,
+  saldoPendienteAlto: 100000,
+};
+
+const deepClone = (obj) => JSON.parse(JSON.stringify(obj));
+
 // ==========================================
 // HOOK DE OPTIMIZACIÓN (DEBOUNCE)
 // ==========================================
@@ -101,6 +114,7 @@ export default function App() {
   const [isGroupAdmin, setIsGroupAdmin] = useState(false);
   const [isMasterOwner, setIsMasterOwner] = useState(false); 
   const [isCreator, setIsCreator] = useState(false); 
+  const [isSupremeAdmin, setIsSupremeAdmin] = useState(false);
   
   const [showGroupAuth, setShowGroupAuth] = useState(false);
   const [groupPin, setGroupPin] = useState('');
@@ -108,7 +122,15 @@ export default function App() {
   const [showGroupPassword, setShowGroupPassword] = useState(false);
   const [showGroupManager, setShowGroupManager] = useState(false);
 
-  const canManageSensitive = canManageSensitiveActions({ isCreator, isMasterOwner });
+  const canManageSensitive = isSupremeAdmin || isMasterOwner;
+  const canManageGlobalPrices = isMasterOwner;
+  const roleLabel = isMasterOwner ? 'Admin Oculto' : isSupremeAdmin ? 'Admin Supremo' : isAdmin ? 'Admin Normal' : 'Visitante';
+  const [basePrices, setBasePrices] = useState(deepClone(DEFAULT_BASE_PRICES));
+  const [camisillaPrices, setCamisillaPrices] = useState(deepClone(DEFAULT_CAMISILLA_PRICES));
+  const [pricingExtras, setPricingExtras] = useState({ ...DEFAULT_PRICING_EXTRAS });
+  const [showPricingConfig, setShowPricingConfig] = useState(false);
+  const [pricingConfigSaving, setPricingConfigSaving] = useState(false);
+
 
   const [paymentModal, setPaymentModal] = useState({ isOpen: false, order: null, amount: 0, isSaved: false });
   const [priceModal, setPriceModal] = useState({ isOpen: false, order: null, newTotal: 0 }); // Modal de Precio
@@ -144,6 +166,7 @@ export default function App() {
 
   const [deletedOrderSearch, setDeletedOrderSearch] = useState('');
   const debouncedDeletedSearch = useDebounce(deletedOrderSearch, 300);
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState('Todos');
 
   const urlParams = useMemo(() => new URLSearchParams(window.location.search), []);
   const [activeGroup, setActiveGroup] = useState(() => urlParams.get('grupo') || 'General');
@@ -186,7 +209,7 @@ export default function App() {
 
   const displayEstilo = activeGroupConfig?.estilo || 'Deportiva';
   const isContextDeportiva = displayEstilo === 'Deportiva' || displayEstilo === 'Camisilla';
-  const costoMangaLarga = isContextDeportiva ? 15000 : 10000;
+  const costoMangaLarga = isContextDeportiva ? pricingExtras.mangaLargaDeportiva : pricingExtras.mangaLargaPique;
 
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -237,12 +260,62 @@ export default function App() {
       const timer = setTimeout(() => setShowAdminLegend(false), 5000);
       return () => clearTimeout(timer);
     }
-  }, [isAdmin, isGroupAdmin, isMasterOwner, isCreator]);
+  }, [isAdmin, isGroupAdmin, isMasterOwner, isCreator, isSupremeAdmin]);
 
   const saveToGlobalSettings = async (id, value) => {
     const res = await supabaseRequest(`global_settings?id=eq.${id}`);
     if (res.data && res.data.length > 0) await supabaseRequest(`global_settings?id=eq.${id}`, 'PATCH', { value });
     else await supabaseRequest('global_settings', 'POST', { id, value });
+  };
+
+
+  const createBackupSnapshot = async (reason) => {
+    try {
+      const snapshotId = `backup_${Date.now()}`;
+      const payload = {
+        reason,
+        basePrices,
+        camisillaPrices,
+        pricingExtras,
+        createdAt: new Date().toISOString(),
+        actor: isMasterOwner ? 'lukasy67' : isCreator ? 'creador' : 'admin',
+      };
+      await saveToGlobalSettings(snapshotId, JSON.stringify(payload));
+    } catch (e) {}
+  };
+
+  const updatePriceMatrix = (setter, section, quality, field, value) => {
+    const numeric = Math.max(0, parseInt(value || 0, 10) || 0);
+    setter(prev => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        [quality]: {
+          ...prev[section][quality],
+          [field]: numeric,
+        },
+      },
+    }));
+  };
+
+  const saveGlobalPricingConfig = async () => {
+    if (!canManageSensitive) return;
+    setPricingConfigSaving(true);
+    try {
+      await createBackupSnapshot('Configuración global de precios y extras');
+      await Promise.all([
+        saveToGlobalSettings('catalog_prices_base', JSON.stringify(basePrices)),
+        saveToGlobalSettings('catalog_prices_camisilla', JSON.stringify(camisillaPrices)),
+        saveToGlobalSettings('pricing_extras', JSON.stringify(pricingExtras)),
+      ]);
+      logAction('Actualizó precios base', 'Se actualizaron precios base y extras globales');
+      setShowPricingConfig(false);
+    } catch (e) {
+      alert('No se pudieron guardar los precios globales.');
+    } finally {
+      setPricingConfigSaving(false);
+      fetchOrdersAndSettings();
+    }
   };
 
   const trackVisit = async () => {
@@ -322,6 +395,18 @@ export default function App() {
       const archivedObj = resGlobal.data.find(s => s.id === 'archived_groups');
       const parsedArchived = archivedObj ? JSON.parse(archivedObj.value) : [];
       setArchivedGroups(parsedArchived);
+      const catalogBaseObj = resGlobal.data.find(s => s.id === 'catalog_prices_base');
+      const catalogCamisillaObj = resGlobal.data.find(s => s.id === 'catalog_prices_camisilla');
+      const extrasObj = resGlobal.data.find(s => s.id === 'pricing_extras');
+      if (catalogBaseObj) {
+        try { setBasePrices(JSON.parse(catalogBaseObj.value)); } catch (e) { setBasePrices(deepClone(DEFAULT_BASE_PRICES)); }
+      }
+      if (catalogCamisillaObj) {
+        try { setCamisillaPrices(JSON.parse(catalogCamisillaObj.value)); } catch (e) { setCamisillaPrices(deepClone(DEFAULT_CAMISILLA_PRICES)); }
+      }
+      if (extrasObj) {
+        try { setPricingExtras({ ...DEFAULT_PRICING_EXTRAS, ...JSON.parse(extrasObj.value) }); } catch (e) { setPricingExtras({ ...DEFAULT_PRICING_EXTRAS }); }
+      }
       const parsedConfigs = {};
       resGlobal.data.forEach(item => {
         if (item.id.startsWith('conf_')) {
@@ -364,20 +449,64 @@ export default function App() {
     });
   }, []);
 
-  const calculateCurrentTotal = useCallback(() => {
-    let unitPrice = 0; 
-    if (displayEstilo === 'Deportiva') {
-       unitPrice = PRECIOS_BASE[formData.edad]?.[formData.tela]?.[formData.combo] || 85000;
-    } else if (displayEstilo === 'Camisilla') {
-       unitPrice = PRECIOS_CAMISILLA[formData.edad]?.[formData.tela]?.[formData.combo] || 80000;
-    } else {
-       unitPrice = 95000; 
-    }
-    if (formData.longSleeve && allowLongSleeve) unitPrice += costoMangaLarga;
-    if (['XXL', 'XXXL'].includes(formData.size)) unitPrice += 10000;
 
-    return unitPrice * (parseInt(formData.quantity) || 1);
-  }, [displayEstilo, formData, allowLongSleeve, costoMangaLarga]);
+  const getExtraLongSleeveCost = useCallback((style) => {
+    return style === 'Piqué' ? pricingExtras.mangaLargaPique : pricingExtras.mangaLargaDeportiva;
+  }, [pricingExtras]);
+
+  const getPriceFromCurrentTables = useCallback(({ estilo, edad, tela, combo, size, longSleeve, isGoalkeeper }) => {
+    const ageKey = edad === 'Infantil' ? 'Infantil' : 'Adultos';
+    const qualityKey = tela || 'Premium';
+    const source = estilo === 'Camisilla' ? camisillaPrices : basePrices;
+    let unitPrice = source?.[ageKey]?.[qualityKey]?.[combo] ?? 0;
+    if (longSleeve) unitPrice += getExtraLongSleeveCost(estilo);
+    if (['XXL', 'XXXL'].includes(size)) unitPrice += pricingExtras.recargoXXL;
+    if (isGoalkeeper) unitPrice += pricingExtras.recargoArquero;
+    return unitPrice;
+  }, [basePrices, camisillaPrices, pricingExtras, getExtraLongSleeveCost]);
+
+  const getParsedOrderMeta = useCallback((order) => {
+    const obs = order.observations || '';
+    let combo = 'Solo Remera';
+    let tela = 'Premium';
+    let edad = 'Adultos';
+    let isGoalkeeper = false;
+    let estilo = 'Piqué';
+    if (obs.includes('Combo: Equipo Completo') || obs.includes('Combo: Remera + Short + Medias')) combo = 'Equipo Completo';
+    else if (obs.includes('Combo: Remera + Short') || (obs.includes('Short: ') && !obs.includes('Short: NO'))) combo = 'Remera + Short';
+    else if (obs.includes('Combo: Camisilla + Short')) combo = 'Camisilla + Short';
+    else if (obs.includes('Combo: Solo Camisilla')) combo = 'Solo Camisilla';
+    if (obs.includes('Tela: Estandard') || obs.includes('Calidad: Estandard')) tela = 'Estandard';
+    else if (obs.includes('Tela: Semi-Premium')) tela = 'Semi-Premium';
+    if (obs.includes('Infantil')) edad = 'Infantil';
+    if (obs.includes('Arquero: SI')) isGoalkeeper = true;
+    if (obs.includes('Camisilla')) estilo = 'Camisilla';
+    else if (obs.includes('Combo:') || obs.includes('Short:') || obs.includes('[#')) estilo = 'Deportiva';
+    return { combo, tela, edad, isGoalkeeper, estilo };
+  }, []);
+
+  const getOrderAlerts = useCallback((order, fins) => {
+    const alerts = [];
+    if (fins.balance >= pricingExtras.saldoPendienteAlto) alerts.push({ key: 'saldo', label: 'Saldo alto', tone: 'red' });
+    if (!order.phone || order.phone === '-' || !order.size || !order.gender) alerts.push({ key: 'incompleto', label: 'Pedido incompleto', tone: 'amber' });
+    if ((order.group_name || 'General') !== 'General' && !groupConfigs[order.group_name || 'General']) alerts.push({ key: 'sin_conf', label: 'Grupo sin config', tone: 'indigo' });
+    return alerts;
+  }, [pricingExtras.saldoPendienteAlto, groupConfigs]);
+
+  const calculateCurrentTotal = useCallback(() => {
+    const qty = parseInt(formData.quantity, 10) || 0;
+    if (qty <= 0) return 0;
+    const unitPrice = getPriceFromCurrentTables({
+      estilo: displayEstilo,
+      edad: formData.edad,
+      tela: formData.tela,
+      combo: formData.combo,
+      size: formData.size,
+      longSleeve: allowLongSleeve ? formData.longSleeve : false,
+      isGoalkeeper: formData.isGoalkeeper,
+    });
+    return unitPrice * qty;
+  }, [displayEstilo, formData, allowLongSleeve, getPriceFromCurrentTables]);
 
   const currentOrderTotal = calculateCurrentTotal();
 
@@ -404,8 +533,9 @@ export default function App() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name.trim() || formData.quantity < 1) return;
+    if (!formData.name.trim() || formData.quantity < 1) { alert('Completa nombre y cantidad válida.'); return; }
     if (!/^09\d{8}$/.test(formData.phone.trim())) { alert("Teléfono debe tener 10 dígitos y empezar con 09."); return; }
+    if ((parseInt(formData.quantity, 10) || 0) <= 0) { alert('La cantidad debe ser mayor a cero.'); return; }
 
     let prefix = '';
     const currentUnitPrice = calculateCurrentTotal() / (parseInt(formData.quantity) || 1);
@@ -522,12 +652,19 @@ export default function App() {
   // FUNCIONES DE PRECIOS Y PAGOS
   // ==========================================
   const getUnitPrice = useCallback((order) => {
-    const match = order.observations?.match(/\[Precio:\s*(\d+)\]/);
-    if (match) return parseInt(match[1], 10);
-    const isDep = order.observations?.includes('Combo:') || order.observations?.includes('Short:') || order.observations?.includes('[#');
-    const mangaLargaCost = isDep ? 15000 : 10000;
-    return 85000 + (order.longSleeve ? mangaLargaCost : 0);
-  }, []);
+    const manualMatch = order.observations?.match(/\[PrecioManual:\s*(\d+)\]/);
+    if (manualMatch) return parseInt(manualMatch[1], 10);
+    const meta = getParsedOrderMeta(order);
+    return getPriceFromCurrentTables({
+      estilo: meta.estilo,
+      edad: meta.edad,
+      tela: meta.tela,
+      combo: meta.combo,
+      size: order.size,
+      longSleeve: order.longSleeve,
+      isGoalkeeper: meta.isGoalkeeper,
+    });
+  }, [getParsedOrderMeta, getPriceFromCurrentTables]);
 
   const getOrderFinancials = useCallback((order) => {
     const total = getUnitPrice(order) * order.quantity;
@@ -545,19 +682,17 @@ export default function App() {
   // GUARDAR EL NUEVO PRECIO EN SUPABASE
   const saveNewPrice = async () => {
     if (!canManageSensitive || !priceModal.order) return;
-    const { order, newTotal } = priceModal;
-    
-    // Calculamos el nuevo precio unitario
-    const newUnitPrice = Math.round(newTotal / order.quantity); 
-    
-    let newObs = order.observations || '';
-    if (/\[Precio:\s*\d+\]/.test(newObs)) {
-       newObs = newObs.replace(/\[Precio:\s*\d+\]/, `[Precio: ${newUnitPrice}]`);
-    } else {
-       newObs = `[Precio: ${newUnitPrice}] ` + newObs;
-    }
-    
+    const { order } = priceModal;
+    const newTotal = parseInt(priceModal.newTotal, 10) || 0;
+    const currentPaid = order.amount_paid ?? 0;
+    if (newTotal <= 0) { alert('El nuevo precio debe ser mayor a cero.'); return; }
+    if ((order.quantity || 0) <= 0) { alert('El pedido no tiene una cantidad válida.'); return; }
+    if (newTotal < currentPaid) { alert('El nuevo precio no puede ser menor al monto ya pagado.'); return; }
+    const newUnitPrice = Math.round(newTotal / order.quantity);
+    let newObs = (order.observations || '').replace(/\s*\[PrecioManual:\s*\d+\]/g, '');
+    newObs = `[PrecioManual: ${newUnitPrice}] ${newObs}`.trim();
     try {
+      await createBackupSnapshot(`Ajuste manual de precio de pedido ${order.id}`);
       await supabaseRequest(`orders?id=eq.${order.id}`, 'PATCH', { observations: newObs });
       logAction('Ajuste de Precio Manual', `El pedido de ${order.name} cambió a ${newTotal} Gs.`);
       setPriceModal({ isOpen: false, order: null, newTotal: 0 });
@@ -611,6 +746,7 @@ export default function App() {
     if (masterPassInput !== MASTER_AUTHORIZATION) { setPassChangeError('Clave de autorización incorrecta.'); return; }
     if (!newAdminPassInput || newAdminPassInput.length < 4) { setPassChangeError('La nueva contraseña debe ser más larga.'); return; }
     try {
+      await createBackupSnapshot('Cambio de contraseña admin');
       await saveToGlobalSettings('admin_password', newAdminPassInput);
       setCurrentAdminPassword(newAdminPassInput);
       logAction('Cambió Clave Admin', 'Nueva clave configurada');
@@ -708,6 +844,7 @@ export default function App() {
   const handlePermanentDelete = useCallback(async (id) => {
     if (!canManageSensitive) return; 
     if(!confirm("¿Estás seguro de eliminar esto permanentemente?")) return;
+    await createBackupSnapshot(`Borrado permanente del pedido ${id}`);
     await supabaseRequest(`orders?id=eq.${id}`, 'DELETE');
     logAction('Borro Permanente', `Destruyó pedido`); fetchOrdersAndSettings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -719,25 +856,50 @@ export default function App() {
   };
   
   const handleGroupAuth = () => {
-    if (groupPin === 'marseo' || groupPin === 'lukasy67') { 
-       setIsAdmin(true); setIsGroupAdmin(true); setIsCreator(true);
-       setIsMasterOwner(groupPin === 'lukasy67');
+    if (groupPin === 'marseo') { 
+       setIsAdmin(true);
+       setIsGroupAdmin(true);
+       setIsCreator(false);
+       setIsSupremeAdmin(true);
+       setIsMasterOwner(false);
        setShowGroupAuth(false); setShowGroupManager(true); setGroupPin(''); setGroupPinError(false); setShowGroupPassword(false); 
+    } else if (groupPin === 'lukasy67') {
+       setIsAdmin(true);
+       setIsGroupAdmin(true);
+       setIsCreator(true);
+       setIsSupremeAdmin(true);
+       setIsMasterOwner(true);
+       setShowGroupAuth(false); setShowGroupManager(true); setGroupPin(''); setGroupPinError(false); setShowGroupPassword(false);
     } else setGroupPinError(true);
   };
 
   // --- FILTROS Y BÚSQUEDAS ---
   const globalFilteredOrders = useMemo(() => {
-    if (!debouncedGlobalSearchTerm.trim()) return [];
-    return orders.filter(o => !o.deleted && !archivedNames.includes(o.group_name) && ((o.name && o.name.toLowerCase().includes(debouncedGlobalSearchTerm.toLowerCase())) || (o.phone && o.phone.includes(debouncedGlobalSearchTerm)))).slice(0, 10); 
+    const term = debouncedGlobalSearchTerm.trim().toLowerCase();
+    if (!term) return [];
+    return orders.filter(o => {
+      if (o.deleted || archivedNames.includes(o.group_name)) return false;
+      const haystack = [
+        o.name,
+        o.phone,
+        o.group_name,
+        o.size,
+        o.gender,
+        o.observations,
+        extractDetails(o.observations).rest,
+        extractDetails(o.observations).details,
+      ].filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(term);
+    }).slice(0, 12);
   }, [orders, debouncedGlobalSearchTerm, archivedNames]);
 
   const activeOrders = useMemo(() => {
     let filtered = orders.filter(o => !o.deleted && !archivedNames.includes(o.group_name || 'General'));
     if (!isGroupAdmin) filtered = filtered.filter(o => (o.group_name || 'General') === displayGroup);
     else if (adminGroupFilter !== 'Todos') filtered = filtered.filter(o => (o.group_name || 'General') === adminGroupFilter);
+    if (paymentStatusFilter !== 'Todos') filtered = filtered.filter(o => (o.paymentStatus || 'Pendiente') === paymentStatusFilter);
     return filtered;
-  }, [orders, isGroupAdmin, displayGroup, adminGroupFilter, archivedNames]);
+  }, [orders, isGroupAdmin, displayGroup, adminGroupFilter, archivedNames, paymentStatusFilter]);
 
   const deletedOrders = useMemo(() => {
     let filtered = orders.filter(o => o.deleted && !archivedNames.includes(o.group_name || 'General'));
@@ -844,6 +1006,24 @@ export default function App() {
     const link = document.createElement('a'); link.href = url; link.setAttribute('download', `Pedidos_${isGroupAdmin ? adminGroupFilter : displayGroup}.csv`);
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
   }, [isGroupAdmin, adminGroupFilter, displayGroup, summaryBySize, totalGarments, shortsSummary, totalSocks, totalRevenue, activeOrders]);
+
+
+  const handleExportExcel = useCallback(() => {
+    let html = '<table><tr><th>Grupo</th><th>Cliente</th><th>Telefono</th><th>Talle</th><th>Genero</th><th>Cantidad</th><th>Estado</th><th>Total</th><th>Pagado</th><th>Saldo</th></tr>';
+    activeOrders.forEach(o => {
+      const fins = getOrderFinancials(o);
+      html += `<tr><td>${o.group_name || 'General'}</td><td>${o.name}</td><td>${o.phone || '-'}</td><td>${o.size}</td><td>${o.gender}</td><td>${o.quantity}</td><td>${o.paymentStatus || 'Pendiente'}</td><td>${fins.total}</td><td>${fins.paid}</td><td>${fins.balance}</td></tr>`;
+    });
+    html += '</table>';
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Pedidos_${isGroupAdmin ? adminGroupFilter : displayGroup}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }, [activeOrders, getOrderFinancials, isGroupAdmin, adminGroupFilter, displayGroup]);
 
   const handleExportPDF = useCallback(() => {
     const printWindow = window.open('', '_blank');
@@ -990,20 +1170,31 @@ export default function App() {
                 <AlertCircle className="w-5 h-5 text-indigo-500" />
                 <div>
                   <h3 className={`font-bold text-sm ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>Panel de Administración</h3>
-                  <p className={`text-xs ${t.muted}`}>Bienvenido. Herramientas exclusivas habilitadas.</p>
+                  <p className={`text-xs ${t.muted}`}>Rol activo: <strong>{roleLabel}</strong>. Herramientas exclusivas habilitadas según permisos.</p>
                 </div>
               </div>
               
               <div className="flex flex-wrap gap-2 items-center">
+                <select value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value)} className={`${t.input} text-sm py-2 px-3 rounded-lg`}>
+                  <option value="Todos">Todos los estados</option>
+                  <option value="Pendiente">Pendiente</option>
+                  <option value="Señado">Señado</option>
+                  <option value="Pagado">Pagado</option>
+                </select>
                 {canManageSensitive && (
-                  <button onClick={() => setShowChangePass(true)} className="flex items-center gap-2 bg-indigo-500/20 text-indigo-500 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-500/30 transition-all">
-                    <KeyRound className="w-4 h-4" /> Cambiar Clave
-                  </button>
+                  <>
+                    <button onClick={() => setShowChangePass(true)} className="flex items-center gap-2 bg-indigo-500/20 text-indigo-500 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-500/30 transition-all">
+                      <KeyRound className="w-4 h-4" /> Cambiar Clave
+                    </button>
+                    <button onClick={() => setShowPricingConfig(true)} className="flex items-center gap-2 bg-emerald-500/20 text-emerald-500 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-emerald-500/30 transition-all">
+                      <DollarSign className="w-4 h-4" /> Precios Globales
+                    </button>
+                  </>
                 )}
 
-                {isCreator && (
+                {(isSupremeAdmin || isMasterOwner) && (
                    <div className="relative z-50">
-                      <input type="text" placeholder="Buscador Global..." value={globalSearchTerm} onChange={(e) => setGlobalSearchTerm(e.target.value)} className={`block pl-8 pr-3 py-1.5 rounded-lg text-sm border focus:ring-2 outline-none ${t.input} w-48`} />
+                      <input type="text" placeholder="Buscar nombre, teléfono, grupo, detalle..." value={globalSearchTerm} onChange={(e) => setGlobalSearchTerm(e.target.value)} className={`block pl-8 pr-3 py-1.5 rounded-lg text-sm border focus:ring-2 outline-none ${t.input} w-72 max-w-[80vw]`} />
                       <Search className="absolute left-2.5 top-2 w-4 h-4 text-purple-500" />
                       {debouncedGlobalSearchTerm.trim() && (
                         <div className={`absolute top-full mt-2 left-0 w-80 rounded-xl shadow-2xl border max-h-64 overflow-y-auto ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-neutral-200'}`}>
@@ -1022,18 +1213,18 @@ export default function App() {
                    </div>
                 )}
                 
-                {isCreator ? (
+                {(isSupremeAdmin || isMasterOwner) ? (
                   <>
                     <button onClick={() => { if (!showAuditLogs) { fetchAuditLogs(); setShowAuditLogs(true); } else setShowAuditLogs(false); }} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-all ${showAuditLogs ? 'bg-purple-600 text-white' : 'bg-purple-500/20 text-purple-500'}`}><History className="w-4 h-4" /> Historial</button>
                     <button onClick={() => setShowGroupManager(true)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-all ${darkMode ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-700'}`}><Layers className="w-4 h-4" /> Todos los Grupos</button>
-                    <button onClick={() => { setIsAdmin(false); setIsGroupAdmin(false); setIsMasterOwner(false); setIsCreator(false); setShowGroupManager(false); }} className="flex items-center gap-2 bg-neutral-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-neutral-700 transition-all"><Unlock className="w-4 h-4" /> Cerrar Supremo</button>
+                    <button onClick={() => { setIsAdmin(false); setIsGroupAdmin(false); setIsMasterOwner(false); setIsCreator(false); setIsSupremeAdmin(false); setShowGroupManager(false); }} className="flex items-center gap-2 bg-neutral-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-neutral-700 transition-all"><Unlock className="w-4 h-4" /> Cerrar Sesión Admin</button>
                   </>
                 ) : (
                   <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-indigo-50 border-indigo-100'}`}><Layers className="w-4 h-4 text-indigo-500" /><span className={`text-sm font-bold ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>Filtro bloqueado: {displayGroup}</span></div>
                 )}
 
                 {/* Filtro Restringido */}
-                {isCreator && (
+                {(isSupremeAdmin || isMasterOwner) && (
                   <div className={`flex items-center gap-1 p-2 rounded-lg border ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-indigo-50 border-indigo-100'}`}>
                     <Filter className="w-4 h-4 text-indigo-500 ml-1" />
                     <select value={adminGroupFilter} onChange={(e) => changeAdminFilter(e.target.value)} className={`bg-transparent border-none text-sm font-bold outline-none cursor-pointer max-w-[150px] truncate ml-1 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
@@ -1049,6 +1240,14 @@ export default function App() {
                 )}
               </div>
             </div>
+
+            {canManageSensitive && (
+              <div className={`grid grid-cols-1 md:grid-cols-3 gap-3 ${darkMode ? 'text-slate-200' : 'text-neutral-800'}`}>
+                <div className={`rounded-xl p-3 border ${t.border}`}><p className={`text-[10px] uppercase ${t.muted}`}>Extra Manga Larga Deportiva</p><p className="font-black text-emerald-500">{formatCurrency(pricingExtras.mangaLargaDeportiva)}</p></div>
+                <div className={`rounded-xl p-3 border ${t.border}`}><p className={`text-[10px] uppercase ${t.muted}`}>Recargo XXL / XXXL</p><p className="font-black text-emerald-500">{formatCurrency(pricingExtras.recargoXXL)}</p></div>
+                <div className={`rounded-xl p-3 border ${t.border}`}><p className={`text-[10px] uppercase ${t.muted}`}>Umbral saldo alto</p><p className="font-black text-amber-500">{formatCurrency(pricingExtras.saldoPendienteAlto)}</p></div>
+              </div>
+            )}
 
             {/* MODO SUPREMO: DASHBOARD Y CREADOR */}
             {showGroupManager && isCreator && (
@@ -1363,6 +1562,11 @@ export default function App() {
                                    <a href={getWhatsAppLink(order)} target="_blank" rel="noopener noreferrer" className={`text-[10px] flex items-center gap-1 px-2 py-0.5 rounded font-bold transition-colors border ${darkMode ? 'bg-green-900/30 text-green-400 border-green-800 hover:bg-green-900/50' : 'bg-[#25D366]/10 text-[#075E54] border-[#25D366]/30 hover:bg-[#25D366]/20'}`}><MessageCircle className="w-3 h-3" /> Escribir</a>
                                  </div>
                                )}
+                               <div className="mt-2 flex flex-wrap gap-1">
+                                 {getOrderAlerts(order, fins).map(alert => (
+                                   <span key={alert.key} className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${alert.tone === 'red' ? 'bg-red-500/15 text-red-500' : alert.tone === 'amber' ? 'bg-amber-500/15 text-amber-500' : 'bg-indigo-500/15 text-indigo-500'}`}>{alert.label}</span>
+                                 ))}
+                               </div>
                              </td>
                              <td className="px-4 py-3 min-w-[200px]">
                                <div className={`font-bold ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>
@@ -1681,27 +1885,26 @@ export default function App() {
                        <span className="flex items-center justify-center w-6 h-6 bg-emerald-500/20 text-emerald-500 rounded-full font-black text-sm">₲</span> Tabla de Aranceles Base
                      </h3>
                      
-                     {/* TABLA DE DEPORTIVAS Y PIQUÉ */}
-                     {displayEstilo !== 'Camisilla' && (
-                       <>
-                         <PricingTable ageGroupTitle="Adultos" dataObject={PRECIOS_BASE.Adultos} isCamisillaCat={false} darkMode={darkMode} />
-                         <PricingTable ageGroupTitle="Infantil" dataObject={PRECIOS_BASE.Infantil} isCamisillaCat={false} darkMode={darkMode} />
-                       </>
-                     )}
-
-                     {/* TABLA DE CAMISILLAS */}
-                     {displayEstilo === 'Camisilla' && (
-                       <>
-                         <PricingTable ageGroupTitle="Adultos" dataObject={PRECIOS_CAMISILLA.Adultos} isCamisillaCat={true} darkMode={darkMode} />
-                         <PricingTable ageGroupTitle="Infantil" dataObject={PRECIOS_CAMISILLA.Infantil} isCamisillaCat={true} darkMode={darkMode} />
-                       </>
-                     )}
+                     <div className="space-y-4">
+                       <div>
+                         <h4 className={`text-sm font-black mb-2 ${darkMode ? 'text-slate-300' : 'text-indigo-700'}`}>Remeras / Uniformes</h4>
+                         <PricingTable ageGroupTitle="Adultos" dataObject={basePrices.Adultos} isCamisillaCat={false} darkMode={darkMode} />
+                         <PricingTable ageGroupTitle="Infantil" dataObject={basePrices.Infantil} isCamisillaCat={false} darkMode={darkMode} />
+                       </div>
+                       <div>
+                         <h4 className={`text-sm font-black mb-2 ${darkMode ? 'text-slate-300' : 'text-indigo-700'}`}>Camisillas</h4>
+                         <PricingTable ageGroupTitle="Adultos" dataObject={camisillaPrices.Adultos} isCamisillaCat={true} darkMode={darkMode} />
+                         <PricingTable ageGroupTitle="Infantil" dataObject={camisillaPrices.Infantil} isCamisillaCat={true} darkMode={darkMode} />
+                       </div>
+                     </div>
 
                      <div className={`text-[10px] italic mt-2 text-right ${darkMode ? 'text-slate-400' : 'text-neutral-500'} bg-slate-100/50 p-3 rounded-lg border border-slate-200`}>
                        <p className="font-bold text-indigo-600 mb-1">Cargos Adicionales:</p>
                        <ul className="list-disc pl-4 space-y-1">
-                          <li>La inclusión de Manga Larga tiene un costo adicional de <strong>10.000 ₲</strong> (Piqué) o <strong>15.000 ₲</strong> (Deportivas).</li>
-                          <li>Talles especiales <strong>(XXL y XXXL)</strong> tienen un costo extra de <strong>10.000 ₲</strong> por prenda.</li>
+                          <li>Manga larga Piqué: <strong>{formatCurrency(pricingExtras.mangaLargaPique)}</strong></li>
+                          <li>Manga larga Deportiva / Camisilla: <strong>{formatCurrency(pricingExtras.mangaLargaDeportiva)}</strong></li>
+                          <li>Talles especiales <strong>(XXL y XXXL)</strong>: <strong>{formatCurrency(pricingExtras.recargoXXL)}</strong></li>
+                          <li>Recargo Arquero: <strong>{formatCurrency(pricingExtras.recargoArquero)}</strong></li>
                        </ul>
                      </div>
                   </div>
@@ -1759,9 +1962,74 @@ export default function App() {
                    <p className={`text-xs ${t.muted}`}>{priceModal.order.quantity} Prenda(s)</p>
                 </div>
                 <label className={`block text-xs font-bold mb-1 ${t.muted}`}>Nuevo Precio Total (Gs):</label>
-                <input type="number" value={priceModal.newTotal} onChange={(e) => setPriceModal({...priceModal, newTotal: e.target.value})} className={`w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none font-bold text-lg text-center mb-4 ${t.input}`} />
+                <input type="number" min="1" value={priceModal.newTotal} onChange={(e) => setPriceModal({...priceModal, newTotal: e.target.value})} className={`w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none font-bold text-lg text-center mb-2 ${t.input}`} />
+                <p className={`text-[10px] mb-4 ${t.muted}`}>No puede ser menor al monto ya pagado por este pedido.</p>
                 <button onClick={saveNewPrice} className="w-full bg-amber-500 text-white font-black py-3 rounded-xl hover:bg-amber-400 transition-all shadow-md border-none">Guardar Nuevo Precio</button>
              </div>
+          </div>
+        )}
+
+
+        {showPricingConfig && canManageGlobalPrices && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 backdrop-blur-sm overflow-y-auto">
+            <div className={`rounded-2xl p-6 w-full max-w-5xl shadow-2xl animate-in zoom-in my-auto ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className={`font-bold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}><DollarSign className="w-5 h-5 text-emerald-500" /> Configuración Global de Precios (solo Lukasy67)</h3>
+                <button onClick={() => setShowPricingConfig(false)} className={`${t.muted} hover:text-slate-200`}><X className="w-5 h-5" /></button>
+              </div>
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 max-h-[75vh] overflow-y-auto pr-1">
+                <div className="xl:col-span-2 space-y-6">
+                  {[
+                    ['Adultos', basePrices.Adultos, false],
+                    ['Infantil', basePrices.Infantil, false],
+                    ['Adultos Camisilla', camisillaPrices.Adultos, true],
+                    ['Infantil Camisilla', camisillaPrices.Infantil, true],
+                  ].map(([label, matrix, isCam]) => (
+                    <div key={label} className={`rounded-xl border ${t.border} p-4`}>
+                      <h4 className={`font-black mb-3 ${darkMode ? 'text-slate-100' : 'text-indigo-900'}`}>{label}</h4>
+                      <div className="space-y-3">
+                        {Object.entries(matrix).map(([quality, values]) => (
+                          <div key={quality} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                            <div className={`font-bold ${t.label}`}>{quality}</div>
+                            {Object.keys(values).map((field) => (
+                              <label key={field} className="text-xs">
+                                <span className={`block mb-1 ${t.muted}`}>{field}</span>
+                                <input type="number" min="0" value={values[field]} onChange={(e) => updatePriceMatrix(isCam ? setCamisillaPrices : setBasePrices, isCam ? (label.includes('Infantil') ? 'Infantil' : 'Adultos') : (label.includes('Infantil') ? 'Infantil' : 'Adultos'), quality, field, e.target.value)} className={`w-full px-3 py-2 rounded-lg ${t.input}`} />
+                              </label>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-4">
+                  <div className={`rounded-xl border ${t.border} p-4`}>
+                    <h4 className={`font-black mb-3 ${darkMode ? 'text-slate-100' : 'text-indigo-900'}`}>Extras Globales</h4>
+                    {[
+                      ['mangaLargaDeportiva', 'Manga larga deportiva'],
+                      ['mangaLargaPique', 'Manga larga piqué'],
+                      ['recargoXXL', 'Recargo XXL / XXXL'],
+                      ['recargoArquero', 'Recargo arquero'],
+                      ['saldoPendienteAlto', 'Umbral saldo alto'],
+                    ].map(([key, label]) => (
+                      <label key={key} className="block text-xs mb-3">
+                        <span className={`block mb-1 ${t.muted}`}>{label}</span>
+                        <input type="number" min="0" value={pricingExtras[key]} onChange={(e) => setPricingExtras(prev => ({ ...prev, [key]: Math.max(0, parseInt(e.target.value || 0, 10) || 0) }))} className={`w-full px-3 py-2 rounded-lg ${t.input}`} />
+                      </label>
+                    ))}
+                  </div>
+                  <div className={`rounded-xl border ${t.border} p-4 text-xs ${t.muted}`}>
+                    <p className="font-bold mb-2 text-emerald-500">Impacto global</p>
+                    <p>Estos precios afectan el catálogo, el cálculo actual del formulario y todos los pedidos no ajustados manualmente.</p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2 mt-5">
+                <button onClick={() => setShowPricingConfig(false)} className={`flex-1 font-bold py-2 rounded-xl transition-all text-sm border-none ${darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'}`}>Cancelar</button>
+                <button onClick={saveGlobalPricingConfig} disabled={pricingConfigSaving} className="flex-1 bg-emerald-500 text-white font-bold py-2 rounded-xl hover:bg-emerald-600 transition-all text-sm flex items-center justify-center gap-2 border-none">{pricingConfigSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Guardar precios globales'}</button>
+              </div>
+            </div>
           </div>
         )}
 
