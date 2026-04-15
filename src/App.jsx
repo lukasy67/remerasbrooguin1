@@ -1,30 +1,17 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone, Loader2, Layers, Lock, Unlock, X, Eye, EyeOff, Download, FileText, Info, AlertCircle, Search, CheckCircle2, Edit, Filter, Link2, ShieldAlert, MessageCircle, DollarSign, TrendingUp, Scissors, History, KeyRound, RefreshCw, BarChart3, ExternalLink, Receipt, Target, QrCode, MapPin, Moon, Sun, ArrowRight, ArrowLeft, ImagePlus, Smartphone } from 'lucide-react';
+import { useDebounce } from './src/hooks/useDebounce';
+import { SIZES_UNIVERSAL, AGE_RANGES, PRECIOS_BASE, PRECIOS_CAMISILLA, CATALOG_ITEMS, ANIMATION_THEMES, MASTER_AUTHORIZATION, supabaseUrl, supabaseKey, URL_LOGO_BROOGUIN } from './src/utils/constants';
+import { formatDate, formatNumber, formatCurrency, extractDetails } from './src/utils/formatters';
+import { canManageSensitiveActions } from './src/utils/permissions';
+import PricingTable from './src/components/PricingTable';
 
 // ==========================================
 // HOOK DE OPTIMIZACIÓN (DEBOUNCE)
 // ==========================================
-function useDebounce(value, delay) {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [value, delay]);
-  return debouncedValue;
-}
-
 // ==========================================
 // CONFIGURACIÓN DE SUPABASE
 // ==========================================
-const supabaseUrl = 'https://waoylkoopzluyhuuhbbc.supabase.co'; 
-const supabaseKey = 'sb_publishable_JYC_sxawUbpXIYycV7HO3A_kiUiFyoy'; 
-const URL_LOGO_BROOGUIN = 'https://i.postimg.cc/Ff77DPdm/logo.png'; 
-const MASTER_AUTHORIZATION = 'alucas123'; 
-
 const supabaseRequest = async (path, method = 'GET', body = null) => {
   if (!supabaseUrl || supabaseUrl.includes('TU_URL_AQUI')) return { data: null, error: 'Configuración pendiente.' };
   const headers = { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
@@ -39,69 +26,9 @@ const supabaseRequest = async (path, method = 'GET', body = null) => {
 // ==========================================
 // CONSTANTES Y PRECIOS
 // ==========================================
-const SIZES_UNIVERSAL = ['P', 'M', 'G', 'XG', 'XXL', 'XXXL'];
-const AGE_RANGES = ['2 a 5 años', '6 a 10 años', '11 a 14 años', '15 a 16 años'];
-
-const PRECIOS_BASE = {
-  Adultos: {
-    Premium: { 'Solo Remera': 105000, 'Remera + Short': 155000, 'Equipo Completo': 175000 },
-    'Semi-Premium': { 'Solo Remera': 95000, 'Remera + Short': 145000, 'Equipo Completo': 160000 },
-    Estandard: { 'Solo Remera': 85000, 'Remera + Short': 130000, 'Equipo Completo': 150000 }
-  },
-  Infantil: {
-    Premium: { 'Solo Remera': 90000, 'Remera + Short': 130000, 'Equipo Completo': 150000 },
-    'Semi-Premium': { 'Solo Remera': 80000, 'Remera + Short': 110000, 'Equipo Completo': 130000 },
-    Estandard: { 'Solo Remera': 60000, 'Remera + Short': 90000, 'Equipo Completo': 110000 }
-  }
-};
-
-const PRECIOS_CAMISILLA = {
-  Adultos: {
-    Premium: { 'Solo Camisilla': 90000, 'Camisilla + Short': 130000 },
-    'Semi-Premium': { 'Solo Camisilla': 85000, 'Camisilla + Short': 120000 },
-    Estandard: { 'Solo Camisilla': 80000, 'Camisilla + Short': 110000 }
-  },
-  Infantil: {
-    Premium: { 'Solo Camisilla': 85000, 'Camisilla + Short': 120000 },
-    'Semi-Premium': { 'Solo Camisilla': 75000, 'Camisilla + Short': 100000 },
-    Estandard: { 'Solo Camisilla': 55000, 'Camisilla + Short': 85000 }
-  }
-};
-
-const CATALOG_ITEMS = [
-  { name: 'Calidad Premium', desc: 'Máxima durabilidad y detalles.', img: 'https://i.imgur.com/8Gs1xK9.png' },
-  { name: 'Calidad Premium (Alternativa)', desc: 'Diseños de alta gama.', img: 'https://i.imgur.com/dYyyKTQ.png' },
-  { name: 'Calidad Semi-Premium', desc: 'Excelente relación precio/calidad.', img: 'https://i.imgur.com/0H3lWcd.png' },
-  { name: 'Calidad Estandard', desc: 'Para el juego de cada semana.', img: 'https://i.imgur.com/U5MHAMW.png' },
-  { name: 'Diseño Camisilla', desc: 'Libertad de movimiento.', img: 'https://i.imgur.com/ZA9DGL5.png' },
-  { name: 'Corte Femenino', desc: 'Entalle especial y short adaptado.', img: 'https://i.imgur.com/9pPEhCN.png' },
-  { name: 'Uniformes Piqué', desc: 'Para intercolegiales e institutos.', img: 'https://i.imgur.com/mvDtiHe.png' },
-];
-
-const ANIMATION_THEMES = [
-  { e: ['⚽', '🥅', '🏟️', '👟', '🥇'], a: 'anim-fall' }, { e: ['🏆', '🥇', '🏅', '🌟', '🙌'], a: 'anim-bounce' }, { e: ['🌸', '🌺', '💮', '🍃', '✨'], a: 'anim-float' }, { e: ['💋', '❤️', '💖', '😍', '🌹'], a: 'anim-float' }, { e: ['🔥', '💪', '💯', '💥', '⚡'], a: 'anim-zoom' }, { e: ['🎉', '🎊', '🎈', '✨', '🎁'], a: 'anim-fall' }
-];
-
 // ==========================================
 // FUNCIONES UTILITARIAS
 // ==========================================
-const formatDate = (timestamp) => {
-  if (!timestamp) return '-';
-  return new Date(timestamp).toLocaleString('es-PY', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
-};
-
-const extractDetails = (obs) => {
-  if (!obs) return { details: '', rest: '', loc: '' };
-  let details = ''; let rest = obs; let loc = '';
-  const locMatch = rest.match(/\[Loc:\s*(.*?)\]/);
-  if (locMatch) { loc = locMatch[1]; rest = rest.replace(locMatch[0], '').trim(); }
-  const bracketRegex = /^(\[.*?\]\s*)+/;
-  const match = rest.match(bracketRegex);
-  if (match) { details = match[0].trim(); rest = rest.replace(bracketRegex, '').trim(); }
-  if (rest.startsWith('Obs:')) rest = rest.substring(4).trim();
-  return { details, rest, loc };
-};
-
 // ==========================================
 // COMPONENTES AUXILIARES
 // ==========================================
@@ -180,6 +107,8 @@ export default function App() {
   const [groupPinError, setGroupPinError] = useState(false);
   const [showGroupPassword, setShowGroupPassword] = useState(false);
   const [showGroupManager, setShowGroupManager] = useState(false);
+
+  const canManageSensitive = canManageSensitiveActions({ isCreator, isMasterOwner });
 
   const [paymentModal, setPaymentModal] = useState({ isOpen: false, order: null, amount: 0, isSaved: false });
   const [priceModal, setPriceModal] = useState({ isOpen: false, order: null, newTotal: 0 }); // Modal de Precio
@@ -608,14 +537,14 @@ export default function App() {
 
   // ABRIR MODAL PARA AJUSTAR PRECIO FINAL
   const handleOpenPriceModal = useCallback((order) => {
-    if (!isAdmin) return;
+    if (!canManageSensitive) return;
     const currentTotal = getUnitPrice(order) * order.quantity;
     setPriceModal({ isOpen: true, order, newTotal: currentTotal });
-  }, [isAdmin, getUnitPrice]);
+  }, [canManageSensitive, getUnitPrice]);
 
   // GUARDAR EL NUEVO PRECIO EN SUPABASE
   const saveNewPrice = async () => {
-    if (!isAdmin || !priceModal.order) return;
+    if (!canManageSensitive || !priceModal.order) return;
     const { order, newTotal } = priceModal;
     
     // Calculamos el nuevo precio unitario
@@ -673,11 +602,12 @@ export default function App() {
     const fins = getOrderFinancials(order);
     const { details } = extractDetails(order.observations);
     const desc = `${order.size} ${order.gender[0]} - ${details.replace(/\[|\]/g, '')}`;
-    const msg = `🧾 *RECIBO VIRTUAL - BROOGUIN SPORT* 🦊\n\n¡Hola *${order.name}*! Confirmamos el registro de tu pago.\n\n*Detalles del Pedido:*\nGrupo: ${order.group_name || 'General'}\nPrenda: ${desc} (x${order.quantity})\n\n*Estado de Cuenta:*\nTotal del Pedido: ${new Intl.NumberFormat('es-PY').format(fins.total)} Gs.\n💰 *Pagado hasta ahora: ${new Intl.NumberFormat('es-PY').format(fins.paid)} Gs.*\n⚠️ *Saldo Pendiente: ${new Intl.NumberFormat('es-PY').format(fins.balance)} Gs.*\n\n¡Gracias por tu confianza!`;
+    const msg = `🧾 *RECIBO VIRTUAL - BROOGUIN SPORT* 🦊\n\n¡Hola *${order.name}*! Confirmamos el registro de tu pago.\n\n*Detalles del Pedido:*\nGrupo: ${order.group_name || 'General'}\nPrenda: ${desc} (x${order.quantity})\n\n*Estado de Cuenta:*\nTotal del Pedido: ${formatNumber(fins.total)} Gs.\n💰 *Pagado hasta ahora: ${formatNumber(fins.paid)} Gs.*\n⚠️ *Saldo Pendiente: ${formatNumber(fins.balance)} Gs.*\n\n¡Gracias por tu confianza!`;
     return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
   }, [getOrderFinancials]);
 
   const handleChangePasswordSubmit = async () => {
+    if (!canManageSensitive) { setPassChangeError('Solo el admin supremo o el creador pueden cambiar la contraseña.'); return; }
     if (masterPassInput !== MASTER_AUTHORIZATION) { setPassChangeError('Clave de autorización incorrecta.'); return; }
     if (!newAdminPassInput || newAdminPassInput.length < 4) { setPassChangeError('La nueva contraseña debe ser más larga.'); return; }
     try {
@@ -776,12 +706,12 @@ export default function App() {
   }, [isAdmin, fetchOrdersAndSettings]);
 
   const handlePermanentDelete = useCallback(async (id) => {
-    if (!isGroupAdmin) return; 
+    if (!canManageSensitive) return; 
     if(!confirm("¿Estás seguro de eliminar esto permanentemente?")) return;
     await supabaseRequest(`orders?id=eq.${id}`, 'DELETE');
     logAction('Borro Permanente', `Destruyó pedido`); fetchOrdersAndSettings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isGroupAdmin, fetchOrdersAndSettings]);
+  }, [canManageSensitive, fetchOrdersAndSettings]);
 
   const handleAdminLogin = () => {
     if (adminPin === currentAdminPassword) { setIsAdmin(true); setAdminGroupFilter(displayGroup); setShowAdminLogin(false); setPinError(false); setAdminPin(''); setShowPassword(false); }
@@ -902,7 +832,7 @@ export default function App() {
       Object.entries(shortsSummary).forEach(([size, qty]) => { csv += `Short;${size};${qty}\n`; });
       if (totalSocks > 0) csv += `Medias;-;${totalSocks}\n`;
     }
-    csv += `\nTOTAL A RECAUDAR;;;; ${new Intl.NumberFormat('es-PY').format(totalRevenue)} Gs\n\n`;
+    csv += `\nTOTAL A RECAUDAR;;;; ${formatNumber(totalRevenue)} Gs\n\n`;
     csv += "LISTA DE PEDIDOS\nGrupo;Cliente;Telefono;Talle;Género;Manga;Cantidad;Estado de Pago;Observaciones;Fecha\n";
     activeOrders.forEach(o => {
       const { details, rest } = extractDetails(o.observations);
@@ -930,7 +860,7 @@ export default function App() {
             </tbody>
             <tfoot>
               <tr class="summary-total" style="background-color: #ecfdf5;"><td colspan="4" class="text-right font-bold">Total Remeras:</td><td class="text-right font-bold">${totalGarments}</td></tr>
-              <tr class="summary-total" style="background-color: #e0e7ff;"><td colspan="4" class="text-right font-bold">Recaudación Total Calculada:</td><td class="text-right font-bold">${new Intl.NumberFormat('es-PY').format(totalRevenue)} Gs</td></tr>
+              <tr class="summary-total" style="background-color: #e0e7ff;"><td colspan="4" class="text-right font-bold">Recaudación Total Calculada:</td><td class="text-right font-bold">${formatNumber(totalRevenue)} Gs</td></tr>
             </tfoot>
           </table>
     `;
@@ -982,31 +912,7 @@ export default function App() {
     printWindow.document.write(html); printWindow.document.close();
   }, [activeOrders, isGroupAdmin, adminGroupFilter, displayGroup, displayEstilo, totalSocks]);
 
-  const renderPricingTable = (ageGroupTitle, dataObject, isCamisillaCat) => (
-    <div className="mb-6 overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
-      <div className="bg-slate-100 p-2 font-black text-center text-slate-700 uppercase tracking-wider text-xs border-b border-slate-200">Precios para {ageGroupTitle}</div>
-      <table className="w-full text-xs text-left min-w-[400px]">
-        <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
-          <tr>
-             <th className="p-3">Calidad Base</th>
-             <th className="p-3">{isCamisillaCat ? 'Solo Camisilla' : 'Solo Remera'}</th>
-             <th className="p-3">{isCamisillaCat ? 'Camisilla + Short' : 'Remera + Short'}</th>
-             {!isCamisillaCat && <th className="p-3 text-indigo-600">Equipo Completo</th>}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-200 bg-white">
-          {['Premium', 'Semi-Premium', 'Estandard'].map(cal => (
-            <tr key={cal} className="hover:bg-slate-50">
-              <td className="p-3 font-bold text-slate-700 flex items-center gap-1">{cal === 'Premium' && <span className="text-yellow-500">⭐</span>}{cal}</td>
-              <td className="p-3 text-slate-600 font-medium">{new Intl.NumberFormat('es-PY').format(dataObject[cal][isCamisillaCat ? 'Solo Camisilla' : 'Solo Remera'])} ₲</td>
-              <td className="p-3 text-slate-600 font-medium">{new Intl.NumberFormat('es-PY').format(dataObject[cal][isCamisillaCat ? 'Camisilla + Short' : 'Remera + Short'])} ₲</td>
-              {!isCamisillaCat && <td className="p-3 text-indigo-600 font-black">{new Intl.NumberFormat('es-PY').format(dataObject[cal]['Equipo Completo'])} ₲</td>}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+
 
   return (
     <div className={`min-h-screen font-sans p-4 md:p-8 transition-colors duration-500 relative pb-24 ${t.page}`}>
@@ -1089,7 +995,7 @@ export default function App() {
               </div>
               
               <div className="flex flex-wrap gap-2 items-center">
-                {!isGroupAdmin && (
+                {canManageSensitive && (
                   <button onClick={() => setShowChangePass(true)} className="flex items-center gap-2 bg-indigo-500/20 text-indigo-500 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-500/30 transition-all">
                     <KeyRound className="w-4 h-4" /> Cambiar Clave
                   </button>
@@ -1157,13 +1063,13 @@ export default function App() {
                           <TrendingUp className="w-4 h-4" /> Dashboard Financiero Global 
                         </h4>
                         <div className="grid grid-cols-2 gap-4 mt-4">
-                          <div><p className="text-[10px] uppercase text-slate-500">Recaudación Total</p><p className="text-xl font-black text-emerald-400">{new Intl.NumberFormat('es-PY').format(globalStats.collected)} Gs.</p></div>
-                          <div><p className="text-[10px] uppercase text-slate-500">Deuda Pendiente</p><p className="text-xl font-black text-amber-400">{new Intl.NumberFormat('es-PY').format(globalStats.debt)} Gs.</p></div>
+                          <div><p className="text-[10px] uppercase text-slate-500">Recaudación Total</p><p className="text-xl font-black text-emerald-400">{formatNumber(globalStats.collected)} Gs.</p></div>
+                          <div><p className="text-[10px] uppercase text-slate-500">Deuda Pendiente</p><p className="text-xl font-black text-amber-400">{formatNumber(globalStats.debt)} Gs.</p></div>
                         </div>
                       </div>
                       <div className="w-px bg-slate-800 hidden md:block"></div>
                       <div className="flex-1 flex flex-col justify-center">
-                        <div className="flex justify-between text-sm mb-1 border-b border-slate-800 pb-1"><span className="text-slate-400">Total Esperado:</span><span className="font-bold">{new Intl.NumberFormat('es-PY').format(globalStats.expected)} Gs.</span></div>
+                        <div className="flex justify-between text-sm mb-1 border-b border-slate-800 pb-1"><span className="text-slate-400">Total Esperado:</span><span className="font-bold">{formatNumber(globalStats.expected)} Gs.</span></div>
                         <div className="flex justify-between text-sm mb-4 border-b border-slate-800 pb-1"><span className="text-slate-400">Total Prendas Generales:</span><span className="font-bold">{globalStats.items}</span></div>
                         
                         <h4 className="text-[10px] font-bold text-slate-400 mb-2 flex items-center gap-1 uppercase tracking-wider">
@@ -1357,7 +1263,7 @@ export default function App() {
                     {allowLongSleeve && (
                       <div className={`flex items-center gap-2 p-2 rounded-lg h-[38px] ${t.indigoBg}`}>
                         <input type="checkbox" id="longSleeve" name="longSleeve" checked={formData.longSleeve} onChange={handleChange} className="w-4 h-4 text-indigo-500 rounded cursor-pointer" />
-                        <label htmlFor="longSleeve" className={`text-[11px] font-medium cursor-pointer flex-1 leading-tight ${t.indigoText}`}>Manga Larga (+{new Intl.NumberFormat('es-PY').format(costoMangaLarga)})</label>
+                        <label htmlFor="longSleeve" className={`text-[11px] font-medium cursor-pointer flex-1 leading-tight ${t.indigoText}`}>Manga Larga (+{formatNumber(costoMangaLarga)})</label>
                       </div>
                     )}
                   </div>
@@ -1371,7 +1277,7 @@ export default function App() {
 
                   <div className={`p-4 rounded-xl flex justify-between items-center shadow-inner ${t.indigoBg}`}>
                     <span className={`text-sm font-semibold ${t.indigoText}`}>Total Calculado:</span>
-                    <span className={`text-xl font-black ${darkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>{new Intl.NumberFormat('es-PY').format(currentOrderTotal)} Gs.</span>
+                    <span className={`text-xl font-black ${darkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>{formatNumber(currentOrderTotal)} Gs.</span>
                   </div>
 
                   <div className="flex gap-3 pt-2">
@@ -1401,9 +1307,9 @@ export default function App() {
                  <div className="bg-gradient-to-r from-emerald-400 to-emerald-600 h-3.5 rounded-full transition-all duration-1000 flex items-center justify-end px-2" style={{ width: `${progressPercent}%` }}></div>
                </div>
                <div className={`flex flex-col sm:flex-row justify-between gap-4 mt-4 pt-4 border-t ${darkMode ? 'border-slate-800' : 'border-neutral-100'}`}>
-                 <div><p className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">Esperado</p><p className={`text-lg font-black ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>{new Intl.NumberFormat('es-PY').format(totalRevenue)}</p></div>
-                 <div><p className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider">Recaudado</p><p className={`text-lg font-black ${darkMode ? 'text-emerald-400' : 'text-emerald-700'}`}>{new Intl.NumberFormat('es-PY').format(totalCollected)}</p></div>
-                 <div><p className="text-[10px] text-red-400 font-bold uppercase tracking-wider">Deuda</p><p className={`text-lg font-black ${darkMode ? 'text-red-400' : 'text-red-600'}`}>{new Intl.NumberFormat('es-PY').format(totalRevenue - totalCollected)}</p></div>
+                 <div><p className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">Esperado</p><p className={`text-lg font-black ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>{formatNumber(totalRevenue)}</p></div>
+                 <div><p className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider">Recaudado</p><p className={`text-lg font-black ${darkMode ? 'text-emerald-400' : 'text-emerald-700'}`}>{formatNumber(totalCollected)}</p></div>
+                 <div><p className="text-[10px] text-red-400 font-bold uppercase tracking-wider">Deuda</p><p className={`text-lg font-black ${darkMode ? 'text-red-400' : 'text-red-600'}`}>{formatNumber(totalRevenue - totalCollected)}</p></div>
               </div>
             </div>
 
@@ -1469,7 +1375,7 @@ export default function App() {
                                {isAdmin ? (
                                  <button onClick={() => handleOpenPayment(order)} className={`text-left w-full p-1.5 rounded transition-colors group relative ${darkMode ? 'hover:bg-slate-700' : 'hover:bg-neutral-100'}`}>
                                    <div className={`text-[10px] font-black uppercase ${fins.balance === 0 ? 'text-green-500' : fins.paid > 0 ? 'text-amber-500' : 'text-red-500'}`}>{fins.balance === 0 ? 'PAGADO' : fins.paid > 0 ? 'SEÑADO' : 'PENDIENTE'}</div>
-                                   <div className={`text-[9px] font-medium ${t.muted}`}>{new Intl.NumberFormat('es-PY').format(fins.paid)} / {new Intl.NumberFormat('es-PY').format(fins.total)} Gs.</div>
+                                   <div className={`text-[9px] font-medium ${t.muted}`}>{formatNumber(fins.paid)} / {formatNumber(fins.total)} Gs.</div>
                                  </button>
                                ) : (
                                  <div className="p-1">
@@ -1481,7 +1387,7 @@ export default function App() {
                              {isAdmin && (
                                <td className="px-4 py-3 text-right">
                                  <div className="flex justify-end gap-1">
-                                       <button onClick={() => handleOpenPriceModal(order)} className={`p-1.5 rounded transition-colors font-bold flex items-center justify-center w-7 h-7 ${darkMode ? 'text-emerald-400 hover:bg-slate-700' : 'text-emerald-600 hover:bg-emerald-50'}`} title="Modificar Precio">₲</button>
+                                       {canManageSensitive && <button onClick={() => handleOpenPriceModal(order)} className={`p-1.5 rounded transition-colors font-bold flex items-center justify-center w-7 h-7 ${darkMode ? 'text-emerald-400 hover:bg-slate-700' : 'text-emerald-600 hover:bg-emerald-50'}`} title="Modificar Precio">₲</button>}
                                        <button onClick={() => handleEditClick(order)} className={`p-1.5 rounded transition-colors ${darkMode ? 'text-amber-400 hover:bg-slate-700' : 'text-amber-500 hover:bg-amber-50'}`} title="Editar Pedido"><Edit className="w-3 h-3" /></button>
                                        <button onClick={() => handleDelete(order)} className={`p-1.5 rounded transition-colors ${darkMode ? 'text-red-400 hover:bg-slate-700' : 'text-red-500 hover:bg-red-50'}`} title="Eliminar Pedido"><Trash2 className="w-3 h-3" /></button>
                                      </div>
@@ -1605,7 +1511,7 @@ export default function App() {
                          <td className={`px-4 py-3 ${t.muted}`}>{formatDate(group.firstOrder)}</td>
                          <td className={`px-4 py-3 ${t.muted}`}>{formatDate(group.lastOrder)}</td>
                          <td className={`px-4 py-3 text-right font-bold ${darkMode ? 'text-slate-300' : 'text-neutral-800'}`}>{group.count} und.</td>
-                         <td className="px-4 py-3 text-right font-black text-emerald-500">{new Intl.NumberFormat('es-PY').format(group.revenue)} Gs.</td>
+                         <td className="px-4 py-3 text-right font-black text-emerald-500">{formatNumber(group.revenue)} Gs.</td>
                          <td className="px-4 py-3 text-right">
                            <button onClick={() => handleArchiveGroup(group.name)} className="text-red-500 hover:bg-red-50 p-1.5 rounded-md transition-colors" title="Mover a papelera de grupos"><Trash2 className="w-4 h-4" /></button>
                          </td>
@@ -1682,7 +1588,7 @@ export default function App() {
                           </td>
                           <td className="py-2 text-right">
                              <button onClick={() => handleRestore(o)} className={`font-bold px-2 py-1 rounded transition-colors ${darkMode ? 'text-indigo-400 hover:bg-slate-700' : 'text-indigo-600 hover:bg-indigo-50'}`}>Restaurar</button>
-                             {isGroupAdmin && (
+                             {canManageSensitive && (
                                 <button onClick={() => handlePermanentDelete(o.id)} className={`px-2 py-1 rounded transition-colors ${darkMode ? 'text-red-400 hover:bg-slate-700' : 'text-red-400 hover:bg-red-50'}`}>Eliminar Ya</button>
                              )}
                           </td>
@@ -1778,16 +1684,16 @@ export default function App() {
                      {/* TABLA DE DEPORTIVAS Y PIQUÉ */}
                      {displayEstilo !== 'Camisilla' && (
                        <>
-                         {renderPricingTable('Adultos', PRECIOS_BASE.Adultos, false)}
-                         {renderPricingTable('Infantil', PRECIOS_BASE.Infantil, false)}
+                         <PricingTable ageGroupTitle="Adultos" dataObject={PRECIOS_BASE.Adultos} isCamisillaCat={false} darkMode={darkMode} />
+                         <PricingTable ageGroupTitle="Infantil" dataObject={PRECIOS_BASE.Infantil} isCamisillaCat={false} darkMode={darkMode} />
                        </>
                      )}
 
                      {/* TABLA DE CAMISILLAS */}
                      {displayEstilo === 'Camisilla' && (
                        <>
-                         {renderPricingTable('Adultos', PRECIOS_CAMISILLA.Adultos, true)}
-                         {renderPricingTable('Infantil', PRECIOS_CAMISILLA.Infantil, true)}
+                         <PricingTable ageGroupTitle="Adultos" dataObject={PRECIOS_CAMISILLA.Adultos} isCamisillaCat={true} darkMode={darkMode} />
+                         <PricingTable ageGroupTitle="Infantil" dataObject={PRECIOS_CAMISILLA.Infantil} isCamisillaCat={true} darkMode={darkMode} />
                        </>
                      )}
 
@@ -1823,7 +1729,7 @@ export default function App() {
                 </div>
                 <div className={`p-3 rounded-lg mb-4 text-sm text-center ${darkMode ? 'bg-slate-700' : 'bg-neutral-50'}`}>
                    <p className={`mb-1 ${t.muted}`}>Total de {paymentModal.order.name}</p>
-                   <p className={`text-xl font-black ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>{new Intl.NumberFormat('es-PY').format(getUnitPrice(paymentModal.order) * paymentModal.order.quantity)} Gs.</p>
+                   <p className={`text-xl font-black ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>{formatNumber(getUnitPrice(paymentModal.order) * paymentModal.order.quantity)} Gs.</p>
                 </div>
                 <label className={`block text-xs font-bold mb-1 ${t.muted}`}>Monto entregado (Gs):</label>
                 <input type="number" value={paymentModal.amount} onChange={(e) => setPaymentModal({ ...paymentModal, amount: e.target.value })} className={`w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-lg text-center mb-4 ${t.input}`} />
