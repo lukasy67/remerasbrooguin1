@@ -1,10 +1,38 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone, Loader2, Layers, Lock, Unlock, X, Eye, EyeOff, Download, FileText, Info, AlertCircle, Search, CheckCircle2, Edit, Filter, Link2, ShieldAlert, MessageCircle, DollarSign, TrendingUp, Scissors, History, KeyRound, RefreshCw, BarChart3, ExternalLink, Receipt, Target, QrCode, MapPin, Moon, Sun, ArrowRight, ArrowLeft, ImagePlus, Smartphone } from 'lucide-react';
-import { useDebounce } from './src/hooks/useDebounce';
-import { SIZES_UNIVERSAL, AGE_RANGES, PRECIOS_BASE, PRECIOS_CAMISILLA, CATALOG_ITEMS, ANIMATION_THEMES, MASTER_AUTHORIZATION, supabaseUrl, supabaseKey, URL_LOGO_BROOGUIN } from './src/utils/constants';
-import { formatDate, formatNumber, formatCurrency, extractDetails } from './src/utils/formatters';
-import { canManageSensitiveActions } from './src/utils/permissions';
-import PricingTable from './src/components/PricingTable';
+import React, { useState, useMemo, useEffect, useCallback } from "react";
+import {
+  Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone,
+  Loader2, Layers, Lock, Unlock, X, Eye, EyeOff, Download,
+  FileText, Info, AlertCircle, Search, CheckCircle2, Edit,
+  Filter, Link2, ShieldAlert, MessageCircle, DollarSign,
+  TrendingUp, Scissors, History, KeyRound, RefreshCw,
+  BarChart3, ExternalLink, Receipt, Target, QrCode,
+  MapPin, Moon, Sun, ArrowRight, ArrowLeft,
+  ImagePlus, Smartphone
+} from "lucide-react";
+
+// ✅ IMPORTS CORRECTOS
+import { useDebounce } from "./hooks/useDebounce";
+import PricingTable from "./components/PricingTable";
+
+import {
+  SIZES_UNIVERSAL,
+  AGE_RANGES,
+  PRECIOS_BASE,
+  PRECIOS_CAMISILLA
+} from "./utils/constants";
+
+import {
+  formatDate,
+  formatNumber,
+  formatCurrency,
+  extractDetails
+} from "./utils/formatters";
+
+import {
+  canEditPrice,
+  canDeletePermanent,
+  canChangePassword
+} from "./utils/permissions";
 
 // ==========================================
 // HOOK DE OPTIMIZACIÓN (DEBOUNCE)

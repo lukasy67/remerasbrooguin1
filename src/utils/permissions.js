@@ -1,1 +1,8 @@
-export const canManageSensitiveActions = ({ isCreator, isMasterOwner }) => Boolean(isCreator || isMasterOwner);
+export const canEditPrice = (user) =>
+  user?.role === "supremo" || user?.role === "creador";
+
+export const canDeletePermanent = (user) =>
+  user?.role === "supremo" || user?.role === "creador";
+
+export const canChangePassword = (user) =>
+  user?.role === "supremo" || user?.role === "creador";
