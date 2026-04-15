@@ -6,19 +6,6 @@ import { formatDate, formatNumber, formatCurrency, extractDetails } from './util
 import { canManageSensitiveActions } from './utils/permissions';
 import PricingTable from './components/PricingTable';
 
-
-const DEFAULT_BASE_PRICES = JSON.parse(JSON.stringify(PRECIOS_BASE));
-const DEFAULT_CAMISILLA_PRICES = JSON.parse(JSON.stringify(PRECIOS_CAMISILLA));
-const DEFAULT_PRICING_EXTRAS = {
-  mangaLargaDeportiva: 15000,
-  mangaLargaPique: 10000,
-  recargoXXL: 10000,
-  recargoArquero: 0,
-  saldoPendienteAlto: 100000,
-};
-
-const deepClone = (obj) => JSON.parse(JSON.stringify(obj));
-
 // ==========================================
 // HOOK DE OPTIMIZACIÓN (DEBOUNCE)
 // ==========================================
@@ -114,7 +101,6 @@ export default function App() {
   const [isGroupAdmin, setIsGroupAdmin] = useState(false);
   const [isMasterOwner, setIsMasterOwner] = useState(false); 
   const [isCreator, setIsCreator] = useState(false); 
-  const [isSupremeAdmin, setIsSupremeAdmin] = useState(false);
   
   const [showGroupAuth, setShowGroupAuth] = useState(false);
   const [groupPin, setGroupPin] = useState('');
@@ -122,15 +108,8 @@ export default function App() {
   const [showGroupPassword, setShowGroupPassword] = useState(false);
   const [showGroupManager, setShowGroupManager] = useState(false);
 
-  const canManageSensitive = isSupremeAdmin || isMasterOwner;
-  const canManageGlobalPrices = isMasterOwner;
-  const roleLabel = isMasterOwner ? 'Admin Oculto' : isSupremeAdmin ? 'Admin Supremo' : isAdmin ? 'Admin Normal' : 'Visitante';
-  const [basePrices, setBasePrices] = useState(deepClone(DEFAULT_BASE_PRICES));
-  const [camisillaPrices, setCamisillaPrices] = useState(deepClone(DEFAULT_CAMISILLA_PRICES));
-  const [pricingExtras, setPricingExtras] = useState({ ...DEFAULT_PRICING_EXTRAS });
-  const [showPricingConfig, setShowPricingConfig] = useState(false);
-  const [pricingConfigSaving, setPricingConfigSaving] = useState(false);
-
+  const canManageSensitive = canManageSensitiveActions({ isCreator, isMasterOwner });
+  const canManageSponsors = isGroupAdmin || isMasterOwner;
 
   const [paymentModal, setPaymentModal] = useState({ isOpen: false, order: null, amount: 0, isSaved: false });
   const [priceModal, setPriceModal] = useState({ isOpen: false, order: null, newTotal: 0 }); // Modal de Precio
@@ -147,6 +126,10 @@ export default function App() {
   const [renameModal, setRenameModal] = useState({ isOpen: false, oldName: '', newName: '' });
 
   const [siteMetrics, setSiteMetrics] = useState({ visits: 0, sponsorClicks: 0 });
+  const [sponsors, setSponsors] = useState([]);
+  const [showSponsorManager, setShowSponsorManager] = useState(false);
+  const [sponsorForm, setSponsorForm] = useState({ name: '', subtitle: '', logo_url: '', target_url: '', whatsapp_number: '', display_order: 0, is_active: true });
+  const [editingSponsorId, setEditingSponsorId] = useState(null);
   const [activeAnimationTheme, setActiveAnimationTheme] = useState(null);
   
   const [undoDeleteId, setUndoDeleteId] = useState(null);
@@ -166,7 +149,6 @@ export default function App() {
 
   const [deletedOrderSearch, setDeletedOrderSearch] = useState('');
   const debouncedDeletedSearch = useDebounce(deletedOrderSearch, 300);
-  const [paymentStatusFilter, setPaymentStatusFilter] = useState('Todos');
 
   const urlParams = useMemo(() => new URLSearchParams(window.location.search), []);
   const [activeGroup, setActiveGroup] = useState(() => urlParams.get('grupo') || 'General');
@@ -191,6 +173,8 @@ export default function App() {
   const displayGroup = isGroupAdmin && adminGroupFilter === 'Todos' ? 'Visión Global (Todos)' : contextualGroup;
 
   const archivedNames = useMemo(() => archivedGroups.map(g => g.name), [archivedGroups]);
+  const activeSponsors = useMemo(() => sponsors.filter(s => s.is_active).sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)), [sponsors]);
+  const featuredSponsor = activeSponsors[0] || null;
 
   const activeGroupConfig = useMemo(() => {
     if (isPreviewMode) return newGroupConfig;
@@ -209,7 +193,7 @@ export default function App() {
 
   const displayEstilo = activeGroupConfig?.estilo || 'Deportiva';
   const isContextDeportiva = displayEstilo === 'Deportiva' || displayEstilo === 'Camisilla';
-  const costoMangaLarga = isContextDeportiva ? pricingExtras.mangaLargaDeportiva : pricingExtras.mangaLargaPique;
+  const costoMangaLarga = isContextDeportiva ? 15000 : 10000;
 
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -260,62 +244,12 @@ export default function App() {
       const timer = setTimeout(() => setShowAdminLegend(false), 5000);
       return () => clearTimeout(timer);
     }
-  }, [isAdmin, isGroupAdmin, isMasterOwner, isCreator, isSupremeAdmin]);
+  }, [isAdmin, isGroupAdmin, isMasterOwner, isCreator]);
 
   const saveToGlobalSettings = async (id, value) => {
     const res = await supabaseRequest(`global_settings?id=eq.${id}`);
     if (res.data && res.data.length > 0) await supabaseRequest(`global_settings?id=eq.${id}`, 'PATCH', { value });
     else await supabaseRequest('global_settings', 'POST', { id, value });
-  };
-
-
-  const createBackupSnapshot = async (reason) => {
-    try {
-      const snapshotId = `backup_${Date.now()}`;
-      const payload = {
-        reason,
-        basePrices,
-        camisillaPrices,
-        pricingExtras,
-        createdAt: new Date().toISOString(),
-        actor: isMasterOwner ? 'lukasy67' : isCreator ? 'creador' : 'admin',
-      };
-      await saveToGlobalSettings(snapshotId, JSON.stringify(payload));
-    } catch (e) {}
-  };
-
-  const updatePriceMatrix = (setter, section, quality, field, value) => {
-    const numeric = Math.max(0, parseInt(value || 0, 10) || 0);
-    setter(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        [quality]: {
-          ...prev[section][quality],
-          [field]: numeric,
-        },
-      },
-    }));
-  };
-
-  const saveGlobalPricingConfig = async () => {
-    if (!canManageSensitive) return;
-    setPricingConfigSaving(true);
-    try {
-      await createBackupSnapshot('Configuración global de precios y extras');
-      await Promise.all([
-        saveToGlobalSettings('catalog_prices_base', JSON.stringify(basePrices)),
-        saveToGlobalSettings('catalog_prices_camisilla', JSON.stringify(camisillaPrices)),
-        saveToGlobalSettings('pricing_extras', JSON.stringify(pricingExtras)),
-      ]);
-      logAction('Actualizó precios base', 'Se actualizaron precios base y extras globales');
-      setShowPricingConfig(false);
-    } catch (e) {
-      alert('No se pudieron guardar los precios globales.');
-    } finally {
-      setPricingConfigSaving(false);
-      fetchOrdersAndSettings();
-    }
   };
 
   const trackVisit = async () => {
@@ -363,13 +297,92 @@ export default function App() {
     if (needsRefetch) fetchOrdersAndSettings(); 
   };
 
-  const handleSponsorClick = async () => {
+  const handleSponsorClick = async (sponsor = null) => {
     const currentClicks = siteMetrics.sponsorClicks;
     setSiteMetrics(prev => ({ ...prev, sponsorClicks: currentClicks + 1 }));
     const res = await supabaseRequest('global_settings?id=eq.sponsor_clicks', 'GET');
     if (res.data && res.data.length > 0) await supabaseRequest('global_settings?id=eq.sponsor_clicks', 'PATCH', { value: (currentClicks + 1).toString() });
     else await supabaseRequest('global_settings', 'POST', { id: 'sponsor_clicks', value: '1' });
+
+    if (sponsor?.id) {
+      await supabaseRequest(`sponsors?id=eq.${sponsor.id}`, 'PATCH', { click_count: (sponsor.click_count || 0) + 1, updated_at: new Date().toISOString() });
+    }
+
+    if (sponsor?.target_url) {
+      window.open(sponsor.target_url, '_blank');
+      return;
+    }
+    if (sponsor?.whatsapp_number) {
+      const clean = String(sponsor.whatsapp_number).replace(/\D/g, '');
+      window.open(`https://wa.me/${clean}`, '_blank');
+      return;
+    }
     window.open(`https://wa.me/595984948834?text=${encodeURIComponent("Hola quiero ser sponsor de la página de Brooguin")}`, '_blank');
+  };
+
+  const resetSponsorForm = () => {
+    setSponsorForm({ name: '', subtitle: '', logo_url: '', target_url: '', whatsapp_number: '', display_order: sponsors.length, is_active: true });
+    setEditingSponsorId(null);
+  };
+
+  const handleSponsorFormChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setSponsorForm(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const handleEditSponsor = (sponsor) => {
+    setEditingSponsorId(sponsor.id);
+    setSponsorForm({
+      name: sponsor.name || '',
+      subtitle: sponsor.subtitle || '',
+      logo_url: sponsor.logo_url || '',
+      target_url: sponsor.target_url || '',
+      whatsapp_number: sponsor.whatsapp_number || '',
+      display_order: sponsor.display_order ?? 0,
+      is_active: sponsor.is_active ?? true,
+    });
+    setShowSponsorManager(true);
+  };
+
+  const handleSaveSponsor = async (e) => {
+    e.preventDefault();
+    if (!canManageSponsors) return;
+    if (!sponsorForm.name.trim()) {
+      alert('El sponsor debe tener nombre.');
+      return;
+    }
+    const payload = {
+      ...sponsorForm,
+      display_order: parseInt(sponsorForm.display_order || 0, 10),
+      updated_at: new Date().toISOString(),
+    };
+    try {
+      if (editingSponsorId) {
+        await supabaseRequest(`sponsors?id=eq.${editingSponsorId}`, 'PATCH', payload);
+        logAction('Editó Sponsor', `Sponsor ${payload.name}`);
+      } else {
+        await supabaseRequest('sponsors', 'POST', { ...payload, click_count: 0 });
+        logAction('Creó Sponsor', `Sponsor ${payload.name}`);
+      }
+      await fetchOrdersAndSettings();
+      resetSponsorForm();
+    } catch (err) { alert('Error al guardar sponsor.'); }
+  };
+
+  const handleDeleteSponsor = async (id) => {
+    if (!canManageSponsors) return;
+    if (!confirm('¿Eliminar sponsor permanentemente?')) return;
+    await supabaseRequest(`sponsors?id=eq.${id}`, 'DELETE');
+    logAction('Eliminó Sponsor', `ID ${id}`);
+    await fetchOrdersAndSettings();
+    if (editingSponsorId === id) resetSponsorForm();
+  };
+
+  const handleToggleSponsorActive = async (sponsor) => {
+    if (!canManageSponsors) return;
+    await supabaseRequest(`sponsors?id=eq.${sponsor.id}`, 'PATCH', { is_active: !sponsor.is_active, updated_at: new Date().toISOString() });
+    logAction(sponsor.is_active ? 'Desactivó Sponsor' : 'Activó Sponsor', sponsor.name || '');
+    await fetchOrdersAndSettings();
   };
 
   const handleCatalogContact = useCallback(() => {
@@ -379,13 +392,15 @@ export default function App() {
 
   const fetchOrdersAndSettings = useCallback(async () => {
     setLoading(true);
-    const [resOrders, resSettings, resGlobal] = await Promise.all([
+    const [resOrders, resSettings, resGlobal, resSponsors] = await Promise.all([
       supabaseRequest('orders?select=*&order=created_at.desc'),
       supabaseRequest('group_settings?select=*'),
-      supabaseRequest('global_settings?select=*') 
+      supabaseRequest('global_settings?select=*'),
+      supabaseRequest('sponsors?select=*&order=display_order.asc')
     ]);
     if (resOrders.data) setOrders(resOrders.data);
     if (resSettings.data) setGroupSettings(resSettings.data);
+    if (resSponsors.data) setSponsors(resSponsors.data);
     if (resGlobal.data) {
       const passObj = resGlobal.data.find(s => s.id === 'admin_password');
       if (passObj) setCurrentAdminPassword(passObj.value);
@@ -395,18 +410,6 @@ export default function App() {
       const archivedObj = resGlobal.data.find(s => s.id === 'archived_groups');
       const parsedArchived = archivedObj ? JSON.parse(archivedObj.value) : [];
       setArchivedGroups(parsedArchived);
-      const catalogBaseObj = resGlobal.data.find(s => s.id === 'catalog_prices_base');
-      const catalogCamisillaObj = resGlobal.data.find(s => s.id === 'catalog_prices_camisilla');
-      const extrasObj = resGlobal.data.find(s => s.id === 'pricing_extras');
-      if (catalogBaseObj) {
-        try { setBasePrices(JSON.parse(catalogBaseObj.value)); } catch (e) { setBasePrices(deepClone(DEFAULT_BASE_PRICES)); }
-      }
-      if (catalogCamisillaObj) {
-        try { setCamisillaPrices(JSON.parse(catalogCamisillaObj.value)); } catch (e) { setCamisillaPrices(deepClone(DEFAULT_CAMISILLA_PRICES)); }
-      }
-      if (extrasObj) {
-        try { setPricingExtras({ ...DEFAULT_PRICING_EXTRAS, ...JSON.parse(extrasObj.value) }); } catch (e) { setPricingExtras({ ...DEFAULT_PRICING_EXTRAS }); }
-      }
       const parsedConfigs = {};
       resGlobal.data.forEach(item => {
         if (item.id.startsWith('conf_')) {
@@ -449,64 +452,20 @@ export default function App() {
     });
   }, []);
 
-
-  const getExtraLongSleeveCost = useCallback((style) => {
-    return style === 'Piqué' ? pricingExtras.mangaLargaPique : pricingExtras.mangaLargaDeportiva;
-  }, [pricingExtras]);
-
-  const getPriceFromCurrentTables = useCallback(({ estilo, edad, tela, combo, size, longSleeve, isGoalkeeper }) => {
-    const ageKey = edad === 'Infantil' ? 'Infantil' : 'Adultos';
-    const qualityKey = tela || 'Premium';
-    const source = estilo === 'Camisilla' ? camisillaPrices : basePrices;
-    let unitPrice = source?.[ageKey]?.[qualityKey]?.[combo] ?? 0;
-    if (longSleeve) unitPrice += getExtraLongSleeveCost(estilo);
-    if (['XXL', 'XXXL'].includes(size)) unitPrice += pricingExtras.recargoXXL;
-    if (isGoalkeeper) unitPrice += pricingExtras.recargoArquero;
-    return unitPrice;
-  }, [basePrices, camisillaPrices, pricingExtras, getExtraLongSleeveCost]);
-
-  const getParsedOrderMeta = useCallback((order) => {
-    const obs = order.observations || '';
-    let combo = 'Solo Remera';
-    let tela = 'Premium';
-    let edad = 'Adultos';
-    let isGoalkeeper = false;
-    let estilo = 'Piqué';
-    if (obs.includes('Combo: Equipo Completo') || obs.includes('Combo: Remera + Short + Medias')) combo = 'Equipo Completo';
-    else if (obs.includes('Combo: Remera + Short') || (obs.includes('Short: ') && !obs.includes('Short: NO'))) combo = 'Remera + Short';
-    else if (obs.includes('Combo: Camisilla + Short')) combo = 'Camisilla + Short';
-    else if (obs.includes('Combo: Solo Camisilla')) combo = 'Solo Camisilla';
-    if (obs.includes('Tela: Estandard') || obs.includes('Calidad: Estandard')) tela = 'Estandard';
-    else if (obs.includes('Tela: Semi-Premium')) tela = 'Semi-Premium';
-    if (obs.includes('Infantil')) edad = 'Infantil';
-    if (obs.includes('Arquero: SI')) isGoalkeeper = true;
-    if (obs.includes('Camisilla')) estilo = 'Camisilla';
-    else if (obs.includes('Combo:') || obs.includes('Short:') || obs.includes('[#')) estilo = 'Deportiva';
-    return { combo, tela, edad, isGoalkeeper, estilo };
-  }, []);
-
-  const getOrderAlerts = useCallback((order, fins) => {
-    const alerts = [];
-    if (fins.balance >= pricingExtras.saldoPendienteAlto) alerts.push({ key: 'saldo', label: 'Saldo alto', tone: 'red' });
-    if (!order.phone || order.phone === '-' || !order.size || !order.gender) alerts.push({ key: 'incompleto', label: 'Pedido incompleto', tone: 'amber' });
-    if ((order.group_name || 'General') !== 'General' && !groupConfigs[order.group_name || 'General']) alerts.push({ key: 'sin_conf', label: 'Grupo sin config', tone: 'indigo' });
-    return alerts;
-  }, [pricingExtras.saldoPendienteAlto, groupConfigs]);
-
   const calculateCurrentTotal = useCallback(() => {
-    const qty = parseInt(formData.quantity, 10) || 0;
-    if (qty <= 0) return 0;
-    const unitPrice = getPriceFromCurrentTables({
-      estilo: displayEstilo,
-      edad: formData.edad,
-      tela: formData.tela,
-      combo: formData.combo,
-      size: formData.size,
-      longSleeve: allowLongSleeve ? formData.longSleeve : false,
-      isGoalkeeper: formData.isGoalkeeper,
-    });
-    return unitPrice * qty;
-  }, [displayEstilo, formData, allowLongSleeve, getPriceFromCurrentTables]);
+    let unitPrice = 0; 
+    if (displayEstilo === 'Deportiva') {
+       unitPrice = PRECIOS_BASE[formData.edad]?.[formData.tela]?.[formData.combo] || 85000;
+    } else if (displayEstilo === 'Camisilla') {
+       unitPrice = PRECIOS_CAMISILLA[formData.edad]?.[formData.tela]?.[formData.combo] || 80000;
+    } else {
+       unitPrice = 95000; 
+    }
+    if (formData.longSleeve && allowLongSleeve) unitPrice += costoMangaLarga;
+    if (['XXL', 'XXXL'].includes(formData.size)) unitPrice += 10000;
+
+    return unitPrice * (parseInt(formData.quantity) || 1);
+  }, [displayEstilo, formData, allowLongSleeve, costoMangaLarga]);
 
   const currentOrderTotal = calculateCurrentTotal();
 
@@ -533,9 +492,8 @@ export default function App() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name.trim() || formData.quantity < 1) { alert('Completa nombre y cantidad válida.'); return; }
+    if (!formData.name.trim() || formData.quantity < 1) return;
     if (!/^09\d{8}$/.test(formData.phone.trim())) { alert("Teléfono debe tener 10 dígitos y empezar con 09."); return; }
-    if ((parseInt(formData.quantity, 10) || 0) <= 0) { alert('La cantidad debe ser mayor a cero.'); return; }
 
     let prefix = '';
     const currentUnitPrice = calculateCurrentTotal() / (parseInt(formData.quantity) || 1);
@@ -652,19 +610,12 @@ export default function App() {
   // FUNCIONES DE PRECIOS Y PAGOS
   // ==========================================
   const getUnitPrice = useCallback((order) => {
-    const manualMatch = order.observations?.match(/\[PrecioManual:\s*(\d+)\]/);
-    if (manualMatch) return parseInt(manualMatch[1], 10);
-    const meta = getParsedOrderMeta(order);
-    return getPriceFromCurrentTables({
-      estilo: meta.estilo,
-      edad: meta.edad,
-      tela: meta.tela,
-      combo: meta.combo,
-      size: order.size,
-      longSleeve: order.longSleeve,
-      isGoalkeeper: meta.isGoalkeeper,
-    });
-  }, [getParsedOrderMeta, getPriceFromCurrentTables]);
+    const match = order.observations?.match(/\[Precio:\s*(\d+)\]/);
+    if (match) return parseInt(match[1], 10);
+    const isDep = order.observations?.includes('Combo:') || order.observations?.includes('Short:') || order.observations?.includes('[#');
+    const mangaLargaCost = isDep ? 15000 : 10000;
+    return 85000 + (order.longSleeve ? mangaLargaCost : 0);
+  }, []);
 
   const getOrderFinancials = useCallback((order) => {
     const total = getUnitPrice(order) * order.quantity;
@@ -682,17 +633,19 @@ export default function App() {
   // GUARDAR EL NUEVO PRECIO EN SUPABASE
   const saveNewPrice = async () => {
     if (!canManageSensitive || !priceModal.order) return;
-    const { order } = priceModal;
-    const newTotal = parseInt(priceModal.newTotal, 10) || 0;
-    const currentPaid = order.amount_paid ?? 0;
-    if (newTotal <= 0) { alert('El nuevo precio debe ser mayor a cero.'); return; }
-    if ((order.quantity || 0) <= 0) { alert('El pedido no tiene una cantidad válida.'); return; }
-    if (newTotal < currentPaid) { alert('El nuevo precio no puede ser menor al monto ya pagado.'); return; }
-    const newUnitPrice = Math.round(newTotal / order.quantity);
-    let newObs = (order.observations || '').replace(/\s*\[PrecioManual:\s*\d+\]/g, '');
-    newObs = `[PrecioManual: ${newUnitPrice}] ${newObs}`.trim();
+    const { order, newTotal } = priceModal;
+    
+    // Calculamos el nuevo precio unitario
+    const newUnitPrice = Math.round(newTotal / order.quantity); 
+    
+    let newObs = order.observations || '';
+    if (/\[Precio:\s*\d+\]/.test(newObs)) {
+       newObs = newObs.replace(/\[Precio:\s*\d+\]/, `[Precio: ${newUnitPrice}]`);
+    } else {
+       newObs = `[Precio: ${newUnitPrice}] ` + newObs;
+    }
+    
     try {
-      await createBackupSnapshot(`Ajuste manual de precio de pedido ${order.id}`);
       await supabaseRequest(`orders?id=eq.${order.id}`, 'PATCH', { observations: newObs });
       logAction('Ajuste de Precio Manual', `El pedido de ${order.name} cambió a ${newTotal} Gs.`);
       setPriceModal({ isOpen: false, order: null, newTotal: 0 });
@@ -746,7 +699,6 @@ export default function App() {
     if (masterPassInput !== MASTER_AUTHORIZATION) { setPassChangeError('Clave de autorización incorrecta.'); return; }
     if (!newAdminPassInput || newAdminPassInput.length < 4) { setPassChangeError('La nueva contraseña debe ser más larga.'); return; }
     try {
-      await createBackupSnapshot('Cambio de contraseña admin');
       await saveToGlobalSettings('admin_password', newAdminPassInput);
       setCurrentAdminPassword(newAdminPassInput);
       logAction('Cambió Clave Admin', 'Nueva clave configurada');
@@ -844,7 +796,6 @@ export default function App() {
   const handlePermanentDelete = useCallback(async (id) => {
     if (!canManageSensitive) return; 
     if(!confirm("¿Estás seguro de eliminar esto permanentemente?")) return;
-    await createBackupSnapshot(`Borrado permanente del pedido ${id}`);
     await supabaseRequest(`orders?id=eq.${id}`, 'DELETE');
     logAction('Borro Permanente', `Destruyó pedido`); fetchOrdersAndSettings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -856,50 +807,25 @@ export default function App() {
   };
   
   const handleGroupAuth = () => {
-    if (groupPin === 'marseo') { 
-       setIsAdmin(true);
-       setIsGroupAdmin(true);
-       setIsCreator(false);
-       setIsSupremeAdmin(true);
-       setIsMasterOwner(false);
+    if (groupPin === 'marseo' || groupPin === 'lukasy67') { 
+       setIsAdmin(true); setIsGroupAdmin(true); setIsCreator(true);
+       setIsMasterOwner(groupPin === 'lukasy67');
        setShowGroupAuth(false); setShowGroupManager(true); setGroupPin(''); setGroupPinError(false); setShowGroupPassword(false); 
-    } else if (groupPin === 'lukasy67') {
-       setIsAdmin(true);
-       setIsGroupAdmin(true);
-       setIsCreator(true);
-       setIsSupremeAdmin(true);
-       setIsMasterOwner(true);
-       setShowGroupAuth(false); setShowGroupManager(true); setGroupPin(''); setGroupPinError(false); setShowGroupPassword(false);
     } else setGroupPinError(true);
   };
 
   // --- FILTROS Y BÚSQUEDAS ---
   const globalFilteredOrders = useMemo(() => {
-    const term = debouncedGlobalSearchTerm.trim().toLowerCase();
-    if (!term) return [];
-    return orders.filter(o => {
-      if (o.deleted || archivedNames.includes(o.group_name)) return false;
-      const haystack = [
-        o.name,
-        o.phone,
-        o.group_name,
-        o.size,
-        o.gender,
-        o.observations,
-        extractDetails(o.observations).rest,
-        extractDetails(o.observations).details,
-      ].filter(Boolean).join(' ').toLowerCase();
-      return haystack.includes(term);
-    }).slice(0, 12);
+    if (!debouncedGlobalSearchTerm.trim()) return [];
+    return orders.filter(o => !o.deleted && !archivedNames.includes(o.group_name) && ((o.name && o.name.toLowerCase().includes(debouncedGlobalSearchTerm.toLowerCase())) || (o.phone && o.phone.includes(debouncedGlobalSearchTerm)))).slice(0, 10); 
   }, [orders, debouncedGlobalSearchTerm, archivedNames]);
 
   const activeOrders = useMemo(() => {
     let filtered = orders.filter(o => !o.deleted && !archivedNames.includes(o.group_name || 'General'));
     if (!isGroupAdmin) filtered = filtered.filter(o => (o.group_name || 'General') === displayGroup);
     else if (adminGroupFilter !== 'Todos') filtered = filtered.filter(o => (o.group_name || 'General') === adminGroupFilter);
-    if (paymentStatusFilter !== 'Todos') filtered = filtered.filter(o => (o.paymentStatus || 'Pendiente') === paymentStatusFilter);
     return filtered;
-  }, [orders, isGroupAdmin, displayGroup, adminGroupFilter, archivedNames, paymentStatusFilter]);
+  }, [orders, isGroupAdmin, displayGroup, adminGroupFilter, archivedNames]);
 
   const deletedOrders = useMemo(() => {
     let filtered = orders.filter(o => o.deleted && !archivedNames.includes(o.group_name || 'General'));
@@ -983,82 +909,176 @@ export default function App() {
     return archivedGroups.filter(g => g.name.toLowerCase().includes(debouncedArchivedSearch.toLowerCase()));
   }, [archivedGroups, debouncedArchivedSearch]);
 
-  const handleExportCSV = useCallback(() => {
-    let csv = "\uFEFF"; 
-    csv += `RESUMEN PARA CONFECCION - VISTA: ${isGroupAdmin ? adminGroupFilter : displayGroup}\n`;
-    csv += "Talle Remera;Femenino;Masculino;Unisex;Total\n";
-    summaryBySize.forEach(item => { csv += `${item.size};${item.fem || '-'};${item.masc || '-'};${item.uni || '-'};${item.total}\n`; });
-    csv += `\nTOTAL REMERAS;;;; ${totalGarments}\n`;
-    if (Object.keys(shortsSummary).length > 0 || totalSocks > 0) {
-      csv += `\nEXTRAS DEPORTIVOS\nItem;Talle;Total\n`;
-      Object.entries(shortsSummary).forEach(([size, qty]) => { csv += `Short;${size};${qty}\n`; });
-      if (totalSocks > 0) csv += `Medias;-;${totalSocks}\n`;
-    }
-    csv += `\nTOTAL A RECAUDAR;;;; ${formatNumber(totalRevenue)} Gs\n\n`;
-    csv += "LISTA DE PEDIDOS\nGrupo;Cliente;Telefono;Talle;Género;Manga;Cantidad;Estado de Pago;Observaciones;Fecha\n";
-    activeOrders.forEach(o => {
-      const { details, rest } = extractDetails(o.observations);
-      const obsFinal = `${details} ${rest}`.trim();
-      csv += `"${o.group_name || 'General'}";"${o.name}";"${o.phone || '-'}";"${o.size}";"${o.gender}";"${o.longSleeve ? 'Larga' : 'Corta'}";${o.quantity};"${o.paymentStatus || 'Pendiente'}";"${obsFinal}";"${formatDate(o.created_at)}"\n`;
-    });
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a'); link.href = url; link.setAttribute('download', `Pedidos_${isGroupAdmin ? adminGroupFilter : displayGroup}.csv`);
-    document.body.appendChild(link); link.click(); document.body.removeChild(link);
-  }, [isGroupAdmin, adminGroupFilter, displayGroup, summaryBySize, totalGarments, shortsSummary, totalSocks, totalRevenue, activeOrders]);
-
-
   const handleExportExcel = useCallback(() => {
-    let html = '<table><tr><th>Grupo</th><th>Cliente</th><th>Telefono</th><th>Talle</th><th>Genero</th><th>Cantidad</th><th>Estado</th><th>Total</th><th>Pagado</th><th>Saldo</th></tr>';
-    activeOrders.forEach(o => {
-      const fins = getOrderFinancials(o);
-      html += `<tr><td>${o.group_name || 'General'}</td><td>${o.name}</td><td>${o.phone || '-'}</td><td>${o.size}</td><td>${o.gender}</td><td>${o.quantity}</td><td>${o.paymentStatus || 'Pendiente'}</td><td>${fins.total}</td><td>${fins.paid}</td><td>${fins.balance}</td></tr>`;
-    });
-    html += '</table>';
-    const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+    const xmlEscape = (value) =>
+      String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+
+    const sheetRows = (rows) =>
+      rows
+        .map((row) => `<Row>${row.map((cell) => `<Cell><Data ss:Type="String">${xmlEscape(cell)}</Data></Cell>`).join('')}</Row>`)
+        .join('');
+
+    const pedidosRows = [
+      ['Grupo', 'Cliente', 'Telefono', 'Talle', 'Genero', 'Cantidad', 'Estado', 'Pagado', 'Saldo', 'Observaciones', 'Fecha'],
+      ...activeOrders.map((o) => {
+        const fins = getOrderFinancials(o);
+        const { details, rest } = extractDetails(o.observations);
+        return [
+          o.group_name || 'General',
+          o.name,
+          o.phone || '-',
+          o.size,
+          o.gender,
+          String(o.quantity),
+          o.paymentStatus || 'Pendiente',
+          formatCurrency(fins.paid),
+          formatCurrency(fins.balance),
+          `${details} ${rest}`.trim(),
+          formatDate(o.created_at),
+        ];
+      }),
+    ];
+
+    const tallerRows = [
+      ['Talle', 'Femenino', 'Masculino', 'Unisex', 'Total'],
+      ...summaryBySize.map((item) => [item.size, String(item.fem || 0), String(item.masc || 0), String(item.uni || 0), String(item.total || 0)]),
+      [],
+      ['Total Remeras', '', '', '', String(totalGarments)],
+      ['Total Recaudacion', '', '', '', formatCurrency(totalRevenue)],
+    ];
+
+    const finanzasRows = [
+      ['Grupo', 'Cliente', 'Total', 'Pagado', 'Saldo'],
+      ...activeOrders.map((o) => {
+        const fins = getOrderFinancials(o);
+        return [o.group_name || 'General', o.name, formatCurrency(fins.total), formatCurrency(fins.paid), formatCurrency(fins.balance)];
+      }),
+    ];
+
+    const workbook = `<?xml version="1.0"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <Worksheet ss:Name="Pedidos"><Table>${sheetRows(pedidosRows)}</Table></Worksheet>
+  <Worksheet ss:Name="Taller"><Table>${sheetRows(tallerRows)}</Table></Worksheet>
+  <Worksheet ss:Name="Finanzas"><Table>${sheetRows(finanzasRows)}</Table></Worksheet>
+</Workbook>`;
+
+    const blob = new Blob([workbook], { type: 'application/vnd.ms-excel;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Pedidos_${isGroupAdmin ? adminGroupFilter : displayGroup}.xls`;
+    link.setAttribute('download', `Brooguin_Reporte_${isGroupAdmin ? adminGroupFilter : displayGroup}.xls`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  }, [activeOrders, getOrderFinancials, isGroupAdmin, adminGroupFilter, displayGroup]);
+  }, [isGroupAdmin, adminGroupFilter, displayGroup, summaryBySize, totalGarments, totalRevenue, activeOrders, getOrderFinancials]);
 
   const handleExportPDF = useCallback(() => {
     const printWindow = window.open('', '_blank');
-    let html = `
-      <html><head><title>Pedidos - ${isGroupAdmin && adminGroupFilter !== 'Todos' ? adminGroupFilter : displayGroup}</title>
-      <style>body { font-family: Arial, sans-serif; padding: 20px; color: #333; } h1 { color: #312e81; font-size: 24px; text-align: center; margin-bottom: 5px; } p.date { text-align: center; color: #666; margin-bottom: 30px; font-size: 14px; } h2 { color: #4338ca; font-size: 18px; margin-top: 30px; border-bottom: 2px solid #e0e7ff; padding-bottom: 5px; } table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; } th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; } th { background-color: #f3f4f6; color: #374151; } .text-right { text-align: right; } .text-center { text-align: center; } .font-bold { font-weight: bold; }</style></head>
-      <body><h1>BROOGUIN SPORT - Reporte de Pedidos</h1><p class="date">Vista: ${isGroupAdmin ? adminGroupFilter : displayGroup} | ${new Date().toLocaleString()}</p>
-      <h2>Resumen para Confección (Remeras)</h2><table><thead><tr><th>Talle</th><th class="text-center">Femenino</th><th class="text-center">Masculino</th><th class="text-center">Unisex</th><th class="text-right">Total</th></tr></thead><tbody>
-    `;
-    summaryBySize.forEach(item => {
-      if (item.total > 0) html += `<tr><td class="font-bold">${item.size}</td><td class="text-center">${item.fem || '-'}</td><td class="text-center">${item.masc || '-'}</td><td class="text-center">${item.uni || '-'}</td><td class="text-right font-bold">${item.total}</td></tr>`;
-    });
-    html += `
-            </tbody>
-            <tfoot>
-              <tr class="summary-total" style="background-color: #ecfdf5;"><td colspan="4" class="text-right font-bold">Total Remeras:</td><td class="text-right font-bold">${totalGarments}</td></tr>
-              <tr class="summary-total" style="background-color: #e0e7ff;"><td colspan="4" class="text-right font-bold">Recaudación Total Calculada:</td><td class="text-right font-bold">${formatNumber(totalRevenue)} Gs</td></tr>
-            </tfoot>
-          </table>
-    `;
-    if (Object.keys(shortsSummary).length > 0 || totalSocks > 0) {
-      html += `<h2>Extras Deportivos</h2><table style="width: 50%;"><thead><tr><th>Item</th><th>Talle / Tipo</th><th class="text-right">Total</th></tr></thead><tbody>`;
-      Object.entries(shortsSummary).forEach(([size, qty]) => { html += `<tr><td>Short</td><td class="font-bold">${size}</td><td class="text-right">${qty}</td></tr>`; });
-      if (totalSocks > 0) html += `<tr><td>Par de Medias</td><td class="font-bold">-</td><td class="text-right">${totalSocks}</td></tr>`;
-      html += `</tbody></table>`;
-    }
-    html += `<h2>Lista de Pedidos Detallada</h2><table><thead><tr>${isGroupAdmin && adminGroupFilter === 'Todos' ? '<th>Grupo</th>' : ''}<th>Cliente</th><th>Talle</th><th>Género</th><th>Cant.</th><th>Estado</th><th>Datos Adicionales</th></tr></thead><tbody>`;
-    activeOrders.forEach(o => {
+    const totalSaldo = totalRevenue - totalCollected;
+    const lineRows = activeOrders.map((o) => {
+      const fins = getOrderFinancials(o);
       const { details, rest } = extractDetails(o.observations);
-      const obsFinal = `${details} ${rest}`.trim();
-      html += `<tr>${isGroupAdmin && adminGroupFilter === 'Todos' ? `<td>${o.group_name || 'General'}</td>` : ''}<td>${o.name} <br><small>${o.phone || ''}</small></td><td>${o.size}</td><td>${o.gender} ${o.longSleeve ? '(ML)' : ''}</td><td>${o.quantity}</td><td>${o.paymentStatus || 'Pendiente'}</td><td><small>${obsFinal}</small></td></tr>`;
-    });
-    html += `</tbody></table><script>window.onload = () => { window.print(); window.onafterprint = () => window.close(); }</script></body></html>`;
-    printWindow.document.write(html); printWindow.document.close();
-  }, [isGroupAdmin, adminGroupFilter, displayGroup, summaryBySize, totalGarments, totalRevenue, shortsSummary, totalSocks, activeOrders]);
+      const desc = `${details} ${rest}`.trim();
+      return `
+        <tr>
+          <td>${o.group_name || 'General'}</td>
+          <td>${o.name}<br/><small>${o.phone || ''}</small></td>
+          <td>${o.quantity}</td>
+          <td>${o.size}</td>
+          <td>${o.paymentStatus || 'Pendiente'}</td>
+          <td style="text-align:right">${formatCurrency(fins.total)}</td>
+          <td style="text-align:right">${formatCurrency(fins.paid)}</td>
+          <td style="text-align:right">${formatCurrency(fins.balance)}</td>
+          <td><small>${desc}</small></td>
+        </tr>`;
+    }).join('');
+
+    const html = `
+      <html>
+        <head>
+          <title>Factura / Reporte - ${isGroupAdmin && adminGroupFilter !== 'Todos' ? adminGroupFilter : displayGroup}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 24px; color: #1f2937; }
+            .header { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; border-bottom:3px solid #312e81; padding-bottom:16px; margin-bottom:20px; }
+            .brand h1 { margin:0; color:#312e81; font-size:28px; }
+            .brand p { margin:4px 0 0; color:#4b5563; }
+            .meta { text-align:right; font-size:13px; color:#4b5563; }
+            .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:18px 0 22px; }
+            .card { border:1px solid #d1d5db; border-radius:12px; padding:12px; background:#f9fafb; }
+            .card .label { font-size:11px; text-transform:uppercase; color:#6b7280; font-weight:bold; }
+            .card .value { margin-top:6px; font-size:18px; font-weight:800; color:#111827; }
+            table { width:100%; border-collapse: collapse; font-size:12px; }
+            th, td { border:1px solid #e5e7eb; padding:8px; vertical-align:top; }
+            th { background:#eef2ff; color:#312e81; text-align:left; }
+            .totals { margin-top:18px; width:320px; margin-left:auto; border-collapse:collapse; }
+            .totals td { border:1px solid #d1d5db; padding:8px; }
+            .totals .strong { font-weight:800; background:#eef2ff; }
+            .footer { margin-top:22px; font-size:11px; color:#6b7280; border-top:1px dashed #d1d5db; padding-top:12px; }
+            @media print { body { padding: 10px; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="brand">
+              <h1>BROOGUIN SPORT</h1>
+              <p>Reporte financiero y comprobante de pedidos</p>
+              <p><strong>Vista:</strong> ${isGroupAdmin ? adminGroupFilter : displayGroup}</p>
+            </div>
+            <div class="meta">
+              <div><strong>Fecha:</strong> ${new Date().toLocaleString('es-PY')}</div>
+              <div><strong>Documento:</strong> REP-${Date.now()}</div>
+            </div>
+          </div>
+
+          <div class="cards">
+            <div class="card"><div class="label">Total esperado</div><div class="value">${formatCurrency(totalRevenue)}</div></div>
+            <div class="card"><div class="label">Total cobrado</div><div class="value">${formatCurrency(totalCollected)}</div></div>
+            <div class="card"><div class="label">Saldo pendiente</div><div class="value">${formatCurrency(totalSaldo)}</div></div>
+            <div class="card"><div class="label">Prendas</div><div class="value">${totalGarments}</div></div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Grupo</th>
+                <th>Cliente</th>
+                <th>Cant.</th>
+                <th>Talle</th>
+                <th>Estado</th>
+                <th>Total</th>
+                <th>Pagado</th>
+                <th>Saldo</th>
+                <th>Detalle</th>
+              </tr>
+            </thead>
+            <tbody>${lineRows}</tbody>
+          </table>
+
+          <table class="totals">
+            <tr><td>Total esperado</td><td style="text-align:right">${formatCurrency(totalRevenue)}</td></tr>
+            <tr><td>Total cobrado</td><td style="text-align:right">${formatCurrency(totalCollected)}</td></tr>
+            <tr><td class="strong">Saldo pendiente</td><td class="strong" style="text-align:right">${formatCurrency(totalSaldo)}</td></tr>
+          </table>
+
+          <div class="footer">
+            Documento generado automáticamente por la plataforma de Brooguin Sport.
+          </div>
+          <script>
+            window.onload = () => { window.print(); window.onafterprint = () => window.close(); }
+          </script>
+        </body>
+      </html>`;
+    printWindow.document.write(html);
+    printWindow.document.close();
+  }, [isGroupAdmin, adminGroupFilter, displayGroup, activeOrders, totalRevenue, totalCollected, totalGarments, getOrderFinancials]);
 
   const handleExportHojaCorte = useCallback(() => {
     const printWindow = window.open('', '_blank');
@@ -1128,16 +1148,60 @@ export default function App() {
       <div className="max-w-6xl mx-auto space-y-6">
         
         {/* HEADER Y SPONSOR */}
-        <div className={`rounded-xl shadow-sm overflow-hidden flex items-center justify-center relative cursor-pointer hover:shadow-md transition-all group border bg-gradient-to-r ${t.sponsorCard}`} onClick={handleSponsorClick}>
-           <div className="absolute inset-0 bg-white/5 opacity-50"></div>
-           <div className="p-3 text-center z-10 flex items-center gap-3">
-             <div className="w-10 h-10 bg-indigo-500/20 rounded-full flex items-center justify-center text-indigo-400 font-black text-xs border border-dashed border-indigo-400 group-hover:bg-indigo-500 group-hover:text-white transition-colors">LOGO</div>
-             <div className="text-left">
-               <p className={`text-[10px] uppercase tracking-widest font-bold mb-0.5 ${darkMode ? 'text-slate-400' : 'text-neutral-500'}`}>¿Quieres ser nuestro sponsor?</p>
-               <p className={`text-sm font-black flex items-center gap-1 group-hover:text-indigo-500 transition-colors ${darkMode ? 'text-white' : 'text-neutral-800'}`}>🚀 ¡Destaca tu marca aquí! <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" /></p>
+        {featuredSponsor ? (
+          <div className={`rounded-2xl shadow-sm overflow-hidden border ${t.sponsorCard}`}>
+            <button type="button" onClick={() => handleSponsorClick(featuredSponsor)} className="w-full text-left p-4 group">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className={`w-16 h-16 rounded-2xl overflow-hidden border flex items-center justify-center ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-neutral-200'}`}>
+                    {featuredSponsor.logo_url ? (
+                      <img src={featuredSponsor.logo_url} alt={featuredSponsor.name} className="w-full h-full object-contain" />
+                    ) : (
+                      <span className="font-black text-xs text-indigo-500">SP</span>
+                    )}
+                  </div>
+                  <div>
+                    <p className={`text-[10px] uppercase tracking-widest font-bold mb-1 ${darkMode ? 'text-slate-400' : 'text-neutral-500'}`}>Sponsor destacado</p>
+                    <p className={`text-lg font-black flex items-center gap-2 ${darkMode ? 'text-white' : 'text-neutral-800'}`}>{featuredSponsor.name} <ExternalLink className="w-4 h-4 opacity-60 group-hover:opacity-100 transition-opacity" /></p>
+                    <p className={`${darkMode ? 'text-slate-300' : 'text-neutral-600'} text-sm`}>{featuredSponsor.subtitle || 'Haz clic para conocer más.'}</p>
+                  </div>
+                </div>
+                <div className={`text-xs font-bold ${darkMode ? 'text-slate-400' : 'text-neutral-500'}`}>
+                  {featuredSponsor.click_count || 0} clics registrados
+                </div>
+              </div>
+            </button>
+
+            {activeSponsors.length > 1 && (
+              <div className={`grid grid-cols-1 md:grid-cols-3 gap-3 border-t p-3 ${darkMode ? 'border-slate-800 bg-slate-900/60' : 'border-neutral-200 bg-white/70'}`}>
+                {activeSponsors.slice(1, 4).map((sponsor) => (
+                  <button key={sponsor.id} type="button" onClick={() => handleSponsorClick(sponsor)} className={`rounded-xl border p-3 text-left transition-all hover:-translate-y-0.5 ${darkMode ? 'border-slate-700 bg-slate-800' : 'border-neutral-200 bg-white'}`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl overflow-hidden border flex items-center justify-center ${darkMode ? 'bg-slate-900 border-slate-700' : 'bg-neutral-50 border-neutral-200'}`}>
+                        {sponsor.logo_url ? <img src={sponsor.logo_url} alt={sponsor.name} className="w-full h-full object-contain" /> : <span className="text-[10px] font-black text-indigo-500">SP</span>}
+                      </div>
+                      <div className="min-w-0">
+                        <p className={`font-bold truncate ${darkMode ? 'text-white' : 'text-neutral-800'}`}>{sponsor.name}</p>
+                        <p className={`text-xs truncate ${darkMode ? 'text-slate-400' : 'text-neutral-500'}`}>{sponsor.subtitle || 'Sponsor activo'}</p>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className={`rounded-xl shadow-sm overflow-hidden flex items-center justify-center relative cursor-pointer hover:shadow-md transition-all group border bg-gradient-to-r ${t.sponsorCard}`} onClick={() => handleSponsorClick()}>
+             <div className="absolute inset-0 bg-white/5 opacity-50"></div>
+             <div className="p-3 text-center z-10 flex items-center gap-3">
+               <div className="w-10 h-10 bg-indigo-500/20 rounded-full flex items-center justify-center text-indigo-400 font-black text-xs border border-dashed border-indigo-400 group-hover:bg-indigo-500 group-hover:text-white transition-colors">LOGO</div>
+               <div className="text-left">
+                 <p className={`text-[10px] uppercase tracking-widest font-bold mb-0.5 ${darkMode ? 'text-slate-400' : 'text-neutral-500'}`}>¿Quieres ser nuestro sponsor?</p>
+                 <p className={`text-sm font-black flex items-center gap-1 group-hover:text-indigo-500 transition-colors ${darkMode ? 'text-white' : 'text-neutral-800'}`}>🚀 ¡Destaca tu marca aquí! <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" /></p>
+               </div>
              </div>
-           </div>
-        </div>
+          </div>
+        )}
 
         <header className="bg-indigo-900 text-white p-6 rounded-2xl shadow-lg flex flex-col md:flex-row items-start md:items-center gap-6 text-left relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -mr-20 -mt-20"></div>
@@ -1170,31 +1234,25 @@ export default function App() {
                 <AlertCircle className="w-5 h-5 text-indigo-500" />
                 <div>
                   <h3 className={`font-bold text-sm ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>Panel de Administración</h3>
-                  <p className={`text-xs ${t.muted}`}>Rol activo: <strong>{roleLabel}</strong>. Herramientas exclusivas habilitadas según permisos.</p>
+                  <p className={`text-xs ${t.muted}`}>Bienvenido. Herramientas exclusivas habilitadas.</p>
                 </div>
               </div>
               
               <div className="flex flex-wrap gap-2 items-center">
-                <select value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value)} className={`${t.input} text-sm py-2 px-3 rounded-lg`}>
-                  <option value="Todos">Todos los estados</option>
-                  <option value="Pendiente">Pendiente</option>
-                  <option value="Señado">Señado</option>
-                  <option value="Pagado">Pagado</option>
-                </select>
                 {canManageSensitive && (
-                  <>
-                    <button onClick={() => setShowChangePass(true)} className="flex items-center gap-2 bg-indigo-500/20 text-indigo-500 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-500/30 transition-all">
-                      <KeyRound className="w-4 h-4" /> Cambiar Clave
-                    </button>
-                    <button onClick={() => setShowPricingConfig(true)} className="flex items-center gap-2 bg-emerald-500/20 text-emerald-500 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-emerald-500/30 transition-all">
-                      <DollarSign className="w-4 h-4" /> Precios Globales
-                    </button>
-                  </>
+                  <button onClick={() => setShowChangePass(true)} className="flex items-center gap-2 bg-indigo-500/20 text-indigo-500 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-500/30 transition-all">
+                    <KeyRound className="w-4 h-4" /> Cambiar Clave
+                  </button>
+                )}
+                {canManageSponsors && (
+                  <button onClick={() => setShowSponsorManager(true)} className="flex items-center gap-2 bg-fuchsia-500/20 text-fuchsia-500 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-fuchsia-500/30 transition-all">
+                    <Target className="w-4 h-4" /> Sponsors
+                  </button>
                 )}
 
-                {(isSupremeAdmin || isMasterOwner) && (
+                {isCreator && (
                    <div className="relative z-50">
-                      <input type="text" placeholder="Buscar nombre, teléfono, grupo, detalle..." value={globalSearchTerm} onChange={(e) => setGlobalSearchTerm(e.target.value)} className={`block pl-8 pr-3 py-1.5 rounded-lg text-sm border focus:ring-2 outline-none ${t.input} w-72 max-w-[80vw]`} />
+                      <input type="text" placeholder="Buscador Global..." value={globalSearchTerm} onChange={(e) => setGlobalSearchTerm(e.target.value)} className={`block pl-8 pr-3 py-1.5 rounded-lg text-sm border focus:ring-2 outline-none ${t.input} w-48`} />
                       <Search className="absolute left-2.5 top-2 w-4 h-4 text-purple-500" />
                       {debouncedGlobalSearchTerm.trim() && (
                         <div className={`absolute top-full mt-2 left-0 w-80 rounded-xl shadow-2xl border max-h-64 overflow-y-auto ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-neutral-200'}`}>
@@ -1213,18 +1271,18 @@ export default function App() {
                    </div>
                 )}
                 
-                {(isSupremeAdmin || isMasterOwner) ? (
+                {isCreator ? (
                   <>
                     <button onClick={() => { if (!showAuditLogs) { fetchAuditLogs(); setShowAuditLogs(true); } else setShowAuditLogs(false); }} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-all ${showAuditLogs ? 'bg-purple-600 text-white' : 'bg-purple-500/20 text-purple-500'}`}><History className="w-4 h-4" /> Historial</button>
                     <button onClick={() => setShowGroupManager(true)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-all ${darkMode ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-700'}`}><Layers className="w-4 h-4" /> Todos los Grupos</button>
-                    <button onClick={() => { setIsAdmin(false); setIsGroupAdmin(false); setIsMasterOwner(false); setIsCreator(false); setIsSupremeAdmin(false); setShowGroupManager(false); }} className="flex items-center gap-2 bg-neutral-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-neutral-700 transition-all"><Unlock className="w-4 h-4" /> Cerrar Sesión Admin</button>
+                    <button onClick={() => { setIsAdmin(false); setIsGroupAdmin(false); setIsMasterOwner(false); setIsCreator(false); setShowGroupManager(false); }} className="flex items-center gap-2 bg-neutral-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-neutral-700 transition-all"><Unlock className="w-4 h-4" /> Cerrar Supremo</button>
                   </>
                 ) : (
                   <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-indigo-50 border-indigo-100'}`}><Layers className="w-4 h-4 text-indigo-500" /><span className={`text-sm font-bold ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>Filtro bloqueado: {displayGroup}</span></div>
                 )}
 
                 {/* Filtro Restringido */}
-                {(isSupremeAdmin || isMasterOwner) && (
+                {isCreator && (
                   <div className={`flex items-center gap-1 p-2 rounded-lg border ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-indigo-50 border-indigo-100'}`}>
                     <Filter className="w-4 h-4 text-indigo-500 ml-1" />
                     <select value={adminGroupFilter} onChange={(e) => changeAdminFilter(e.target.value)} className={`bg-transparent border-none text-sm font-bold outline-none cursor-pointer max-w-[150px] truncate ml-1 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
@@ -1240,14 +1298,6 @@ export default function App() {
                 )}
               </div>
             </div>
-
-            {canManageSensitive && (
-              <div className={`grid grid-cols-1 md:grid-cols-3 gap-3 ${darkMode ? 'text-slate-200' : 'text-neutral-800'}`}>
-                <div className={`rounded-xl p-3 border ${t.border}`}><p className={`text-[10px] uppercase ${t.muted}`}>Extra Manga Larga Deportiva</p><p className="font-black text-emerald-500">{formatCurrency(pricingExtras.mangaLargaDeportiva)}</p></div>
-                <div className={`rounded-xl p-3 border ${t.border}`}><p className={`text-[10px] uppercase ${t.muted}`}>Recargo XXL / XXXL</p><p className="font-black text-emerald-500">{formatCurrency(pricingExtras.recargoXXL)}</p></div>
-                <div className={`rounded-xl p-3 border ${t.border}`}><p className={`text-[10px] uppercase ${t.muted}`}>Umbral saldo alto</p><p className="font-black text-amber-500">{formatCurrency(pricingExtras.saldoPendienteAlto)}</p></div>
-              </div>
-            )}
 
             {/* MODO SUPREMO: DASHBOARD Y CREADOR */}
             {showGroupManager && isCreator && (
@@ -1562,11 +1612,6 @@ export default function App() {
                                    <a href={getWhatsAppLink(order)} target="_blank" rel="noopener noreferrer" className={`text-[10px] flex items-center gap-1 px-2 py-0.5 rounded font-bold transition-colors border ${darkMode ? 'bg-green-900/30 text-green-400 border-green-800 hover:bg-green-900/50' : 'bg-[#25D366]/10 text-[#075E54] border-[#25D366]/30 hover:bg-[#25D366]/20'}`}><MessageCircle className="w-3 h-3" /> Escribir</a>
                                  </div>
                                )}
-                               <div className="mt-2 flex flex-wrap gap-1">
-                                 {getOrderAlerts(order, fins).map(alert => (
-                                   <span key={alert.key} className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${alert.tone === 'red' ? 'bg-red-500/15 text-red-500' : alert.tone === 'amber' ? 'bg-amber-500/15 text-amber-500' : 'bg-indigo-500/15 text-indigo-500'}`}>{alert.label}</span>
-                                 ))}
-                               </div>
                              </td>
                              <td className="px-4 py-3 min-w-[200px]">
                                <div className={`font-bold ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>
@@ -1612,7 +1657,7 @@ export default function App() {
                     <h2 className={`text-xl font-semibold flex items-center gap-1 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}><ClipboardList className="w-5 h-5 text-emerald-500" /> Resumen (Taller)</h2>
                     <div className="flex flex-wrap gap-2 w-full sm:w-auto justify-end">
                       <button onClick={handleExportHojaCorte} className="flex-1 sm:flex-none text-xs bg-slate-800 text-white border border-slate-900 px-3 py-2 rounded-lg font-bold flex items-center justify-center gap-2"><Scissors className="w-3 h-3" /> Hoja de Corte</button>
-                      <button onClick={handleExportCSV} className="flex-1 sm:flex-none text-xs bg-emerald-500/20 text-emerald-600 border border-emerald-500/30 px-3 py-2 rounded-lg font-bold flex items-center justify-center gap-2"><Download className="w-3 h-3" /> Excel</button>
+                      <button onClick={handleExportExcel} className="flex-1 sm:flex-none text-xs bg-emerald-500/20 text-emerald-600 border border-emerald-500/30 px-3 py-2 rounded-lg font-bold flex items-center justify-center gap-2"><Download className="w-3 h-3" /> Excel Pro</button>
                       <button onClick={handleExportPDF} className="flex-1 sm:flex-none text-xs bg-red-500/20 text-red-500 border border-red-500/30 px-3 py-2 rounded-lg font-bold flex items-center justify-center gap-2"><FileText className="w-3 h-3" /> PDF</button>
                     </div>
                  </div>
@@ -1885,26 +1930,27 @@ export default function App() {
                        <span className="flex items-center justify-center w-6 h-6 bg-emerald-500/20 text-emerald-500 rounded-full font-black text-sm">₲</span> Tabla de Aranceles Base
                      </h3>
                      
-                     <div className="space-y-4">
-                       <div>
-                         <h4 className={`text-sm font-black mb-2 ${darkMode ? 'text-slate-300' : 'text-indigo-700'}`}>Remeras / Uniformes</h4>
-                         <PricingTable ageGroupTitle="Adultos" dataObject={basePrices.Adultos} isCamisillaCat={false} darkMode={darkMode} />
-                         <PricingTable ageGroupTitle="Infantil" dataObject={basePrices.Infantil} isCamisillaCat={false} darkMode={darkMode} />
-                       </div>
-                       <div>
-                         <h4 className={`text-sm font-black mb-2 ${darkMode ? 'text-slate-300' : 'text-indigo-700'}`}>Camisillas</h4>
-                         <PricingTable ageGroupTitle="Adultos" dataObject={camisillaPrices.Adultos} isCamisillaCat={true} darkMode={darkMode} />
-                         <PricingTable ageGroupTitle="Infantil" dataObject={camisillaPrices.Infantil} isCamisillaCat={true} darkMode={darkMode} />
-                       </div>
-                     </div>
+                     {/* TABLA DE DEPORTIVAS Y PIQUÉ */}
+                     {displayEstilo !== 'Camisilla' && (
+                       <>
+                         <PricingTable ageGroupTitle="Adultos" dataObject={PRECIOS_BASE.Adultos} isCamisillaCat={false} darkMode={darkMode} />
+                         <PricingTable ageGroupTitle="Infantil" dataObject={PRECIOS_BASE.Infantil} isCamisillaCat={false} darkMode={darkMode} />
+                       </>
+                     )}
+
+                     {/* TABLA DE CAMISILLAS */}
+                     {displayEstilo === 'Camisilla' && (
+                       <>
+                         <PricingTable ageGroupTitle="Adultos" dataObject={PRECIOS_CAMISILLA.Adultos} isCamisillaCat={true} darkMode={darkMode} />
+                         <PricingTable ageGroupTitle="Infantil" dataObject={PRECIOS_CAMISILLA.Infantil} isCamisillaCat={true} darkMode={darkMode} />
+                       </>
+                     )}
 
                      <div className={`text-[10px] italic mt-2 text-right ${darkMode ? 'text-slate-400' : 'text-neutral-500'} bg-slate-100/50 p-3 rounded-lg border border-slate-200`}>
                        <p className="font-bold text-indigo-600 mb-1">Cargos Adicionales:</p>
                        <ul className="list-disc pl-4 space-y-1">
-                          <li>Manga larga Piqué: <strong>{formatCurrency(pricingExtras.mangaLargaPique)}</strong></li>
-                          <li>Manga larga Deportiva / Camisilla: <strong>{formatCurrency(pricingExtras.mangaLargaDeportiva)}</strong></li>
-                          <li>Talles especiales <strong>(XXL y XXXL)</strong>: <strong>{formatCurrency(pricingExtras.recargoXXL)}</strong></li>
-                          <li>Recargo Arquero: <strong>{formatCurrency(pricingExtras.recargoArquero)}</strong></li>
+                          <li>La inclusión de Manga Larga tiene un costo adicional de <strong>10.000 ₲</strong> (Piqué) o <strong>15.000 ₲</strong> (Deportivas).</li>
+                          <li>Talles especiales <strong>(XXL y XXXL)</strong> tienen un costo extra de <strong>10.000 ₲</strong> por prenda.</li>
                        </ul>
                      </div>
                   </div>
@@ -1962,74 +2008,9 @@ export default function App() {
                    <p className={`text-xs ${t.muted}`}>{priceModal.order.quantity} Prenda(s)</p>
                 </div>
                 <label className={`block text-xs font-bold mb-1 ${t.muted}`}>Nuevo Precio Total (Gs):</label>
-                <input type="number" min="1" value={priceModal.newTotal} onChange={(e) => setPriceModal({...priceModal, newTotal: e.target.value})} className={`w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none font-bold text-lg text-center mb-2 ${t.input}`} />
-                <p className={`text-[10px] mb-4 ${t.muted}`}>No puede ser menor al monto ya pagado por este pedido.</p>
+                <input type="number" value={priceModal.newTotal} onChange={(e) => setPriceModal({...priceModal, newTotal: e.target.value})} className={`w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none font-bold text-lg text-center mb-4 ${t.input}`} />
                 <button onClick={saveNewPrice} className="w-full bg-amber-500 text-white font-black py-3 rounded-xl hover:bg-amber-400 transition-all shadow-md border-none">Guardar Nuevo Precio</button>
              </div>
-          </div>
-        )}
-
-
-        {showPricingConfig && canManageGlobalPrices && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 backdrop-blur-sm overflow-y-auto">
-            <div className={`rounded-2xl p-6 w-full max-w-5xl shadow-2xl animate-in zoom-in my-auto ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
-              <div className="flex justify-between items-center mb-4">
-                <h3 className={`font-bold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}><DollarSign className="w-5 h-5 text-emerald-500" /> Configuración Global de Precios (solo Lukasy67)</h3>
-                <button onClick={() => setShowPricingConfig(false)} className={`${t.muted} hover:text-slate-200`}><X className="w-5 h-5" /></button>
-              </div>
-              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 max-h-[75vh] overflow-y-auto pr-1">
-                <div className="xl:col-span-2 space-y-6">
-                  {[
-                    ['Adultos', basePrices.Adultos, false],
-                    ['Infantil', basePrices.Infantil, false],
-                    ['Adultos Camisilla', camisillaPrices.Adultos, true],
-                    ['Infantil Camisilla', camisillaPrices.Infantil, true],
-                  ].map(([label, matrix, isCam]) => (
-                    <div key={label} className={`rounded-xl border ${t.border} p-4`}>
-                      <h4 className={`font-black mb-3 ${darkMode ? 'text-slate-100' : 'text-indigo-900'}`}>{label}</h4>
-                      <div className="space-y-3">
-                        {Object.entries(matrix).map(([quality, values]) => (
-                          <div key={quality} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-                            <div className={`font-bold ${t.label}`}>{quality}</div>
-                            {Object.keys(values).map((field) => (
-                              <label key={field} className="text-xs">
-                                <span className={`block mb-1 ${t.muted}`}>{field}</span>
-                                <input type="number" min="0" value={values[field]} onChange={(e) => updatePriceMatrix(isCam ? setCamisillaPrices : setBasePrices, isCam ? (label.includes('Infantil') ? 'Infantil' : 'Adultos') : (label.includes('Infantil') ? 'Infantil' : 'Adultos'), quality, field, e.target.value)} className={`w-full px-3 py-2 rounded-lg ${t.input}`} />
-                              </label>
-                            ))}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="space-y-4">
-                  <div className={`rounded-xl border ${t.border} p-4`}>
-                    <h4 className={`font-black mb-3 ${darkMode ? 'text-slate-100' : 'text-indigo-900'}`}>Extras Globales</h4>
-                    {[
-                      ['mangaLargaDeportiva', 'Manga larga deportiva'],
-                      ['mangaLargaPique', 'Manga larga piqué'],
-                      ['recargoXXL', 'Recargo XXL / XXXL'],
-                      ['recargoArquero', 'Recargo arquero'],
-                      ['saldoPendienteAlto', 'Umbral saldo alto'],
-                    ].map(([key, label]) => (
-                      <label key={key} className="block text-xs mb-3">
-                        <span className={`block mb-1 ${t.muted}`}>{label}</span>
-                        <input type="number" min="0" value={pricingExtras[key]} onChange={(e) => setPricingExtras(prev => ({ ...prev, [key]: Math.max(0, parseInt(e.target.value || 0, 10) || 0) }))} className={`w-full px-3 py-2 rounded-lg ${t.input}`} />
-                      </label>
-                    ))}
-                  </div>
-                  <div className={`rounded-xl border ${t.border} p-4 text-xs ${t.muted}`}>
-                    <p className="font-bold mb-2 text-emerald-500">Impacto global</p>
-                    <p>Estos precios afectan el catálogo, el cálculo actual del formulario y todos los pedidos no ajustados manualmente.</p>
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-2 mt-5">
-                <button onClick={() => setShowPricingConfig(false)} className={`flex-1 font-bold py-2 rounded-xl transition-all text-sm border-none ${darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'}`}>Cancelar</button>
-                <button onClick={saveGlobalPricingConfig} disabled={pricingConfigSaving} className="flex-1 bg-emerald-500 text-white font-bold py-2 rounded-xl hover:bg-emerald-600 transition-all text-sm flex items-center justify-center gap-2 border-none">{pricingConfigSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Guardar precios globales'}</button>
-              </div>
-            </div>
           </div>
         )}
 
@@ -2111,6 +2092,104 @@ export default function App() {
                 <button onClick={() => { const textArea = document.createElement("textarea"); textArea.value = qrModal.link; document.body.appendChild(textArea); textArea.select(); try { document.execCommand('copy'); alert("¡Enlace copiado al portapapeles!"); } catch (err) {} document.body.removeChild(textArea); }} className={`flex-1 font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-2 text-sm shadow-sm border-none ${darkMode ? 'bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/40' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'}`}><Link2 className="w-4 h-4" /> Copiar</button>
               </div>
               <button onClick={() => setQrModal({isOpen: false, link: '', groupName: ''})} className={`w-full font-bold py-2 rounded-xl transition-all text-sm border-none ${darkMode ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-neutral-800 text-white hover:bg-neutral-900'}`}>Cerrar Ventana</button>
+            </div>
+          </div>
+        )}
+
+
+        {showSponsorManager && canManageSponsors && (
+          <div className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className={`w-full max-w-5xl rounded-2xl shadow-2xl border max-h-[90vh] overflow-hidden ${darkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-neutral-200'}`}>
+              <div className={`p-5 border-b flex items-center justify-between ${darkMode ? 'border-slate-800' : 'border-neutral-200'}`}>
+                <div>
+                  <h3 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-neutral-900'}`}>Panel de Sponsors</h3>
+                  <p className={`text-sm ${t.muted}`}>Administra sponsors visibles, orden, enlaces y logos.</p>
+                </div>
+                <button onClick={() => { setShowSponsorManager(false); resetSponsorForm(); }} className={`p-2 rounded-lg ${darkMode ? 'hover:bg-slate-800' : 'hover:bg-neutral-100'}`}>
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+                <div className={`p-5 border-r ${darkMode ? 'border-slate-800' : 'border-neutral-200'}`}>
+                  <form onSubmit={handleSaveSponsor} className="space-y-4">
+                    <div>
+                      <label className={`block text-xs uppercase font-bold mb-1 ${t.muted}`}>Nombre</label>
+                      <input name="name" value={sponsorForm.name} onChange={handleSponsorFormChange} className={`w-full px-3 py-2 rounded-xl ${t.input}`} placeholder="Nombre del sponsor" />
+                    </div>
+                    <div>
+                      <label className={`block text-xs uppercase font-bold mb-1 ${t.muted}`}>Subtítulo</label>
+                      <input name="subtitle" value={sponsorForm.subtitle} onChange={handleSponsorFormChange} className={`w-full px-3 py-2 rounded-xl ${t.input}`} placeholder="Texto corto descriptivo" />
+                    </div>
+                    <div>
+                      <label className={`block text-xs uppercase font-bold mb-1 ${t.muted}`}>Logo URL</label>
+                      <input name="logo_url" value={sponsorForm.logo_url} onChange={handleSponsorFormChange} className={`w-full px-3 py-2 rounded-xl ${t.input}`} placeholder="https://..." />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className={`block text-xs uppercase font-bold mb-1 ${t.muted}`}>Link destino</label>
+                        <input name="target_url" value={sponsorForm.target_url} onChange={handleSponsorFormChange} className={`w-full px-3 py-2 rounded-xl ${t.input}`} placeholder="https://..." />
+                      </div>
+                      <div>
+                        <label className={`block text-xs uppercase font-bold mb-1 ${t.muted}`}>WhatsApp</label>
+                        <input name="whatsapp_number" value={sponsorForm.whatsapp_number} onChange={handleSponsorFormChange} className={`w-full px-3 py-2 rounded-xl ${t.input}`} placeholder="595..." />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 items-center">
+                      <div>
+                        <label className={`block text-xs uppercase font-bold mb-1 ${t.muted}`}>Orden</label>
+                        <input type="number" name="display_order" value={sponsorForm.display_order} onChange={handleSponsorFormChange} className={`w-full px-3 py-2 rounded-xl ${t.input}`} />
+                      </div>
+                      <label className={`flex items-center gap-2 text-sm font-bold mt-6 ${darkMode ? 'text-slate-300' : 'text-neutral-700'}`}>
+                        <input type="checkbox" name="is_active" checked={sponsorForm.is_active} onChange={handleSponsorFormChange} />
+                        Sponsor activo
+                      </label>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold">{editingSponsorId ? 'Guardar cambios' : 'Crear sponsor'}</button>
+                      <button type="button" onClick={resetSponsorForm} className={`px-4 py-2 rounded-xl font-bold ${darkMode ? 'bg-slate-800 text-slate-200' : 'bg-neutral-100 text-neutral-800'}`}>Limpiar</button>
+                    </div>
+                  </form>
+                </div>
+
+                <div className="p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className={`font-black ${darkMode ? 'text-white' : 'text-neutral-900'}`}>Sponsors registrados</h4>
+                    <span className={`text-xs font-bold ${t.muted}`}>{sponsors.length} total</span>
+                  </div>
+                  <div className="space-y-3 max-h-[62vh] overflow-y-auto pr-1">
+                    {sponsors.length === 0 ? (
+                      <div className={`p-4 rounded-xl border border-dashed text-sm ${t.muted}`}>Aún no hay sponsors cargados.</div>
+                    ) : sponsors.map((sponsor) => (
+                      <div key={sponsor.id} className={`rounded-xl border p-3 ${darkMode ? 'border-slate-800 bg-slate-900' : 'border-neutral-200 bg-white'}`}>
+                        <div className="flex items-start gap-3">
+                          <div className={`w-14 h-14 rounded-xl overflow-hidden border flex items-center justify-center ${darkMode ? 'bg-slate-950 border-slate-800' : 'bg-neutral-50 border-neutral-200'}`}>
+                            {sponsor.logo_url ? <img src={sponsor.logo_url} alt={sponsor.name} className="w-full h-full object-contain" /> : <span className="text-[10px] font-black text-indigo-500">SP</span>}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <div>
+                                <p className={`font-black truncate ${darkMode ? 'text-white' : 'text-neutral-900'}`}>{sponsor.name}</p>
+                                <p className={`text-xs truncate ${t.muted}`}>{sponsor.subtitle || 'Sin subtítulo'}</p>
+                              </div>
+                              <span className={`text-[10px] px-2 py-1 rounded-full font-bold ${sponsor.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-neutral-200 text-neutral-600'}`}>
+                                {sponsor.is_active ? 'Activo' : 'Inactivo'}
+                              </span>
+                            </div>
+                            <div className={`text-[11px] mt-2 ${t.muted}`}>Orden: {sponsor.display_order ?? 0} · Clics: {sponsor.click_count ?? 0}</div>
+                            <div className="flex flex-wrap gap-2 mt-3">
+                              <button onClick={() => handleEditSponsor(sponsor)} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${darkMode ? 'bg-slate-800 text-slate-200' : 'bg-neutral-100 text-neutral-800'}`}>Editar</button>
+                              <button onClick={() => handleToggleSponsorActive(sponsor)} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${sponsor.is_active ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>{sponsor.is_active ? 'Desactivar' : 'Activar'}</button>
+                              <button onClick={() => handleDeleteSponsor(sponsor.id)} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-100 text-red-700">Eliminar</button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
