@@ -1535,14 +1535,16 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
                   </div>
 
                   <button type="button" onClick={() => setShowCatalogModal(true)} className="w-full py-3 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg flex justify-center items-center gap-2"><ImagePlus className="w-5 h-5"/> Ver Catálogo y Precios</button>
-                  <button
-  type="button"
-  onClick={() => setShowShirtDesigner(true)}
-  className="w-full py-3 rounded-xl font-bold bg-slate-900 text-white hover:bg-slate-800 shadow-lg flex justify-center items-center gap-2"
->
-  <Shirt className="w-5 h-5" />
-  Diseña tu remera
-</button>
+                  {roleFlags.isAdminOculto && (
+  <button
+    type="button"
+    onClick={() => setShowShirtDesigner(true)}
+    className="w-full py-3 rounded-xl font-bold bg-slate-900 text-white hover:bg-slate-800 shadow-lg flex justify-center items-center gap-2"
+  >
+    <Shirt className="w-5 h-5" />
+    Diseña tu remera
+  </button>
+)}
 
                   <div className={`p-4 rounded-xl flex justify-between items-center shadow-inner ${t.indigoBg}`}>
                     <span className={`text-sm font-semibold ${t.indigoText}`}>Total Calculado:</span>
@@ -1867,10 +1869,6 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
                   </tbody>
                </table>
             </div>
-            <ShirtDesignerModal
-  isOpen={showShirtDesigner}
-  onClose={() => setShowShirtDesigner(false)}
-/>
 </div>
         )}
 
@@ -2244,6 +2242,10 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
         </div>
 
       </div>
+      <ShirtDesignerModal
+  isOpen={showShirtDesigner}
+  onClose={() => setShowShirtDesigner(false)}
+/>
     </div>
   );
 }
