@@ -182,6 +182,8 @@ export default function App() {
   const [showGroupManager, setShowGroupManager] = useState(false);
 
   const [paymentModal, setPaymentModal] = useState({ isOpen: false, order: null, amount: 0, isSaved: false });
+  const [priceModal, setPriceModal] = useState({ isOpen: false, order: null, newTotal: 0 }); // Modal de Precio
+
   const [showChangePass, setShowChangePass] = useState(false);
   const [masterPassInput, setMasterPassInput] = useState('');
   const [newAdminPassInput, setNewAdminPassInput] = useState('');
@@ -270,12 +272,14 @@ export default function App() {
   const isCamisilla = displayEstilo === 'Camisilla';
   const allowLongSleeve = !isCamisilla || formData.isGoalkeeper; 
 
+  const activeSizes = SIZES_UNIVERSAL;
+
   useEffect(() => {
     if (!editingId) {
       let defCombo = displayEstilo === 'Camisilla' ? 'Solo Camisilla' : 'Solo Remera';
-      setFormData(prev => ({ ...prev, size: SIZES_UNIVERSAL[0], shortSize: SIZES_UNIVERSAL[0], combo: defCombo }));
+      setFormData(prev => ({ ...prev, size: activeSizes[0], shortSize: activeSizes[0], combo: defCombo }));
     }
-  }, [formData.edad, displayEstilo, editingId]);
+  }, [formData.edad, displayEstilo, activeSizes, editingId]);
 
   useEffect(() => {
     fetchOrdersAndSettings();
@@ -476,6 +480,7 @@ export default function App() {
 
     let prefix = '';
     const currentUnitPrice = calculateCurrentTotal() / (parseInt(formData.quantity) || 1);
+    
     if (isContextDeportiva) {
       const shortFormat = (formData.combo.includes('Short') || formData.combo === 'Equipo Completo') ? `${formData.shortSize}${formData.gender === 'Femenino' ? ' ('+formData.femaleShortType+')' : ''}` : 'NO';
       const ageInfo = formData.edad === 'Infantil' ? `Infantil (${formData.ageRange})` : 'Adultos';
@@ -484,14 +489,18 @@ export default function App() {
       const ageInfo = formData.edad === 'Infantil' ? `Infantil (${formData.ageRange})` : 'Adultos';
       prefix = `[👔 ${ageInfo} | Uniforme Piqué | Calidad: Premium] `;
     }
+    
     prefix += `[Precio: ${currentUnitPrice}] `;
+    
     let oldCleanObs = editingId && formData.observations ? extractDetails(formData.observations).rest : formData.observations;
     let silentLocStr = !editingId && visitorLocation ? ` [Loc: ${visitorLocation}]` : '';
     const finalObservations = `${prefix}${oldCleanObs ? 'Obs: ' + oldCleanObs : ''}${silentLocStr}`.trim();
+    
     const orderData = {
       name: formData.name, phone: formData.phone || '-', size: formData.size, gender: formData.gender, quantity: parseInt(formData.quantity, 10), longSleeve: allowLongSleeve ? formData.longSleeve : false,
       observations: finalObservations, group_name: editingId ? (isCreator ? formData.group_name : formData.originalGroup) : contextualGroup 
     };
+    
     try {
       if (editingId) {
         await supabaseRequest(`orders?id=eq.${editingId}`, 'PATCH', orderData);
@@ -580,6 +589,9 @@ export default function App() {
     fetchOrdersAndSettings();
   };
 
+  // ==========================================
+  // FUNCIONES DE PRECIOS Y PAGOS
+  // ==========================================
   const getUnitPrice = useCallback((order) => {
     const match = order.observations?.match(/\[Precio:\s*(\d+)\]/);
     if (match) return parseInt(match[1], 10);
@@ -593,6 +605,36 @@ export default function App() {
     const paid = order.amount_paid ?? (order.paymentStatus === 'Pagado' ? total : 0);
     return { total, paid, balance: total - paid };
   }, [getUnitPrice]);
+
+  // ABRIR MODAL PARA AJUSTAR PRECIO FINAL
+  const handleOpenPriceModal = useCallback((order) => {
+    if (!isAdmin) return;
+    const currentTotal = getUnitPrice(order) * order.quantity;
+    setPriceModal({ isOpen: true, order, newTotal: currentTotal });
+  }, [isAdmin, getUnitPrice]);
+
+  // GUARDAR EL NUEVO PRECIO EN SUPABASE
+  const saveNewPrice = async () => {
+    if (!isAdmin || !priceModal.order) return;
+    const { order, newTotal } = priceModal;
+    
+    // Calculamos el nuevo precio unitario
+    const newUnitPrice = Math.round(newTotal / order.quantity); 
+    
+    let newObs = order.observations || '';
+    if (/\[Precio:\s*\d+\]/.test(newObs)) {
+       newObs = newObs.replace(/\[Precio:\s*\d+\]/, `[Precio: ${newUnitPrice}]`);
+    } else {
+       newObs = `[Precio: ${newUnitPrice}] ` + newObs;
+    }
+    
+    try {
+      await supabaseRequest(`orders?id=eq.${order.id}`, 'PATCH', { observations: newObs });
+      logAction('Ajuste de Precio Manual', `El pedido de ${order.name} cambió a ${newTotal} Gs.`);
+      setPriceModal({ isOpen: false, order: null, newTotal: 0 });
+      fetchOrdersAndSettings();
+    } catch (err) { alert("Error al actualizar precio."); }
+  };
 
   const handleOpenPayment = useCallback((order) => {
     if (!isAdmin) return;
@@ -754,7 +796,7 @@ export default function App() {
     } else setGroupPinError(true);
   };
 
-  // --- FILTROS Y BÚSQUEDAS (CON DEBOUNCE) ---
+  // --- FILTROS Y BÚSQUEDAS ---
   const globalFilteredOrders = useMemo(() => {
     if (!debouncedGlobalSearchTerm.trim()) return [];
     return orders.filter(o => !o.deleted && !archivedNames.includes(o.group_name) && ((o.name && o.name.toLowerCase().includes(debouncedGlobalSearchTerm.toLowerCase())) || (o.phone && o.phone.includes(debouncedGlobalSearchTerm)))).slice(0, 10); 
@@ -956,9 +998,9 @@ export default function App() {
           {['Premium', 'Semi-Premium', 'Estandard'].map(cal => (
             <tr key={cal} className="hover:bg-slate-50">
               <td className="p-3 font-bold text-slate-700 flex items-center gap-1">{cal === 'Premium' && <span className="text-yellow-500">⭐</span>}{cal}</td>
-              <td className="p-3 text-slate-600 font-medium">{new Intl.NumberFormat('es-PY').format(dataObject[cal][isCamisillaCat ? 'Solo Camisilla' : 'Solo Remera'])} Gs</td>
-              <td className="p-3 text-slate-600 font-medium">{new Intl.NumberFormat('es-PY').format(dataObject[cal][isCamisillaCat ? 'Camisilla + Short' : 'Remera + Short'])} Gs</td>
-              {!isCamisillaCat && <td className="p-3 text-indigo-600 font-black">{new Intl.NumberFormat('es-PY').format(dataObject[cal]['Equipo Completo'])} Gs</td>}
+              <td className="p-3 text-slate-600 font-medium">{new Intl.NumberFormat('es-PY').format(dataObject[cal][isCamisillaCat ? 'Solo Camisilla' : 'Solo Remera'])} ₲</td>
+              <td className="p-3 text-slate-600 font-medium">{new Intl.NumberFormat('es-PY').format(dataObject[cal][isCamisillaCat ? 'Camisilla + Short' : 'Remera + Short'])} ₲</td>
+              {!isCamisillaCat && <td className="p-3 text-indigo-600 font-black">{new Intl.NumberFormat('es-PY').format(dataObject[cal]['Equipo Completo'])} ₲</td>}
             </tr>
           ))}
         </tbody>
@@ -1261,6 +1303,7 @@ export default function App() {
                         </div>
                       </div>
 
+                      {/* Restauramos Nombre en la espalda y Dorsal */}
                       <div className="grid grid-cols-2 gap-4 pt-2 border-t border-dashed border-gray-400/30">
                         <div>
                           <label className={`text-[10px] font-medium mb-1 block ${t.label}`}>Nombre (Espalda)</label>
@@ -1438,8 +1481,9 @@ export default function App() {
                              {isAdmin && (
                                <td className="px-4 py-3 text-right">
                                  <div className="flex justify-end gap-1">
-                                       <button onClick={() => handleEditClick(order)} className={`p-1.5 rounded transition-colors ${darkMode ? 'text-amber-400 hover:bg-slate-700' : 'text-amber-500 hover:bg-amber-50'}`}><Edit className="w-3 h-3" /></button>
-                                       <button onClick={() => handleDelete(order)} className={`p-1.5 rounded transition-colors ${darkMode ? 'text-red-400 hover:bg-slate-700' : 'text-red-500 hover:bg-red-50'}`}><Trash2 className="w-3 h-3" /></button>
+                                       <button onClick={() => handleOpenPriceModal(order)} className={`p-1.5 rounded transition-colors font-bold flex items-center justify-center w-7 h-7 ${darkMode ? 'text-emerald-400 hover:bg-slate-700' : 'text-emerald-600 hover:bg-emerald-50'}`} title="Modificar Precio">₲</button>
+                                       <button onClick={() => handleEditClick(order)} className={`p-1.5 rounded transition-colors ${darkMode ? 'text-amber-400 hover:bg-slate-700' : 'text-amber-500 hover:bg-amber-50'}`} title="Editar Pedido"><Edit className="w-3 h-3" /></button>
+                                       <button onClick={() => handleDelete(order)} className={`p-1.5 rounded transition-colors ${darkMode ? 'text-red-400 hover:bg-slate-700' : 'text-red-500 hover:bg-red-50'}`} title="Eliminar Pedido"><Trash2 className="w-3 h-3" /></button>
                                      </div>
                                    </td>
                                  )}
@@ -1695,7 +1739,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Modal CATÁLOGO MEJORADO (Con Lazy Loading) */}
+        {/* Modal CATÁLOGO MEJORADO */}
         {showCatalogModal && (
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[80] p-4 backdrop-blur-sm overflow-y-auto">
              <div className={`rounded-2xl w-full max-w-4xl shadow-2xl animate-in zoom-in my-auto ${darkMode ? 'bg-slate-900 border border-slate-700' : 'bg-white'}`}>
@@ -1728,7 +1772,9 @@ export default function App() {
                   </div>
 
                   <div className="mb-8">
-                     <h3 className={`text-lg font-black mb-4 flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}><DollarSign className="w-5 h-5 text-emerald-500" /> Tabla de Aranceles Base</h3>
+                     <h3 className={`text-lg font-black mb-4 flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
+                       <span className="flex items-center justify-center w-6 h-6 bg-emerald-500/20 text-emerald-500 rounded-full font-black text-sm">₲</span> Tabla de Aranceles Base
+                     </h3>
                      
                      {/* TABLA DE DEPORTIVAS Y PIQUÉ */}
                      {displayEstilo !== 'Camisilla' && (
@@ -1749,8 +1795,8 @@ export default function App() {
                      <div className={`text-[10px] italic mt-2 text-right ${darkMode ? 'text-slate-400' : 'text-neutral-500'} bg-slate-100/50 p-3 rounded-lg border border-slate-200`}>
                        <p className="font-bold text-indigo-600 mb-1">Cargos Adicionales:</p>
                        <ul className="list-disc pl-4 space-y-1">
-                          <li>La inclusión de Manga Larga tiene un costo adicional de <strong>10.000 Gs</strong> (Piqué) o <strong>15.000 Gs</strong> (Deportivas).</li>
-                          <li>Talles especiales <strong>(XXL y XXXL)</strong> tienen un costo extra de <strong>10.000 Gs</strong> por prenda.</li>
+                          <li>La inclusión de Manga Larga tiene un costo adicional de <strong>10.000 ₲</strong> (Piqué) o <strong>15.000 ₲</strong> (Deportivas).</li>
+                          <li>Talles especiales <strong>(XXL y XXXL)</strong> tienen un costo extra de <strong>10.000 ₲</strong> por prenda.</li>
                        </ul>
                      </div>
                   </div>
@@ -1766,12 +1812,14 @@ export default function App() {
           </div>
         )}
 
-        {/* MODALES ADMINISTRATIVOS */}
+        {/* MODAL DE PAGOS */}
         {paymentModal.isOpen && paymentModal.order && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
              <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
                 <div className="flex justify-between items-center mb-4">
-                   <h3 className={`font-bold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}><DollarSign className="w-5 h-5 bg-emerald-500/20 text-emerald-500 rounded-full p-0.5" /> Registrar Pago</h3>
+                   <h3 className={`font-bold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
+                     <span className="w-6 h-6 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center font-bold text-sm">₲</span> Registrar Pago
+                   </h3>
                    <button onClick={() => setPaymentModal({isOpen: false, order: null, amount: 0})} className={`${t.muted} hover:text-slate-200`}><X className="w-5 h-5" /></button>
                 </div>
                 <div className={`p-3 rounded-lg mb-4 text-sm text-center ${darkMode ? 'bg-slate-700' : 'bg-neutral-50'}`}>
@@ -1786,6 +1834,28 @@ export default function App() {
                     <a href={getReceiptLink(paymentModal.order)} target="_blank" rel="noopener noreferrer" className="w-full bg-[#25D366] text-white font-bold py-3 rounded-xl hover:bg-[#20bd5a] transition-all shadow-md flex items-center justify-center gap-2"><Receipt className="w-4 h-4" /> Enviar Recibo WhatsApp</a>
                   )}
                 </div>
+             </div>
+          </div>
+        )}
+
+        {/* NUEVO MODAL: AJUSTE DE PRECIO MANUAL */}
+        {priceModal.isOpen && priceModal.order && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
+             <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
+                <div className="flex justify-between items-center mb-4">
+                   <h3 className={`font-bold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
+                     <span className="w-6 h-6 bg-amber-500/20 text-amber-500 rounded-full flex items-center justify-center font-bold text-sm">₲</span> Ajustar Precio Total
+                   </h3>
+                   <button onClick={() => setPriceModal({isOpen: false, order: null, newTotal: 0})} className={`${t.muted} hover:text-slate-200`}><X className="w-5 h-5" /></button>
+                </div>
+                <p className={`text-xs mb-4 ${t.muted}`}>Modifica el precio final de este pedido para agregar costos extra (ej. Nombres, dorsales, diseño especial).</p>
+                <div className={`p-3 rounded-lg mb-4 text-sm text-center ${darkMode ? 'bg-slate-700' : 'bg-neutral-50'}`}>
+                   <p className={`mb-1 font-bold ${darkMode ? 'text-slate-200' : 'text-neutral-800'}`}>Cliente: {priceModal.order.name}</p>
+                   <p className={`text-xs ${t.muted}`}>{priceModal.order.quantity} Prenda(s)</p>
+                </div>
+                <label className={`block text-xs font-bold mb-1 ${t.muted}`}>Nuevo Precio Total (Gs):</label>
+                <input type="number" value={priceModal.newTotal} onChange={(e) => setPriceModal({...priceModal, newTotal: e.target.value})} className={`w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none font-bold text-lg text-center mb-4 ${t.input}`} />
+                <button onClick={saveNewPrice} className="w-full bg-amber-500 text-white font-black py-3 rounded-xl hover:bg-amber-400 transition-all shadow-md border-none">Guardar Nuevo Precio</button>
              </div>
           </div>
         )}
