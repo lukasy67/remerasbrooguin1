@@ -4,8 +4,8 @@ export const ROLE_ADMIN_SUPREMO = "admin_supremo";
 export const ROLE_ADMIN_OCULTO = "admin_oculto";
 
 export function getRoleFlags({ isAdmin = false, isMasterOwner = false, isCreator = false } = {}) {
-  const isHiddenAdmin = Boolean(isCreator && isMasterOwner);
-  const isSupremeAdmin = Boolean(isMasterOwner && !isCreator);
+  const isHiddenAdmin = Boolean(isCreator && isMasterOwner); // lukasy67
+  const isSupremeAdmin = Boolean(isMasterOwner && !isCreator); // marseo / equipo supremo
 
   let role = ROLE_VISITANTE;
   if (isHiddenAdmin) role = ROLE_ADMIN_OCULTO;
@@ -24,8 +24,8 @@ export function getRoleFlags({ isAdmin = false, isMasterOwner = false, isCreator
     canDeletePermanent: role === ROLE_ADMIN_SUPREMO || role === ROLE_ADMIN_OCULTO,
     canChangePassword: role === ROLE_ADMIN_SUPREMO || role === ROLE_ADMIN_OCULTO,
     canEditManualPrice: role === ROLE_ADMIN_SUPREMO || role === ROLE_ADMIN_OCULTO,
-    canEditGlobalPricing: role === ROLE_ADMIN_OCULTO,
-    canManageSponsors: role === ROLE_ADMIN_SUPREMO || role === ROLE_ADMIN_OCULTO,
+    canEditGlobalPricing: role === ROLE_ADMIN_OCULTO, // solo lukasy67
+    canManageSponsors: role === ROLE_ADMIN_OCULTO, // solo lukasy67
     roleLabel:
       role === ROLE_ADMIN_OCULTO
         ? "Admin Oculto"

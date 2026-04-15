@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import ShirtDesignerModal from "./components/ShirtDesignerModal";
+import { getRoleFlags, canManageSensitiveActions } from "./utils/permissions";
 import { Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone, Loader2, Layers, Lock, Unlock, X, Eye, EyeOff, Download, FileText, Info, AlertCircle, Search, CheckCircle2, Edit, Filter, Link2, ShieldAlert, MessageCircle, DollarSign, TrendingUp, Scissors, History, KeyRound, RefreshCw, BarChart3, ExternalLink, Receipt, Target, QrCode, MapPin, Moon, Sun, ArrowRight, ArrowLeft, ImagePlus, Smartphone } from 'lucide-react';
 import { useDebounce } from './hooks/useDebounce';
 import { SIZES_UNIVERSAL, AGE_RANGES, PRECIOS_BASE, PRECIOS_CAMISILLA, CATALOG_ITEMS, ANIMATION_THEMES, MASTER_AUTHORIZATION, supabaseUrl, supabaseKey, URL_LOGO_BROOGUIN } from './utils/constants';
 import { formatDate, formatNumber, formatCurrency, extractDetails } from './utils/formatters';
-import { canManageSensitiveActions } from './utils/permissions';
 import PricingTable from './components/PricingTable';
 
 // ==========================================
@@ -88,6 +89,7 @@ export default function App() {
   
   const [visitorLocation, setVisitorLocation] = useState('');
   const [showCatalogModal, setShowCatalogModal] = useState(false);
+  const [showShirtDesigner, setShowShirtDesigner] = useState(false);
 
   const [adminGroupFilter, setAdminGroupFilter] = useState('Todos');
   const [isAdmin, setIsAdmin] = useState(false);
@@ -108,7 +110,8 @@ export default function App() {
   const [showGroupPassword, setShowGroupPassword] = useState(false);
   const [showGroupManager, setShowGroupManager] = useState(false);
 
-  const canManageSensitive = canManageSensitiveActions({ isCreator, isMasterOwner });
+  const roleFlags = getRoleFlags({ isAdmin, isMasterOwner, isCreator });
+const canManageSensitive = canManageSensitiveActions(roleFlags);
   const canManageSponsors = isGroupAdmin || isMasterOwner;
 
   const [paymentModal, setPaymentModal] = useState({ isOpen: false, order: null, amount: 0, isSaved: false });
@@ -1271,6 +1274,7 @@ export default function App() {
                    </div>
                 )}
                 
+                
                 {isCreator ? (
                   <>
                     <button onClick={() => { if (!showAuditLogs) { fetchAuditLogs(); setShowAuditLogs(true); } else setShowAuditLogs(false); }} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-all ${showAuditLogs ? 'bg-purple-600 text-white' : 'bg-purple-500/20 text-purple-500'}`}><History className="w-4 h-4" /> Historial</button>
@@ -1298,6 +1302,14 @@ export default function App() {
                 )}
               </div>
             </div>
+            {roleFlags.canManageSponsors && (
+  <button
+    onClick={() => setShowSponsorsManager(true)}
+    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-all bg-fuchsia-500/20 text-fuchsia-500 hover:bg-fuchsia-500/30"
+  >
+    Sponsors
+  </button>
+)}
 
             {/* MODO SUPREMO: DASHBOARD Y CREADOR */}
             {showGroupManager && isCreator && (
@@ -1523,6 +1535,14 @@ export default function App() {
                   </div>
 
                   <button type="button" onClick={() => setShowCatalogModal(true)} className="w-full py-3 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg flex justify-center items-center gap-2"><ImagePlus className="w-5 h-5"/> Ver Catálogo y Precios</button>
+                  <button
+  type="button"
+  onClick={() => setShowShirtDesigner(true)}
+  className="w-full py-3 rounded-xl font-bold bg-slate-900 text-white hover:bg-slate-800 shadow-lg flex justify-center items-center gap-2"
+>
+  <Shirt className="w-5 h-5" />
+  Diseña tu remera
+</button>
 
                   <div className={`p-4 rounded-xl flex justify-between items-center shadow-inner ${t.indigoBg}`}>
                     <span className={`text-sm font-semibold ${t.indigoText}`}>Total Calculado:</span>
@@ -1847,7 +1867,11 @@ export default function App() {
                   </tbody>
                </table>
             </div>
-          </div>
+            <ShirtDesignerModal
+  isOpen={showShirtDesigner}
+  onClose={() => setShowShirtDesigner(false)}
+/>
+</div>
         )}
 
         {/* HISTORIAL DE AUDITORÍA */}
