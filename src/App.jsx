@@ -1,17 +1,71 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import ShirtDesignerModal from "./components/ShirtDesignerModal";
 import { getRoleFlags, canManageSensitiveActions } from "./utils/permissions";
-import { Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone, Loader2, Layers, Lock, Unlock, X, Eye, EyeOff, Download, FileText, AlertCircle, Search, CheckCircle2, Edit, Filter, Link2, ShieldAlert, MessageCircle, DollarSign, TrendingUp, Scissors, History, KeyRound, RefreshCw, BarChart3, ExternalLink, Receipt, Target, QrCode, MapPin, Moon, Sun, ArrowRight, ArrowLeft, ImagePlus, Smartphone } from 'lucide-react';
+import { Shirt, PlusCircle, ClipboardList, Trash2, User, Hash, Phone, Loader2, Layers, Lock, Unlock, X, Eye, EyeOff, Download, FileText, Info, AlertCircle, Search, CheckCircle2, Edit, Filter, Link2, ShieldAlert, MessageCircle, DollarSign, TrendingUp, Scissors, History, KeyRound, RefreshCw, BarChart3, ExternalLink, Receipt, Target, QrCode, MapPin, Moon, Sun, ArrowRight, ArrowLeft, ImagePlus, Smartphone } from 'lucide-react';
 import { useDebounce } from './hooks/useDebounce';
-import { SIZES_UNIVERSAL, AGE_RANGES, PRECIOS_BASE, PRECIOS_CAMISILLA, CATALOG_ITEMS, MASTER_AUTHORIZATION, URL_LOGO_BROOGUIN } from './utils/constants';
-import { supabaseRequest } from './utils/supabase';
-import HelperTooltip from './components/common/HelperTooltip';
-import SuccessAnimation from './components/common/SuccessAnimation';
-import { getUnitPrice as baseGetUnitPrice, getOrderFinancials as baseGetOrderFinancials } from './utils/orderHelpers';
-import { buildDefaultFormData, populateFormFromOrder, calculateCurrentTotalForForm } from './utils/orderFormHelpers';
-import { exportOrdersExcel, exportOrdersPdf, exportCutSheet } from './utils/reportExporters';
+import { SIZES_UNIVERSAL, AGE_RANGES, PRECIOS_BASE, PRECIOS_CAMISILLA, CATALOG_ITEMS, ANIMATION_THEMES, MASTER_AUTHORIZATION, supabaseUrl, supabaseKey, URL_LOGO_BROOGUIN } from './utils/constants';
 import { formatDate, formatNumber, formatCurrency, extractDetails } from './utils/formatters';
 import PricingTable from './components/PricingTable';
+import PaymentModal from './components/modals/PaymentModal';
+import PriceModal from './components/modals/PriceModal';
+import AdminLoginModal from './components/modals/AdminLoginModal';
+import GroupAuthModal from './components/modals/GroupAuthModal';
+import RenameGroupModal from './components/modals/RenameGroupModal';
+import QrShareModal from './components/modals/QrShareModal';
+import SponsorManagerModal from './components/modals/SponsorManagerModal';
+
+// ==========================================
+// HOOK DE OPTIMIZACIÓN (DEBOUNCE)
+// ==========================================
+// ==========================================
+// CONFIGURACIÓN DE SUPABASE
+// ==========================================
+const supabaseRequest = async (path, method = 'GET', body = null) => {
+  if (!supabaseUrl || supabaseUrl.includes('TU_URL_AQUI')) return { data: null, error: 'Configuración pendiente.' };
+  const headers = { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
+  try {
+    const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, { method, headers, body: body ? JSON.stringify(body) : null });
+    if (!response.ok) throw new Error(await response.text());
+    const data = response.status !== 204 ? await response.json() : null;
+    return { data, error: null };
+  } catch (error) { return { data: null, error: error.message }; }
+};
+
+// ==========================================
+// CONSTANTES Y PRECIOS
+// ==========================================
+// ==========================================
+// FUNCIONES UTILITARIAS
+// ==========================================
+// ==========================================
+// COMPONENTES AUXILIARES
+// ==========================================
+const HelperTooltip = React.memo(({ text, darkMode }) => {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative inline-flex items-center align-middle z-30">
+      <button type="button" onClick={() => setShow(!show)} onBlur={() => setTimeout(() => setShow(false), 200)} className={`rounded-full p-0.5 transition-colors focus:outline-none ${darkMode ? 'text-indigo-400 hover:bg-slate-700' : 'text-indigo-500 hover:bg-indigo-100'}`} title="Más información"><Info className="w-4 h-4" /></button>
+      {show && (
+        <div className={`absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-56 sm:w-64 p-3 text-xs leading-snug rounded-xl shadow-2xl pointer-events-none font-medium text-center z-50 ${darkMode ? 'bg-slate-700 text-slate-200 border border-slate-600' : 'bg-indigo-900 text-indigo-50 border border-indigo-800'}`}>
+          {text}<div className={`absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent ${darkMode ? 'border-t-slate-700' : 'border-t-indigo-900'}`}></div>
+        </div>
+      )}
+    </div>
+  );
+});
+
+const SuccessAnimation = React.memo(({ themeIndex }) => {
+  const theme = ANIMATION_THEMES[themeIndex] || ANIMATION_THEMES[0];
+  return (
+    <div className="fixed inset-0 pointer-events-none z-[9999] overflow-hidden">
+      {Array.from({ length: 40 }).map((_, i) => (
+        <div key={i} className="absolute" style={{ left: `${Math.random() * 100}vw`, fontSize: `${1.5 + Math.random() * 2}rem`, animation: `${theme.a} ${2 + Math.random() * 3}s ease-in-out ${Math.random() * 1.5}s forwards`, opacity: 0 }}>
+          {theme.e[Math.floor(Math.random() * theme.e.length)]}
+        </div>
+      ))}
+    </div>
+  );
+});
 
 // ==========================================
 // APLICACIÓN PRINCIPAL
@@ -157,7 +211,11 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
   const [successMessage, setSuccessMessage] = useState('');
   const [editingId, setEditingId] = useState(null);
 
-  const [formData, setFormData] = useState(() => buildDefaultFormData(displayEstilo));
+  const [formData, setFormData] = useState({
+    name: '', phone: '', edad: 'Adultos', ageRange: AGE_RANGES[1], size: SIZES_UNIVERSAL[1], gender: 'Femenino', quantity: 1, longSleeve: false, observations: '',
+    playerName: '', playerNumber: '', isGoalkeeper: false, combo: 'Solo Remera', tela: 'Premium',
+    shortSize: SIZES_UNIVERSAL[1], femaleShortType: 'Standard', originalGroup: '', group_name: '' 
+  });
 
   const isCamisilla = displayEstilo === 'Camisilla';
   const allowLongSleeve = !isCamisilla || formData.isGoalkeeper; 
@@ -407,7 +465,18 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
   }, []);
 
   const calculateCurrentTotal = useCallback(() => {
-    return calculateCurrentTotalForForm({ displayEstilo, formData, allowLongSleeve, costoMangaLarga });
+    let unitPrice = 0; 
+    if (displayEstilo === 'Deportiva') {
+       unitPrice = PRECIOS_BASE[formData.edad]?.[formData.tela]?.[formData.combo] || 85000;
+    } else if (displayEstilo === 'Camisilla') {
+       unitPrice = PRECIOS_CAMISILLA[formData.edad]?.[formData.tela]?.[formData.combo] || 80000;
+    } else {
+       unitPrice = 95000; 
+    }
+    if (formData.longSleeve && allowLongSleeve) unitPrice += costoMangaLarga;
+    if (['XXL', 'XXXL'].includes(formData.size)) unitPrice += 10000;
+
+    return unitPrice * (parseInt(formData.quantity) || 1);
   }, [displayEstilo, formData, allowLongSleeve, costoMangaLarga]);
 
   const currentOrderTotal = calculateCurrentTotal();
@@ -552,8 +621,19 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
   // ==========================================
   // FUNCIONES DE PRECIOS Y PAGOS
   // ==========================================
-  const getUnitPrice = useCallback((order) => baseGetUnitPrice(order), []);
-  const getOrderFinancials = useCallback((order) => baseGetOrderFinancials(order), []);
+  const getUnitPrice = useCallback((order) => {
+    const match = order.observations?.match(/\[Precio:\s*(\d+)\]/);
+    if (match) return parseInt(match[1], 10);
+    const isDep = order.observations?.includes('Combo:') || order.observations?.includes('Short:') || order.observations?.includes('[#');
+    const mangaLargaCost = isDep ? 15000 : 10000;
+    return 85000 + (order.longSleeve ? mangaLargaCost : 0);
+  }, []);
+
+  const getOrderFinancials = useCallback((order) => {
+    const total = getUnitPrice(order) * order.quantity;
+    const paid = order.amount_paid ?? (order.paymentStatus === 'Pagado' ? total : 0);
+    return { total, paid, balance: total - paid };
+  }, [getUnitPrice]);
 
   // ABRIR MODAL PARA AJUSTAR PRECIO FINAL
   const handleOpenPriceModal = useCallback((order) => {
@@ -653,14 +733,45 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
   };
 
   const handleEditClick = useCallback((order) => {
-    setFormData(populateFormFromOrder(order, formData));
-    setEditingId(order.id);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [formData]);
+    let pName = ''; let pNum = '';
+    let combo = 'Solo Remera'; let tela = 'Premium';
+    let eDad = 'Adultos'; let aRange = AGE_RANGES[1];
+    let sSize = SIZES_UNIVERSAL[1]; let fShort = 'Standard'; let isGk = false;
+
+    const obs = order.observations || '';
+    if (obs.includes('Combo: Equipo Completo') || obs.includes('Combo: Remera + Short + Medias')) combo = 'Equipo Completo';
+    else if (obs.includes('Combo: Remera + Short') || (obs.includes('Short: ') && !obs.includes('Short: NO'))) combo = 'Remera + Short'; 
+    else if (obs.includes('Combo: Camisilla + Short')) combo = 'Camisilla + Short';
+    else if (obs.includes('Combo: Solo Camisilla')) combo = 'Solo Camisilla';
+    
+    if (obs.includes('Tela: Estandard') || obs.includes('Calidad: Estandard')) tela = 'Estandard';
+    else if (obs.includes('Tela: Semi-Premium')) tela = 'Semi-Premium';
+    
+    if (obs.includes('Arquero: SI')) isGk = true;
+    if (obs.includes('Infantil')) { eDad = 'Infantil'; const matchAge = obs.match(/Infantil \((.*?)\)/); if (matchAge) aRange = matchAge[1]; }
+    
+    const matchNum = obs.match(/#([0-9]+)/); if (matchNum) pNum = matchNum[1];
+    const matchName = obs.match(/\|\s*#.*?\|\s*([^|]+)\s*\|/); if (matchName) pName = matchName[1].trim() === 'SIN NOMBRE' ? '' : matchName[1].trim();
+    const matchShort = obs.match(/Short:\s*([^|\]]+)/);
+    if (matchShort && matchShort[1].trim() !== 'NO') {
+      const sData = matchShort[1].trim();
+      if (sData.includes('(Corte Femenino)')) fShort = 'Femenino';
+      sSize = sData.replace(/\s*\(.*?\)/, '').trim();
+    }
+    const { rest } = extractDetails(obs);
+
+    setFormData({
+      ...formData, name: order.name, phone: order.phone === '-' ? '' : (order.phone || ''), size: order.size, gender: order.gender, quantity: order.quantity, longSleeve: order.longSleeve || false, 
+      observations: rest, originalGroup: order.group_name, group_name: order.group_name, 
+      playerName: pName, playerNumber: pNum, combo, tela, edad: eDad, ageRange: aRange, shortSize: sSize || SIZES_UNIVERSAL[1], femaleShortType: fShort, isGoalkeeper: isGk
+    });
+    setEditingId(order.id); window.scrollTo({ top: 0, behavior: 'smooth' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const cancelEdit = () => {
     setEditingId(null);
-    setFormData(buildDefaultFormData(displayEstilo));
+    setFormData({ name: '', phone: '', edad: 'Adultos', ageRange: AGE_RANGES[1], size: SIZES_UNIVERSAL[1], gender: 'Femenino', quantity: 1, longSleeve: false, observations: '', playerName: '', playerNumber: '', isGoalkeeper: false, combo: displayEstilo === 'Camisilla' ? 'Solo Camisilla' : 'Solo Remera', tela: 'Premium', shortSize: SIZES_UNIVERSAL[1], femaleShortType: 'Standard', originalGroup: '', group_name: ''});
   };
 
   const handleDelete = useCallback(async (order) => {
@@ -818,40 +929,206 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
   }, [archivedGroups, debouncedArchivedSearch]);
 
   const handleExportExcel = useCallback(() => {
-    exportOrdersExcel({
-      activeOrders,
-      summaryBySize,
-      totalGarments,
-      totalRevenue,
-      isGroupAdmin,
-      adminGroupFilter,
-      displayGroup,
-      getOrderFinancials,
-    });
-  }, [activeOrders, summaryBySize, totalGarments, totalRevenue, isGroupAdmin, adminGroupFilter, displayGroup, getOrderFinancials]);
+    const xmlEscape = (value) =>
+      String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+
+    const sheetRows = (rows) =>
+      rows
+        .map((row) => `<Row>${row.map((cell) => `<Cell><Data ss:Type="String">${xmlEscape(cell)}</Data></Cell>`).join('')}</Row>`)
+        .join('');
+
+    const pedidosRows = [
+      ['Grupo', 'Cliente', 'Telefono', 'Talle', 'Genero', 'Cantidad', 'Estado', 'Pagado', 'Saldo', 'Observaciones', 'Fecha'],
+      ...activeOrders.map((o) => {
+        const fins = getOrderFinancials(o);
+        const { details, rest } = extractDetails(o.observations);
+        return [
+          o.group_name || 'General',
+          o.name,
+          o.phone || '-',
+          o.size,
+          o.gender,
+          String(o.quantity),
+          o.paymentStatus || 'Pendiente',
+          formatCurrency(fins.paid),
+          formatCurrency(fins.balance),
+          `${details} ${rest}`.trim(),
+          formatDate(o.created_at),
+        ];
+      }),
+    ];
+
+    const tallerRows = [
+      ['Talle', 'Femenino', 'Masculino', 'Unisex', 'Total'],
+      ...summaryBySize.map((item) => [item.size, String(item.fem || 0), String(item.masc || 0), String(item.uni || 0), String(item.total || 0)]),
+      [],
+      ['Total Remeras', '', '', '', String(totalGarments)],
+      ['Total Recaudacion', '', '', '', formatCurrency(totalRevenue)],
+    ];
+
+    const finanzasRows = [
+      ['Grupo', 'Cliente', 'Total', 'Pagado', 'Saldo'],
+      ...activeOrders.map((o) => {
+        const fins = getOrderFinancials(o);
+        return [o.group_name || 'General', o.name, formatCurrency(fins.total), formatCurrency(fins.paid), formatCurrency(fins.balance)];
+      }),
+    ];
+
+    const workbook = `<?xml version="1.0"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <Worksheet ss:Name="Pedidos"><Table>${sheetRows(pedidosRows)}</Table></Worksheet>
+  <Worksheet ss:Name="Taller"><Table>${sheetRows(tallerRows)}</Table></Worksheet>
+  <Worksheet ss:Name="Finanzas"><Table>${sheetRows(finanzasRows)}</Table></Worksheet>
+</Workbook>`;
+
+    const blob = new Blob([workbook], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Brooguin_Reporte_${isGroupAdmin ? adminGroupFilter : displayGroup}.xls`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }, [isGroupAdmin, adminGroupFilter, displayGroup, summaryBySize, totalGarments, totalRevenue, activeOrders, getOrderFinancials]);
 
   const handleExportPDF = useCallback(() => {
-    exportOrdersPdf({
-      activeOrders,
-      totalRevenue,
-      totalCollected,
-      totalGarments,
-      isGroupAdmin,
-      adminGroupFilter,
-      displayGroup,
-      getOrderFinancials,
-    });
-  }, [activeOrders, totalRevenue, totalCollected, totalGarments, isGroupAdmin, adminGroupFilter, displayGroup, getOrderFinancials]);
+    const printWindow = window.open('', '_blank');
+    const totalSaldo = totalRevenue - totalCollected;
+    const lineRows = activeOrders.map((o) => {
+      const fins = getOrderFinancials(o);
+      const { details, rest } = extractDetails(o.observations);
+      const desc = `${details} ${rest}`.trim();
+      return `
+        <tr>
+          <td>${o.group_name || 'General'}</td>
+          <td>${o.name}<br/><small>${o.phone || ''}</small></td>
+          <td>${o.quantity}</td>
+          <td>${o.size}</td>
+          <td>${o.paymentStatus || 'Pendiente'}</td>
+          <td style="text-align:right">${formatCurrency(fins.total)}</td>
+          <td style="text-align:right">${formatCurrency(fins.paid)}</td>
+          <td style="text-align:right">${formatCurrency(fins.balance)}</td>
+          <td><small>${desc}</small></td>
+        </tr>`;
+    }).join('');
+
+    const html = `
+      <html>
+        <head>
+          <title>Factura / Reporte - ${isGroupAdmin && adminGroupFilter !== 'Todos' ? adminGroupFilter : displayGroup}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 24px; color: #1f2937; }
+            .header { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; border-bottom:3px solid #312e81; padding-bottom:16px; margin-bottom:20px; }
+            .brand h1 { margin:0; color:#312e81; font-size:28px; }
+            .brand p { margin:4px 0 0; color:#4b5563; }
+            .meta { text-align:right; font-size:13px; color:#4b5563; }
+            .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:18px 0 22px; }
+            .card { border:1px solid #d1d5db; border-radius:12px; padding:12px; background:#f9fafb; }
+            .card .label { font-size:11px; text-transform:uppercase; color:#6b7280; font-weight:bold; }
+            .card .value { margin-top:6px; font-size:18px; font-weight:800; color:#111827; }
+            table { width:100%; border-collapse: collapse; font-size:12px; }
+            th, td { border:1px solid #e5e7eb; padding:8px; vertical-align:top; }
+            th { background:#eef2ff; color:#312e81; text-align:left; }
+            .totals { margin-top:18px; width:320px; margin-left:auto; border-collapse:collapse; }
+            .totals td { border:1px solid #d1d5db; padding:8px; }
+            .totals .strong { font-weight:800; background:#eef2ff; }
+            .footer { margin-top:22px; font-size:11px; color:#6b7280; border-top:1px dashed #d1d5db; padding-top:12px; }
+            @media print { body { padding: 10px; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="brand">
+              <h1>BROOGUIN SPORT</h1>
+              <p>Reporte financiero y comprobante de pedidos</p>
+              <p><strong>Vista:</strong> ${isGroupAdmin ? adminGroupFilter : displayGroup}</p>
+            </div>
+            <div class="meta">
+              <div><strong>Fecha:</strong> ${new Date().toLocaleString('es-PY')}</div>
+              <div><strong>Documento:</strong> REP-${Date.now()}</div>
+            </div>
+          </div>
+
+          <div class="cards">
+            <div class="card"><div class="label">Total esperado</div><div class="value">${formatCurrency(totalRevenue)}</div></div>
+            <div class="card"><div class="label">Total cobrado</div><div class="value">${formatCurrency(totalCollected)}</div></div>
+            <div class="card"><div class="label">Saldo pendiente</div><div class="value">${formatCurrency(totalSaldo)}</div></div>
+            <div class="card"><div class="label">Prendas</div><div class="value">${totalGarments}</div></div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Grupo</th>
+                <th>Cliente</th>
+                <th>Cant.</th>
+                <th>Talle</th>
+                <th>Estado</th>
+                <th>Total</th>
+                <th>Pagado</th>
+                <th>Saldo</th>
+                <th>Detalle</th>
+              </tr>
+            </thead>
+            <tbody>${lineRows}</tbody>
+          </table>
+
+          <table class="totals">
+            <tr><td>Total esperado</td><td style="text-align:right">${formatCurrency(totalRevenue)}</td></tr>
+            <tr><td>Total cobrado</td><td style="text-align:right">${formatCurrency(totalCollected)}</td></tr>
+            <tr><td class="strong">Saldo pendiente</td><td class="strong" style="text-align:right">${formatCurrency(totalSaldo)}</td></tr>
+          </table>
+
+          <div class="footer">
+            Documento generado automáticamente por la plataforma de Brooguin Sport.
+          </div>
+          <script>
+            window.onload = () => { window.print(); window.onafterprint = () => window.close(); }
+          </script>
+        </body>
+      </html>`;
+    printWindow.document.write(html);
+    printWindow.document.close();
+  }, [isGroupAdmin, adminGroupFilter, displayGroup, activeOrders, totalRevenue, totalCollected, totalGarments, getOrderFinancials]);
 
   const handleExportHojaCorte = useCallback(() => {
-    exportCutSheet({
-      activeOrders,
-      isGroupAdmin,
-      adminGroupFilter,
-      displayGroup,
-      displayEstilo,
-      totalSocks,
+    const printWindow = window.open('', '_blank');
+    const cortesRemera = {};
+    activeOrders.forEach(o => {
+      const tipoManga = o.longSleeve ? 'MANGA LARGA' : 'Manga Corta';
+      const key = `Talle ${o.size} - ${o.gender} - ${tipoManga}`;
+      cortesRemera[key] = (cortesRemera[key] || 0) + o.quantity;
     });
+
+    const cortesShort = {};
+    activeOrders.forEach(o => {
+       if (o.observations?.includes('Short:') && !o.observations?.includes('Short: NO')) {
+          const match = o.observations.match(/Short:\s*([^|\]]+)/);
+          if (match) cortesShort[match[1].trim()] = (cortesShort[match[1].trim()] || 0) + o.quantity;
+       }
+    });
+
+    let html = `
+      <html><head><title>Hoja de Corte - ${isGroupAdmin && adminGroupFilter !== 'Todos' ? adminGroupFilter : displayGroup}</title><style>body { font-family: Arial, sans-serif; padding: 20px; color: #000; } h1 { font-size: 26px; text-align: center; margin-bottom: 5px; text-transform: uppercase; border-bottom: 3px solid #000; padding-bottom: 10px; } h2 { font-size: 20px; margin-top: 30px; background-color: #e5e5e5; padding: 8px; border-left: 5px solid #000; } .meta { font-size: 14px; margin-bottom: 20px; display: flex; justify-content: space-between; } table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 16px; } th, td { border: 1px solid #000; padding: 12px; text-align: left; } th { background-color: #f2f2f2; font-weight: bold; } .qty { font-size: 22px; font-weight: 900; text-align: center; width: 100px; } .item-desc { font-weight: bold; text-transform: uppercase; } @media print { button { display: none; } body { padding: 0; } }</style></head>
+      <body><h1>HOJA DE CORTE DE TALLER: ${isGroupAdmin && adminGroupFilter !== 'Todos' ? adminGroupFilter : displayGroup}</h1><div class="meta"><span><strong>Fecha de impresión:</strong> ${new Date().toLocaleDateString()}</span><span><strong>Estilo:</strong> ${displayEstilo}</span></div>
+      <h2>1. CONFECCIÓN DE REMERAS</h2><table><thead><tr><th>Especificación de Corte (Talle - Género - Manga)</th><th class="qty">Cant.</th></tr></thead><tbody>${Object.entries(cortesRemera).sort().map(([desc, cant]) => `<tr><td class="item-desc">${desc}</td><td class="qty">${cant}</td></tr>`).join('')}</tbody></table>
+    `;
+    if (Object.keys(cortesShort).length > 0) {
+      html += `<h2>2. CONFECCIÓN DE SHORTS</h2><table><thead><tr><th>Especificación de Corte (Talle y Diseño)</th><th class="qty">Cant.</th></tr></thead><tbody>${Object.entries(cortesShort).sort().map(([desc, cant]) => `<tr><td class="item-desc">Short Talle ${desc}</td><td class="qty">${cant}</td></tr>`).join('')}</tbody></table>`;
+    }
+    if (totalSocks > 0) {
+      html += `<h2>3. MEDIAS</h2><table><tbody><tr><td class="item-desc">Total de Pares de Medias a preparar</td><td class="qty">${totalSocks}</td></tr></tbody></table>`;
+    }
+    html += `<script>window.onload = () => { window.print(); window.onafterprint = () => window.close(); }</script></body></html>`;
+    printWindow.document.write(html); printWindow.document.close();
   }, [activeOrders, isGroupAdmin, adminGroupFilter, displayGroup, displayEstilo, totalSocks]);
 
 
@@ -1730,234 +2007,103 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
         )}
 
         {/* MODAL DE PAGOS */}
-        {paymentModal.isOpen && paymentModal.order && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
-             <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
-                <div className="flex justify-between items-center mb-4">
-                   <h3 className={`font-bold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
-                     <span className="w-6 h-6 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center font-bold text-sm">₲</span> Registrar Pago
-                   </h3>
-                   <button onClick={() => setPaymentModal({isOpen: false, order: null, amount: 0})} className={`${t.muted} hover:text-slate-200`}><X className="w-5 h-5" /></button>
-                </div>
-                <div className={`p-3 rounded-lg mb-4 text-sm text-center ${darkMode ? 'bg-slate-700' : 'bg-neutral-50'}`}>
-                   <p className={`mb-1 ${t.muted}`}>Total de {paymentModal.order.name}</p>
-                   <p className={`text-xl font-black ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>{formatNumber(getUnitPrice(paymentModal.order) * paymentModal.order.quantity)} Gs.</p>
-                </div>
-                <label className={`block text-xs font-bold mb-1 ${t.muted}`}>Monto entregado (Gs):</label>
-                <input type="number" value={paymentModal.amount} onChange={(e) => setPaymentModal({ ...paymentModal, amount: e.target.value })} className={`w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-lg text-center mb-4 ${t.input}`} />
-                <div className="space-y-2">
-                  <button onClick={savePayment} className="w-full bg-emerald-500 text-white font-black py-3 rounded-xl hover:bg-emerald-400 transition-all shadow-md border-none">Guardar Pago</button>
-                  {paymentModal.isSaved && (
-                    <a href={getReceiptLink(paymentModal.order)} target="_blank" rel="noopener noreferrer" className="w-full bg-[#25D366] text-white font-bold py-3 rounded-xl hover:bg-[#20bd5a] transition-all shadow-md flex items-center justify-center gap-2"><Receipt className="w-4 h-4" /> Enviar Recibo WhatsApp</a>
-                  )}
-                </div>
-             </div>
-          </div>
-        )}
+                <PaymentModal
+          isOpen={paymentModal.isOpen}
+          order={paymentModal.order}
+          amount={paymentModal.amount}
+          isSaved={paymentModal.isSaved}
+          darkMode={darkMode}
+          theme={t}
+          totalAmount={paymentModal.order ? getUnitPrice(paymentModal.order) * paymentModal.order.quantity : 0}
+          onAmountChange={(value) => setPaymentModal({ ...paymentModal, amount: value })}
+          onSave={savePayment}
+          onClose={() => setPaymentModal({ isOpen: false, order: null, amount: 0, isSaved: false })}
+          receiptLink={paymentModal.order ? getReceiptLink(paymentModal.order) : ''}
+        />
 
         {/* NUEVO MODAL: AJUSTE DE PRECIO MANUAL */}
-        {priceModal.isOpen && priceModal.order && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
-             <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
-                <div className="flex justify-between items-center mb-4">
-                   <h3 className={`font-bold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
-                     <span className="w-6 h-6 bg-amber-500/20 text-amber-500 rounded-full flex items-center justify-center font-bold text-sm">₲</span> Ajustar Precio Total
-                   </h3>
-                   <button onClick={() => setPriceModal({isOpen: false, order: null, newTotal: 0})} className={`${t.muted} hover:text-slate-200`}><X className="w-5 h-5" /></button>
-                </div>
-                <p className={`text-xs mb-4 ${t.muted}`}>Modifica el precio final de este pedido para agregar costos extra (ej. Nombres, dorsales, diseño especial).</p>
-                <div className={`p-3 rounded-lg mb-4 text-sm text-center ${darkMode ? 'bg-slate-700' : 'bg-neutral-50'}`}>
-                   <p className={`mb-1 font-bold ${darkMode ? 'text-slate-200' : 'text-neutral-800'}`}>Cliente: {priceModal.order.name}</p>
-                   <p className={`text-xs ${t.muted}`}>{priceModal.order.quantity} Prenda(s)</p>
-                </div>
-                <label className={`block text-xs font-bold mb-1 ${t.muted}`}>Nuevo Precio Total (Gs):</label>
-                <input type="number" value={priceModal.newTotal} onChange={(e) => setPriceModal({...priceModal, newTotal: e.target.value})} className={`w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none font-bold text-lg text-center mb-4 ${t.input}`} />
-                <button onClick={saveNewPrice} className="w-full bg-amber-500 text-white font-black py-3 rounded-xl hover:bg-amber-400 transition-all shadow-md border-none">Guardar Nuevo Precio</button>
-             </div>
-          </div>
-        )}
+                <PriceModal
+          isOpen={priceModal.isOpen}
+          order={priceModal.order}
+          newTotal={priceModal.newTotal}
+          darkMode={darkMode}
+          theme={t}
+          onTotalChange={(value) => setPriceModal({ ...priceModal, newTotal: value })}
+          onSave={saveNewPrice}
+          onClose={() => setPriceModal({ isOpen: false, order: null, newTotal: 0 })}
+        />
 
-        {showAdminLogin && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
-            <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
-              <div className="flex justify-between items-center mb-4">
-                <h3 className={`font-bold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}><Lock className="w-5 h-5" /> Iniciar Sesión</h3>
-                <button onClick={() => setShowAdminLogin(false)} className={`${t.muted} hover:text-slate-200`}><X className="w-5 h-5" /></button>
-              </div>
-              <div className="relative mb-4">
-                <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${t.muted}`}>Contraseña de Acceso</label>
-                <input type={showPassword ? "text" : "password"} value={adminPin} onChange={(e) => setAdminPin(e.target.value)} placeholder="Contraseña..." onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()} className={`w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none pr-12 ${t.input}`} />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className={`absolute bottom-3 right-0 pr-4 flex items-center ${t.muted}`}><EyeOff className="w-5 h-5" /></button>
-              </div>
-              {pinError && <p className="text-xs text-red-500 mb-3 mt-[-10px]">Contraseña incorrecta.</p>}
-              <button onClick={handleAdminLogin} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-all mb-4 border-none">Ingresar</button>
-            </div>
-          </div>
-        )}
+                <AdminLoginModal
+          isOpen={showAdminLogin}
+          darkMode={darkMode}
+          theme={t}
+          adminPin={adminPin}
+          pinError={pinError}
+          showPassword={showPassword}
+          onPinChange={setAdminPin}
+          onTogglePassword={() => setShowPassword(!showPassword)}
+          onSubmit={handleAdminLogin}
+          onClose={() => setShowAdminLogin(false)}
+        />
 
-        {showGroupAuth && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
-            <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
-              <div className="flex justify-between items-center mb-4">
-                <h3 className={`font-bold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}><ShieldAlert className="w-5 h-5 text-red-500" /> Modo Supremo</h3>
-                <button onClick={() => {setShowGroupAuth(false); setGroupPinError(false); setGroupPin(''); setShowGroupPassword(false); setIsMasterOwner(false); setIsCreator(false);}} className={`${t.muted} hover:text-slate-200`}><X className="w-5 h-5" /></button>
-              </div>
-              <div className="relative mb-4">
-                <input type={showGroupPassword ? "text" : "password"} value={groupPin} onChange={(e) => setGroupPin(e.target.value)} placeholder="Contraseña Maestra" onKeyDown={(e) => e.key === 'Enter' && handleGroupAuth()} className={`w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-red-500 outline-none pr-12 ${t.input}`} />
-                <button type="button" onClick={() => setShowGroupPassword(!showGroupPassword)} className={`absolute inset-y-0 right-0 pr-4 flex items-center ${t.muted}`}><EyeOff className="w-5 h-5" /></button>
-              </div>
-              {groupPinError && <p className="text-xs text-red-500 mb-3 mt-[-10px]">Contraseña incorrecta.</p>}
-              <button onClick={handleGroupAuth} className={`w-full text-white font-bold py-3 rounded-xl transition-all border-none ${darkMode ? 'bg-slate-950 hover:bg-black' : 'bg-neutral-900 hover:bg-black'}`}>Activar Modo Supremo</button>
-            </div>
-          </div>
-        )}
+                <GroupAuthModal
+          isOpen={showGroupAuth}
+          darkMode={darkMode}
+          theme={t}
+          groupPin={groupPin}
+          groupPinError={groupPinError}
+          showGroupPassword={showGroupPassword}
+          onPinChange={setGroupPin}
+          onTogglePassword={() => setShowGroupPassword(!showGroupPassword)}
+          onSubmit={handleGroupAuth}
+          onClose={() => {
+            setShowGroupAuth(false);
+            setGroupPinError(false);
+            setGroupPin('');
+            setShowGroupPassword(false);
+            setIsMasterOwner(false);
+            setIsCreator(false);
+          }}
+        />
 
-        {renameModal.isOpen && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
-            <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
-              <div className="flex justify-between items-center mb-4">
-                <h3 className={`font-bold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}><Edit className="w-5 h-5 text-amber-500" /> Renombrar Grupo</h3>
-                <button onClick={() => setRenameModal({isOpen: false, oldName: '', newName: ''})} className={`${t.muted} hover:text-slate-200`}><X className="w-5 h-5" /></button>
-              </div>
-              <div className="space-y-3 mb-4">
-                <div>
-                  <label className={`block text-[10px] uppercase font-bold mb-1 ${t.muted}`}>Nombre Actual</label>
-                  <input type="text" value={renameModal.oldName} disabled className={`w-full px-4 py-2 border rounded-xl text-sm cursor-not-allowed ${darkMode ? 'bg-slate-900 border-slate-700 text-slate-500' : 'bg-neutral-100 border-neutral-200 text-neutral-500'}`} />
-                </div>
-                <div>
-                  <label className={`block text-[10px] uppercase font-bold mb-1 ${darkMode ? 'text-indigo-400' : 'text-indigo-500'}`}>Nuevo Nombre (Sin Espacios)</label>
-                  <input type="text" value={renameModal.newName} onChange={(e) => setRenameModal({...renameModal, newName: e.target.value})} placeholder="Ej. ColegioNacional" className={`w-full px-4 py-2 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold ${t.input} ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`} />
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => setRenameModal({isOpen: false, oldName: '', newName: ''})} className={`flex-1 font-bold py-2 rounded-xl transition-all text-sm border-none ${darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'}`}>Cancelar</button>
-                <button onClick={handleRenameGroupSubmit} disabled={loading} className="flex-1 bg-amber-500 text-white font-bold py-2 rounded-xl hover:bg-amber-600 transition-all text-sm flex items-center justify-center gap-2 border-none">
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Guardar Cambio'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+                <RenameGroupModal
+          isOpen={renameModal.isOpen}
+          darkMode={darkMode}
+          theme={t}
+          oldName={renameModal.oldName}
+          newName={renameModal.newName}
+          loading={loading}
+          onNewNameChange={(value) => setRenameModal({ ...renameModal, newName: value })}
+          onSubmit={handleRenameGroupSubmit}
+          onClose={() => setRenameModal({ isOpen: false, oldName: '', newName: '' })}
+        />
 
-        {qrModal.isOpen && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
-            <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in text-center ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
-              <div className="flex justify-between items-center mb-4">
-                <h3 className={`font-bold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}><QrCode className="w-5 h-5 text-indigo-500" /> Compartir Grupo</h3>
-                <button onClick={() => setQrModal({isOpen: false, link: '', groupName: ''})} className={`${t.muted} hover:text-slate-200`}><X className="w-5 h-5" /></button>
-              </div>
-              <p className={`text-sm mb-4 ${t.muted}`}>Comparte este código para que ingresen al grupo <strong>{qrModal.groupName}</strong>.</p>
-              <div className={`p-4 rounded-xl flex justify-center mb-4 border ${darkMode ? 'bg-slate-200 border-slate-400' : 'bg-neutral-100 border-neutral-200'}`}>
-                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrModal.link)}&margin=10`} alt="QR Code" className="rounded-lg shadow-sm" />
-              </div>
-              <div className="flex gap-2 mb-4">
-                <a href={`https://wa.me/?text=${encodeURIComponent(`¡Hola! Haz tu pedido de indumentaria para el grupo *${qrModal.groupName}* aquí:\n\n${qrModal.link}`)}`} target="_blank" rel="noopener noreferrer" className="flex-1 bg-[#25D366] text-white font-bold py-2 px-3 rounded-xl hover:bg-[#20bd5a] transition-all flex items-center justify-center gap-2 text-sm shadow-sm"><MessageCircle className="w-4 h-4" /> Enviar</a>
-                <button onClick={() => { const textArea = document.createElement("textarea"); textArea.value = qrModal.link; document.body.appendChild(textArea); textArea.select(); try { document.execCommand('copy'); alert("¡Enlace copiado al portapapeles!"); } catch (err) {} document.body.removeChild(textArea); }} className={`flex-1 font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-2 text-sm shadow-sm border-none ${darkMode ? 'bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/40' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'}`}><Link2 className="w-4 h-4" /> Copiar</button>
-              </div>
-              <button onClick={() => setQrModal({isOpen: false, link: '', groupName: ''})} className={`w-full font-bold py-2 rounded-xl transition-all text-sm border-none ${darkMode ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-neutral-800 text-white hover:bg-neutral-900'}`}>Cerrar Ventana</button>
-            </div>
-          </div>
-        )}
+                <QrShareModal
+          isOpen={qrModal.isOpen}
+          darkMode={darkMode}
+          theme={t}
+          link={qrModal.link}
+          groupName={qrModal.groupName}
+          onClose={() => setQrModal({ isOpen: false, link: '', groupName: '' })}
+        />
 
 
-        {showSponsorManager && canManageSponsors && (
-          <div className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className={`w-full max-w-5xl rounded-2xl shadow-2xl border max-h-[90vh] overflow-hidden ${darkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-neutral-200'}`}>
-              <div className={`p-5 border-b flex items-center justify-between ${darkMode ? 'border-slate-800' : 'border-neutral-200'}`}>
-                <div>
-                  <h3 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-neutral-900'}`}>Panel de Sponsors</h3>
-                  <p className={`text-sm ${t.muted}`}>Administra sponsors visibles, orden, enlaces y logos.</p>
-                </div>
-                <button onClick={() => { setShowSponsorManager(false); resetSponsorForm(); }} className={`p-2 rounded-lg ${darkMode ? 'hover:bg-slate-800' : 'hover:bg-neutral-100'}`}>
-                  <X className="w-5 h-5" />
-                </button>
-              </div>{isHiddenAdmin && showSponsorsManager && (
-  <div>{/* panel sponsors */}</div>
-)}
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
-                <div className={`p-5 border-r ${darkMode ? 'border-slate-800' : 'border-neutral-200'}`}>
-                  <form onSubmit={handleSaveSponsor} className="space-y-4">
-                    <div>
-                      <label className={`block text-xs uppercase font-bold mb-1 ${t.muted}`}>Nombre</label>
-                      <input name="name" value={sponsorForm.name} onChange={handleSponsorFormChange} className={`w-full px-3 py-2 rounded-xl ${t.input}`} placeholder="Nombre del sponsor" />
-                    </div>
-                    <div>
-                      <label className={`block text-xs uppercase font-bold mb-1 ${t.muted}`}>Subtítulo</label>
-                      <input name="subtitle" value={sponsorForm.subtitle} onChange={handleSponsorFormChange} className={`w-full px-3 py-2 rounded-xl ${t.input}`} placeholder="Texto corto descriptivo" />
-                    </div>
-                    <div>
-                      <label className={`block text-xs uppercase font-bold mb-1 ${t.muted}`}>Logo URL</label>
-                      <input name="logo_url" value={sponsorForm.logo_url} onChange={handleSponsorFormChange} className={`w-full px-3 py-2 rounded-xl ${t.input}`} placeholder="https://..." />
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <label className={`block text-xs uppercase font-bold mb-1 ${t.muted}`}>Link destino</label>
-                        <input name="target_url" value={sponsorForm.target_url} onChange={handleSponsorFormChange} className={`w-full px-3 py-2 rounded-xl ${t.input}`} placeholder="https://..." />
-                      </div>
-                      <div>
-                        <label className={`block text-xs uppercase font-bold mb-1 ${t.muted}`}>WhatsApp</label>
-                        <input name="whatsapp_number" value={sponsorForm.whatsapp_number} onChange={handleSponsorFormChange} className={`w-full px-3 py-2 rounded-xl ${t.input}`} placeholder="595..." />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 items-center">
-                      <div>
-                        <label className={`block text-xs uppercase font-bold mb-1 ${t.muted}`}>Orden</label>
-                        <input type="number" name="display_order" value={sponsorForm.display_order} onChange={handleSponsorFormChange} className={`w-full px-3 py-2 rounded-xl ${t.input}`} />
-                      </div>
-                      <label className={`flex items-center gap-2 text-sm font-bold mt-6 ${darkMode ? 'text-slate-300' : 'text-neutral-700'}`}>
-                        <input type="checkbox" name="is_active" checked={sponsorForm.is_active} onChange={handleSponsorFormChange} />
-                        Sponsor activo
-                      </label>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold">{editingSponsorId ? 'Guardar cambios' : 'Crear sponsor'}</button>
-                      <button type="button" onClick={resetSponsorForm} className={`px-4 py-2 rounded-xl font-bold ${darkMode ? 'bg-slate-800 text-slate-200' : 'bg-neutral-100 text-neutral-800'}`}>Limpiar</button>
-                    </div>
-                  </form>
-                </div>
-
-                <div className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className={`font-black ${darkMode ? 'text-white' : 'text-neutral-900'}`}>Sponsors registrados</h4>
-                    <span className={`text-xs font-bold ${t.muted}`}>{sponsors.length} total</span>
-                  </div>
-                  <div className="space-y-3 max-h-[62vh] overflow-y-auto pr-1">
-                    {sponsors.length === 0 ? (
-                      <div className={`p-4 rounded-xl border border-dashed text-sm ${t.muted}`}>Aún no hay sponsors cargados.</div>
-                    ) : sponsors.map((sponsor) => (
-                      <div key={sponsor.id} className={`rounded-xl border p-3 ${darkMode ? 'border-slate-800 bg-slate-900' : 'border-neutral-200 bg-white'}`}>
-                        <div className="flex items-start gap-3">
-                          <div className={`w-14 h-14 rounded-xl overflow-hidden border flex items-center justify-center ${darkMode ? 'bg-slate-950 border-slate-800' : 'bg-neutral-50 border-neutral-200'}`}>
-                            {sponsor.logo_url ? <img src={sponsor.logo_url} alt={sponsor.name} className="w-full h-full object-contain" /> : <span className="text-[10px] font-black text-indigo-500">SP</span>}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                              <div>
-                                <p className={`font-black truncate ${darkMode ? 'text-white' : 'text-neutral-900'}`}>{sponsor.name}</p>
-                                <p className={`text-xs truncate ${t.muted}`}>{sponsor.subtitle || 'Sin subtítulo'}</p>
-                              </div>
-                              <span className={`text-[10px] px-2 py-1 rounded-full font-bold ${sponsor.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-neutral-200 text-neutral-600'}`}>
-                                {sponsor.is_active ? 'Activo' : 'Inactivo'}
-                              </span>
-                            </div>
-                            <div className={`text-[11px] mt-2 ${t.muted}`}>Orden: {sponsor.display_order ?? 0} · Clics: {sponsor.click_count ?? 0}</div>
-                            <div className="flex flex-wrap gap-2 mt-3">
-                              <button onClick={() => handleEditSponsor(sponsor)} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${darkMode ? 'bg-slate-800 text-slate-200' : 'bg-neutral-100 text-neutral-800'}`}>Editar</button>
-                              <button onClick={() => handleToggleSponsorActive(sponsor)} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${sponsor.is_active ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>{sponsor.is_active ? 'Desactivar' : 'Activar'}</button>
-                              <button onClick={() => handleDeleteSponsor(sponsor.id)} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-100 text-red-700">Eliminar</button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+                <SponsorManagerModal
+          isOpen={showSponsorManager && canManageSponsors}
+          darkMode={darkMode}
+          theme={t}
+          sponsors={sponsors}
+          sponsorForm={sponsorForm}
+          editingSponsorId={editingSponsorId}
+          canManageSponsors={canManageSponsors}
+          onClose={() => { setShowSponsorManager(false); resetSponsorForm(); }}
+          onFormChange={handleSponsorFormChange}
+          onSubmit={handleSaveSponsor}
+          onReset={resetSponsorForm}
+          onEdit={handleEditSponsor}
+          onToggleActive={handleToggleSponsorActive}
+          onDelete={handleDeleteSponsor}
+        />
 
         {/* Footer de Créditos de Desarrollador */}
         <div className={`text-center py-8 border-t mt-12 flex flex-col items-center gap-4 ${darkMode ? 'border-slate-800 text-slate-500' : 'border-neutral-200 text-neutral-400'}`}>
