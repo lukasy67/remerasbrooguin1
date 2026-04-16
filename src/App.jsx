@@ -1969,10 +1969,12 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
                      <h3 className={`text-lg font-black mb-4 flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
                        <span className="flex items-center justify-center w-6 h-6 bg-emerald-500/20 text-emerald-500 rounded-full font-black text-sm">₲</span> Tabla de Aranceles Base
                      </h3>
-                     {/* TABLA DE DEPORTIVAS */}
-                     {displayEstilo !== 'Camisilla' && (
+{/* SECCIÓN DE PRECIOS COMPLETA */}
+<div className="space-y-12">
+                       
+                       {/* 1. Tablas de Indumentaria Deportiva (Adultos e Infantil) */}
                        <PricingTable 
-                         title="Aranceles Deportivos (Adultos e Infantil)" 
+                         title="🏃‍♂️ Indumentaria Deportiva" 
                          data={PRECIOS_BASE} 
                          columns={[
                            { key: 'Solo Remera', label: 'Solo Remera' },
@@ -1980,13 +1982,14 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
                            { key: 'Equipo Completo', label: 'Equipo Completo' }
                          ]}
                          darkMode={darkMode} 
+                         note="* Talles XXL y XXXL tienen un adicional de 10.000 ₲."
                        />
-                     )}
 
-                     {/* TABLA DE CAMISILLAS */}
-                     {displayEstilo === 'Camisilla' && (
+                       <div className={`border-t border-dashed ${darkMode ? 'border-slate-700' : 'border-neutral-200'}`}></div>
+
+                       {/* 2. Tablas de Camisillas (Adultos e Infantil) */}
                        <PricingTable 
-                         title="Aranceles Camisillas (Adultos e Infantil)" 
+                         title="🎽 Camisillas Deportivas" 
                          data={PRECIOS_CAMISILLA} 
                          columns={[
                            { key: 'Solo Camisilla', label: 'Solo Camisilla' },
@@ -1994,7 +1997,8 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
                          ]}
                          darkMode={darkMode} 
                        />
-                     )}
+
+                     </div>
 
                      <div className={`text-[10px] italic mt-2 text-right ${darkMode ? 'text-slate-400' : 'text-neutral-500'} bg-slate-100/50 p-3 rounded-lg border border-slate-200`}>
                        <p className="font-bold text-indigo-600 mb-1">Cargos Adicionales:</p>
