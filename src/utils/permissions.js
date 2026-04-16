@@ -5,7 +5,7 @@ export const ROLE_ADMIN_OCULTO = "admin_oculto";
 
 export function getRoleFlags({ isAdmin = false, isMasterOwner = false, isCreator = false } = {}) {
   const isHiddenAdmin = Boolean(isCreator && isMasterOwner); // lukasy67
-  const isSupremeAdmin = Boolean(isMasterOwner && !isCreator); // marseo / equipo supremo
+  const isSupremeAdmin = Boolean(isMasterOwner && !isCreator); // marseo / supremo
 
   let role = ROLE_VISITANTE;
   if (isHiddenAdmin) role = ROLE_ADMIN_OCULTO;
