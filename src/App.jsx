@@ -1969,21 +1969,31 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
                      <h3 className={`text-lg font-black mb-4 flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-indigo-900'}`}>
                        <span className="flex items-center justify-center w-6 h-6 bg-emerald-500/20 text-emerald-500 rounded-full font-black text-sm">₲</span> Tabla de Aranceles Base
                      </h3>
-                     
-                     {/* TABLA DE DEPORTIVAS Y PIQUÉ */}
+                     {/* TABLA DE DEPORTIVAS */}
                      {displayEstilo !== 'Camisilla' && (
-                       <>
-                         <PricingTable ageGroupTitle="Adultos" dataObject={PRECIOS_BASE.Adultos} isCamisillaCat={false} darkMode={darkMode} />
-                         <PricingTable ageGroupTitle="Infantil" dataObject={PRECIOS_BASE.Infantil} isCamisillaCat={false} darkMode={darkMode} />
-                       </>
+                       <PricingTable 
+                         title="Aranceles Deportivos (Adultos e Infantil)" 
+                         data={PRECIOS_BASE} 
+                         columns={[
+                           { key: 'Solo Remera', label: 'Solo Remera' },
+                           { key: 'Remera + Short', label: 'Remera + Short' },
+                           { key: 'Equipo Completo', label: 'Equipo Completo' }
+                         ]}
+                         darkMode={darkMode} 
+                       />
                      )}
 
                      {/* TABLA DE CAMISILLAS */}
                      {displayEstilo === 'Camisilla' && (
-                       <>
-                         <PricingTable ageGroupTitle="Adultos" dataObject={PRECIOS_CAMISILLA.Adultos} isCamisillaCat={true} darkMode={darkMode} />
-                         <PricingTable ageGroupTitle="Infantil" dataObject={PRECIOS_CAMISILLA.Infantil} isCamisillaCat={true} darkMode={darkMode} />
-                       </>
+                       <PricingTable 
+                         title="Aranceles Camisillas (Adultos e Infantil)" 
+                         data={PRECIOS_CAMISILLA} 
+                         columns={[
+                           { key: 'Solo Camisilla', label: 'Solo Camisilla' },
+                           { key: 'Camisilla + Short', label: 'Camisilla + Short' }
+                         ]}
+                         darkMode={darkMode} 
+                       />
                      )}
 
                      <div className={`text-[10px] italic mt-2 text-right ${darkMode ? 'text-slate-400' : 'text-neutral-500'} bg-slate-100/50 p-3 rounded-lg border border-slate-200`}>
