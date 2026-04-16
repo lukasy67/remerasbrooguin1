@@ -23,6 +23,11 @@ export default function PricingTable({
   darkMode = false,
   note = "",
 }) {
+  // 🛡️ INSERTAR AQUÍ: Validación de seguridad
+  if (!data || typeof data !== 'object') {
+    return null;
+  }
+
   const shell = darkMode ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-white";
   const head = darkMode ? "bg-slate-800 text-slate-100" : "bg-slate-100 text-slate-700";
   const row = darkMode ? "border-slate-700 text-slate-200" : "border-slate-200 text-slate-700";
