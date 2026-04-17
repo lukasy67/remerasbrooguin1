@@ -285,7 +285,27 @@ const handleVisualPriceChange = (quality, comboKey, value) => {
 
 const handleSaveVisualPrices = async () => {
   try {
-    await saveToGlobalSettings('global_pricing', JSON.stringify(globalPrices));
+    const normalizedPrices = {
+      base: globalPrices.base || PRECIOS_BASE,
+      camisilla: globalPrices.camisilla || PRECIOS_CAMISILLA,
+      pique: {
+        Adultos: {
+          Premium: 95000,
+          "Semi-Premium": 90000,
+          Estandard: 85000,
+          ...(globalPrices.pique?.Adultos || {}),
+        },
+        Infantil: {
+          Premium: 85000,
+          "Semi-Premium": 80000,
+          Estandard: 75000,
+          ...(globalPrices.pique?.Infantil || {}),
+        },
+      },
+    };
+
+    await saveToGlobalSettings('global_pricing', JSON.stringify(normalizedPrices));
+    setGlobalPrices(normalizedPrices);
     logAction('Actualizó Precios', 'Se modificaron los aranceles globales');
     alert('¡Precios actualizados con éxito!');
     setShowGlobalPriceManager(false);
@@ -523,8 +543,32 @@ const handleSaveVisualPrices = async () => {
       const globalPricingObj = resGlobal.data.find(s => s.id === 'global_pricing');
       if (globalPricingObj) {
         try {
-          // Si los encuentra, los convierte de texto a código y los guarda en la memoria
-          setGlobalPrices(JSON.parse(globalPricingObj.value));
+          const savedPrices = JSON.parse(globalPricingObj.value);
+      
+          setGlobalPrices({
+            base: {
+              ...PRECIOS_BASE,
+              ...(savedPrices.base || {}),
+            },
+            camisilla: {
+              ...PRECIOS_CAMISILLA,
+              ...(savedPrices.camisilla || {}),
+            },
+            pique: {
+              Adultos: {
+                Premium: 95000,
+                "Semi-Premium": 90000,
+                Estandard: 85000,
+                ...(savedPrices.pique?.Adultos || {}),
+              },
+              Infantil: {
+                Premium: 85000,
+                "Semi-Premium": 80000,
+                Estandard: 75000,
+                ...(savedPrices.pique?.Infantil || {}),
+              },
+            },
+          });
         } catch (e) {
           console.error("Error al leer los precios globales", e);
         }
