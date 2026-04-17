@@ -211,11 +211,88 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
   const [successMessage, setSuccessMessage] = useState('');
   const [editingId, setEditingId] = useState(null);
   // Guarda los precios activos de la tienda
-const [globalPrices, setGlobalPrices] = useState({ base: PRECIOS_BASE, camisilla: PRECIOS_CAMISILLA });
-const [priceEditorValue, setPriceEditorValue] = useState('');
+  const [globalPrices, setGlobalPrices] = useState({
+    base: PRECIOS_BASE,
+    camisilla: PRECIOS_CAMISILLA,
+    pique: {
+      Adultos: {
+        Premium: 95000,
+        SemiPremium: 90000,
+        Estandard: 85000,
+      },
+      Infantil: {
+        Premium: 85000,
+        SemiPremium: 80000,
+        Estandard: 75000,
+      }
+    }
+  });
 
 // Controla si el panel editor está abierto o cerrado
 const [showGlobalPriceManager, setShowGlobalPriceManager] = useState(false);
+const [priceEditorType, setPriceEditorType] = useState('base');
+const [priceEditorAge, setPriceEditorAge] = useState('Adultos');
+const PRICE_COLUMNS = {
+  pique: [
+    { key: 'Premium', label: 'Premium' },
+    { key: 'SemiPremium', label: 'Semi-Premium' },
+    { key: 'Estandard', label: 'Estandard' },
+  ],
+  base: [
+    { key: 'Solo Remera', label: 'Solo Remera' },
+    { key: 'Remera + Short', label: 'Remera + Short' },
+    { key: 'Equipo Completo', label: 'Equipo Completo' },
+  ],
+  camisilla: [
+    { key: 'Solo Camisilla', label: 'Solo Camisilla' },
+    { key: 'Camisilla + Short', label: 'Camisilla + Short' },
+  ],
+};
+
+const PRICE_QUALITIES = ['Premium', 'Semi-Premium', 'Estandard'];
+
+const handleVisualPriceChange = (quality, comboKey, value) => {
+  const numericValue = value === '' ? '' : Math.max(0, parseInt(value, 10) || 0);
+
+  if (priceEditorType === 'pique') {
+    setGlobalPrices((prev) => ({
+      ...prev,
+      pique: {
+        ...prev.pique,
+        [priceEditorAge]: {
+          ...prev.pique?.[priceEditorAge],
+          [quality]: numericValue,
+        },
+      },
+    }));
+    return;
+  }
+
+  setGlobalPrices((prev) => ({
+    ...prev,
+    [priceEditorType]: {
+      ...prev[priceEditorType],
+      [priceEditorAge]: {
+        ...prev[priceEditorType]?.[priceEditorAge],
+        [quality]: {
+          ...prev[priceEditorType]?.[priceEditorAge]?.[quality],
+          [comboKey]: numericValue,
+        },
+      },
+    },
+  }));
+};
+
+const handleSaveVisualPrices = async () => {
+  try {
+    await saveToGlobalSettings('global_pricing', JSON.stringify(globalPrices));
+    logAction('Actualizó Precios', 'Se modificaron los aranceles globales');
+    alert('¡Precios actualizados con éxito!');
+    setShowGlobalPriceManager(false);
+  } catch (err) {
+    alert('No se pudieron guardar los precios.');
+  }
+};
 
   const [formData, setFormData] = useState({
     name: '', phone: '', edad: 'Adultos', ageRange: AGE_RANGES[1], size: SIZES_UNIVERSAL[1], gender: 'Femenino', quantity: 1, longSleeve: false, observations: '',
@@ -263,9 +340,7 @@ const [showGlobalPriceManager, setShowGlobalPriceManager] = useState(false);
       return () => clearTimeout(timer);
     }
   }, [isAdmin, isGroupAdmin, isMasterOwner, isCreator]);
-  useEffect(() => {
-    setPriceEditorValue(JSON.stringify(globalPrices, null, 2));
-  }, [globalPrices]);
+
 
   const saveToGlobalSettings = async (id, value) => {
     const res = await supabaseRequest(`global_settings?id=eq.${id}`);
@@ -497,7 +572,7 @@ const [showGlobalPriceManager, setShowGlobalPriceManager] = useState(false);
     } else if (displayEstilo === 'Camisilla') {
        unitPrice = globalPrices?.camisilla?.[formData.edad]?.[formData.tela]?.[formData.combo] || 80000;
     } else {
-       unitPrice = 95000; 
+       unitPrice = globalPrices?.pique?.[formData.edad]?.[formData.tela] || 95000;
     }
     
     if (formData.longSleeve && allowLongSleeve) unitPrice += costoMangaLarga;
@@ -1395,47 +1470,288 @@ const [showGlobalPriceManager, setShowGlobalPriceManager] = useState(false);
                     </div>
                   </div>
                 )}
-                {/* PANEL DE PRECIOS GLOBALES */}
-            {showGlobalPriceManager && canManageSensitive && (
-              <div className={`p-6 rounded-2xl shadow-inner border mt-4 mb-4 animate-in fade-in slide-in-from-top-2 ${darkMode ? 'bg-slate-950 border-emerald-800' : 'bg-emerald-50 border-emerald-200'}`}>
-                <div className="flex justify-between items-center mb-4">
-                   <h3 className={`text-lg font-black flex items-center gap-2 ${darkMode ? 'text-emerald-400' : 'text-emerald-700'}`}>
-                     <DollarSign className="w-5 h-5" /> Editor de Precios Globales
-                   </h3>
-                   <button onClick={() => setShowGlobalPriceManager(false)} className="text-gray-500 hover:text-red-500"><X className="w-5 h-5" /></button>
-                </div>
-                
-                <p className={`text-xs mb-4 ${darkMode ? 'text-slate-400' : 'text-emerald-800'}`}>
-                  Modifica los precios. Al guardar, se actualizará la calculadora para todos los clientes al instante. (Respeta las comillas y las llaves).
+{/* PANEL DE PRECIOS GLOBALES */}
+{showGlobalPriceManager && canManageSensitive && (
+  <div
+    className={`p-6 rounded-2xl shadow-inner border mt-4 mb-4 animate-in fade-in slide-in-from-top-2 ${
+      darkMode ? 'bg-slate-950 border-emerald-800' : 'bg-emerald-50 border-emerald-200'
+    }`}
+  >
+    <div className="flex justify-between items-center mb-4">
+      <h3 className={`text-lg font-black flex items-center gap-2 ${darkMode ? 'text-emerald-400' : 'text-emerald-700'}`}>
+        <DollarSign className="w-5 h-5" /> Editor de Precios Globales
+      </h3>
+      <button
+        onClick={() => setShowGlobalPriceManager(false)}
+        className="text-gray-500 hover:text-red-500"
+      >
+        <X className="w-5 h-5" />
+      </button>
+    </div>
+
+    <p className={`text-sm mb-5 ${darkMode ? 'text-slate-400' : 'text-emerald-800'}`}>
+      Modificá los precios sin editar código. Elegí el tipo, la edad y actualizá los valores directamente.
+    </p>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
+      <div>
+        <label className={`block text-xs font-bold mb-2 ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+          Tipo de prenda
+        </label>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setPriceEditorType('base')}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition ${
+              priceEditorType === 'base'
+                ? 'bg-emerald-600 text-white'
+                : darkMode
+                  ? 'bg-slate-800 text-slate-300'
+                  : 'bg-white text-slate-700 border border-slate-300'
+            }`}
+          >
+            Deportiva
+          </button>
+          <button
+  type="button"
+  onClick={() => setPriceEditorType('pique')}
+  className={`px-4 py-2 rounded-xl text-sm font-bold transition ${
+    priceEditorType === 'pique'
+      ? 'bg-emerald-600 text-white'
+      : darkMode
+        ? 'bg-slate-800 text-slate-300'
+        : 'bg-white text-slate-700 border border-slate-300'
+  }`}
+>
+  Piqué
+</button>
+          <button
+            type="button"
+            onClick={() => setPriceEditorType('camisilla')}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition ${
+              priceEditorType === 'camisilla'
+                ? 'bg-emerald-600 text-white'
+                : darkMode
+                  ? 'bg-slate-800 text-slate-300'
+                  : 'bg-white text-slate-700 border border-slate-300'
+            }`}
+          >
+            Camisilla
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <label className={`block text-xs font-bold mb-2 ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+          Categoría
+        </label>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setPriceEditorAge('Adultos')}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition ${
+              priceEditorAge === 'Adultos'
+                ? 'bg-indigo-600 text-white'
+                : darkMode
+                  ? 'bg-slate-800 text-slate-300'
+                  : 'bg-white text-slate-700 border border-slate-300'
+            }`}
+          >
+            Adultos
+          </button>
+          <button
+            type="button"
+            onClick={() => setPriceEditorAge('Infantil')}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition ${
+              priceEditorAge === 'Infantil'
+                ? 'bg-indigo-600 text-white'
+                : darkMode
+                  ? 'bg-slate-800 text-slate-300'
+                  : 'bg-white text-slate-700 border border-slate-300'
+            }`}
+          >
+            Infantil
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div className={`overflow-x-auto rounded-2xl border ${darkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-white'}`}>
+      <table className="w-full min-w-[720px] text-sm">
+        <thead>
+          <tr className={darkMode ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-700'}>
+            <th className="p-3 text-left">Calidad</th>
+            {PRICE_COLUMNS[priceEditorType].map((col) => (
+              <th key={col.key} className="p-3 text-left">
+                {col.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+        <div className={`overflow-x-auto rounded-2xl border ${darkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-white'}`}>
+  {priceEditorType === 'pique' ? (
+    <table className="w-full min-w-[420px] text-sm">
+      <thead>
+        <tr className={darkMode ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-700'}>
+          <th className="p-3 text-left">Calidad</th>
+          <th className="p-3 text-left">Precio</th>
+        </tr>
+      </thead>
+      <tbody>
+        {PRICE_QUALITIES.map((quality) => (
+          <tr
+            key={quality}
+            className={darkMode ? 'border-t border-slate-800' : 'border-t border-slate-200'}
+          >
+            <td className={`p-3 font-bold ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+              {quality}
+            </td>
+            <td className="p-3">
+              <div className="space-y-1">
+                <input
+                  type="number"
+                  min="0"
+                  value={globalPrices?.pique?.[priceEditorAge]?.[quality] ?? ''}
+                  onChange={(e) => handleVisualPriceChange(quality, null, e.target.value)}
+                  className={`w-full px-3 py-2 rounded-lg border text-sm font-semibold outline-none ${
+                    darkMode
+                      ? 'bg-slate-800 border-slate-700 text-white'
+                      : 'bg-white border-slate-300 text-slate-800'
+                  }`}
+                />
+                <p className={`text-[11px] ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Gs. {formatNumber(globalPrices?.pique?.[priceEditorAge]?.[quality] ?? 0)}
                 </p>
-
-                <textarea 
-  className={`w-full h-80 p-4 rounded-xl font-mono text-sm outline-none border focus:ring-2 focus:ring-emerald-500 ${darkMode ? 'bg-slate-900 border-slate-700 text-green-400' : 'bg-white border-emerald-300 text-green-700'}`}
-  value={priceEditorValue}
-  onChange={(e) => setPriceEditorValue(e.target.value)}
-></textarea>
-
-                <div className="mt-4 flex justify-end">
-                <button 
-onClick={async () => {
-  try {
-    const parsedPrices = JSON.parse(priceEditorValue);
-    await saveToGlobalSettings('global_pricing', JSON.stringify(parsedPrices));
-    setGlobalPrices(parsedPrices);
-    logAction('Actualizó Precios', 'Se modificaron los aranceles globales');
-    alert("¡Precios actualizados con éxito!");
-    setShowGlobalPriceManager(false);
-  } catch (err) {
-    alert("Error de formato: Revisa que no falten comillas o llaves en el código que editaste.");
-  }
-}}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg font-bold shadow-md transition-colors"
-                  >
-                    Guardar Nuevos Precios
-                  </button>
-                </div>
               </div>
-            )}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  ) : (
+    <table className="w-full min-w-[720px] text-sm">
+      <thead>
+        <tr className={darkMode ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-700'}>
+          <th className="p-3 text-left">Calidad</th>
+          {PRICE_COLUMNS[priceEditorType].map((col) => (
+            <th key={col.key} className="p-3 text-left">
+              {col.label}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {PRICE_QUALITIES.map((quality) => (
+          <tr
+            key={quality}
+            className={darkMode ? 'border-t border-slate-800' : 'border-t border-slate-200'}
+          >
+            <td className={`p-3 font-bold ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+              {quality}
+            </td>
+
+            {PRICE_COLUMNS[priceEditorType].map((col) => (
+              <td key={col.key} className="p-3">
+                <div className="space-y-1">
+                  <input
+                    type="number"
+                    min="0"
+                    value={globalPrices?.[priceEditorType]?.[priceEditorAge]?.[quality]?.[col.key] ?? ''}
+                    onChange={(e) => handleVisualPriceChange(quality, col.key, e.target.value)}
+                    className={`w-full px-3 py-2 rounded-lg border text-sm font-semibold outline-none ${
+                      darkMode
+                        ? 'bg-slate-800 border-slate-700 text-white'
+                        : 'bg-white border-slate-300 text-slate-800'
+                    }`}
+                  />
+                  <p className={`text-[11px] ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Gs. {formatNumber(globalPrices?.[priceEditorType]?.[priceEditorAge]?.[quality]?.[col.key] ?? 0)}
+                  </p>
+                </div>
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )}
+</div>
+          {PRICE_QUALITIES.map((quality) => (
+            <tr
+              key={quality}
+              className={darkMode ? 'border-t border-slate-800' : 'border-t border-slate-200'}
+            >
+              <td className={`p-3 font-bold ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+                {quality}
+              </td>
+
+              {PRICE_COLUMNS[priceEditorType].map((col) => (
+                <td key={col.key} className="p-3">
+                  <div className="space-y-1">
+                    <input
+                      type="number"
+                      min="0"
+                      value={globalPrices?.[priceEditorType]?.[priceEditorAge]?.[quality]?.[col.key] ?? ''}
+                      onChange={(e) => handleVisualPriceChange(quality, col.key, e.target.value)}
+                      className={`w-full px-3 py-2 rounded-lg border text-sm font-semibold outline-none ${
+                        darkMode
+                          ? 'bg-slate-800 border-slate-700 text-white'
+                          : 'bg-white border-slate-300 text-slate-800'
+                      }`}
+                    />
+                    <p className={`text-[11px] ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      Gs. {formatNumber(globalPrices?.[priceEditorType]?.[priceEditorAge]?.[quality]?.[col.key] ?? 0)}
+                    </p>
+                  </div>
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    <div className="mt-5 flex flex-col sm:flex-row gap-3 sm:justify-between">
+      <button
+        type="button"
+        onClick={() => {
+          const defaults = { base: PRECIOS_BASE, camisilla: PRECIOS_CAMISILLA };
+          setGlobalPrices(defaults);
+        }}
+        className={`px-4 py-2 rounded-xl text-sm font-bold transition ${
+          darkMode
+            ? 'bg-slate-800 text-slate-200 hover:bg-slate-700'
+            : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-100'
+        }`}
+      >
+        Restaurar valores por defecto
+      </button>
+
+      <div className="flex gap-3 sm:justify-end">
+        <button
+          type="button"
+          onClick={() => setShowGlobalPriceManager(false)}
+          className={`px-5 py-2 rounded-xl text-sm font-bold transition ${
+            darkMode
+              ? 'bg-slate-800 text-slate-200 hover:bg-slate-700'
+              : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+          }`}
+        >
+          Cancelar
+        </button>
+
+        <button
+          type="button"
+          onClick={handleSaveVisualPrices}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-xl font-bold shadow-md transition-colors"
+        >
+          Guardar cambios
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
                 <div className={`p-5 rounded-xl shadow-inner text-white ${darkMode ? 'bg-slate-900 border border-slate-700' : 'bg-indigo-900 border border-indigo-700'}`}>
                   <h4 className="text-sm font-bold text-emerald-300 mb-1 flex items-center gap-1">
