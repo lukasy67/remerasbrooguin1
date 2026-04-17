@@ -217,12 +217,12 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
     pique: {
       Adultos: {
         Premium: 95000,
-        SemiPremium: 90000,
+        "Semi-Premium": 90000,
         Estandard: 85000,
       },
       Infantil: {
         Premium: 85000,
-        SemiPremium: 80000,
+        "Semi-Premium": 80000,
         Estandard: 75000,
       }
     }
@@ -235,7 +235,7 @@ const [priceEditorAge, setPriceEditorAge] = useState('Adultos');
 const PRICE_COLUMNS = {
   pique: [
     { key: 'Premium', label: 'Premium' },
-    { key: 'SemiPremium', label: 'Semi-Premium' },
+    { key: 'Semi-Premium', label: 'Semi-Premium' },
     { key: 'Estandard', label: 'Estandard' },
   ],
   base: [
@@ -1607,6 +1607,7 @@ const handleSaveVisualPrices = async () => {
             <td className={`p-3 font-bold ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
               {quality}
             </td>
+
             <td className="p-3">
               <div className="space-y-1">
                 <input
