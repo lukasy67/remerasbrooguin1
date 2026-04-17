@@ -257,11 +257,21 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
       return () => clearTimeout(timer);
     }
   }, [isAdmin, isGroupAdmin, isMasterOwner, isCreator]);
+  useEffect(() => {
+    setPriceEditorValue(JSON.stringify(globalPrices, null, 2));
+  }, [globalPrices]);
 
   const saveToGlobalSettings = async (id, value) => {
     const res = await supabaseRequest(`global_settings?id=eq.${id}`);
-    if (res.data && res.data.length > 0) await supabaseRequest(`global_settings?id=eq.${id}`, 'PATCH', { value });
-    else await supabaseRequest('global_settings', 'POST', { id, value });
+    if (res.error) throw new Error(res.error);
+  
+    if (res.data && res.data.length > 0) {
+      const updateRes = await supabaseRequest(`global_settings?id=eq.${id}`, 'PATCH', { value });
+      if (updateRes.error) throw new Error(updateRes.error);
+    } else {
+      const createRes = await supabaseRequest('global_settings', 'POST', { id, value });
+      if (createRes.error) throw new Error(createRes.error);
+    }
   };
 
   const trackVisit = async () => {
@@ -941,6 +951,7 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
 
   // Guarda los precios activos de la tienda
   const [globalPrices, setGlobalPrices] = useState({ base: PRECIOS_BASE, camisilla: PRECIOS_CAMISILLA });
+  const [priceEditorValue, setPriceEditorValue] = useState('');
   
   // Controla si el panel editor está abierto o cerrado
   const [showGlobalPriceManager, setShowGlobalPriceManager] = useState(false);
@@ -1399,26 +1410,26 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
                 </p>
 
                 <textarea 
-                  className={`w-full h-80 p-4 rounded-xl font-mono text-sm outline-none border focus:ring-2 focus:ring-emerald-500 ${darkMode ? 'bg-slate-900 border-slate-700 text-green-400' : 'bg-white border-emerald-300 text-green-700'}`}
-                  defaultValue={JSON.stringify(globalPrices, null, 2)}
-                  id="json-price-editor"
-                ></textarea>
+  className={`w-full h-80 p-4 rounded-xl font-mono text-sm outline-none border focus:ring-2 focus:ring-emerald-500 ${darkMode ? 'bg-slate-900 border-slate-700 text-green-400' : 'bg-white border-emerald-300 text-green-700'}`}
+  value={priceEditorValue}
+  onChange={(e) => setPriceEditorValue(e.target.value)}
+></textarea>
 
                 <div className="mt-4 flex justify-end">
-                  <button 
-                    onClick={async () => {
-                      try {
-                        const newPricesStr = document.getElementById('json-price-editor').value;
-                        const parsedPrices = JSON.parse(newPricesStr); 
-                        await saveToGlobalSettings('global_pricing', newPricesStr);
-                        setGlobalPrices(parsedPrices);
-                        logAction('Actualizó Precios', 'Se modificaron los aranceles globales');
-                        alert("¡Precios actualizados con éxito!");
-                        setShowGlobalPriceManager(false);
-                      } catch (err) {
-                        alert("Error de formato: Revisa que no falten comillas o llaves en el código que editaste.");
-                      }
-                    }} 
+                <button 
+onClick={async () => {
+  try {
+    const newPricesStr = document.getElementById('json-price-editor').value;
+    const parsedPrices = JSON.parse(newPricesStr); 
+    await saveToGlobalSettings('global_pricing', newPricesStr);
+    setGlobalPrices(parsedPrices);
+    logAction('Actualizó Precios', 'Se modificaron los aranceles globales');
+    alert("¡Precios actualizados con éxito!");
+    setShowGlobalPriceManager(false);
+  } catch (err) {
+    alert("Error de formato: Revisa que no falten comillas o llaves en el código que editaste.");
+  }
+}}
                     className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg font-bold shadow-md transition-colors"
                   >
                     Guardar Nuevos Precios
