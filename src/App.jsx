@@ -210,6 +210,12 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [editingId, setEditingId] = useState(null);
+  // Guarda los precios activos de la tienda
+const [globalPrices, setGlobalPrices] = useState({ base: PRECIOS_BASE, camisilla: PRECIOS_CAMISILLA });
+const [priceEditorValue, setPriceEditorValue] = useState('');
+
+// Controla si el panel editor está abierto o cerrado
+const [showGlobalPriceManager, setShowGlobalPriceManager] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '', phone: '', edad: 'Adultos', ageRange: AGE_RANGES[1], size: SIZES_UNIVERSAL[1], gender: 'Femenino', quantity: 1, longSleeve: false, observations: '',
@@ -949,12 +955,6 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
     return archivedGroups.filter(g => g.name.toLowerCase().includes(debouncedArchivedSearch.toLowerCase()));
   }, [archivedGroups, debouncedArchivedSearch]);
 
-  // Guarda los precios activos de la tienda
-  const [globalPrices, setGlobalPrices] = useState({ base: PRECIOS_BASE, camisilla: PRECIOS_CAMISILLA });
-  const [priceEditorValue, setPriceEditorValue] = useState('');
-  
-  // Controla si el panel editor está abierto o cerrado
-  const [showGlobalPriceManager, setShowGlobalPriceManager] = useState(false);
 
   const handleExportExcel = useCallback(() => {
     const xmlEscape = (value) =>
@@ -1419,9 +1419,8 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
                 <button 
 onClick={async () => {
   try {
-    const newPricesStr = document.getElementById('json-price-editor').value;
-    const parsedPrices = JSON.parse(newPricesStr); 
-    await saveToGlobalSettings('global_pricing', newPricesStr);
+    const parsedPrices = JSON.parse(priceEditorValue);
+    await saveToGlobalSettings('global_pricing', JSON.stringify(parsedPrices));
     setGlobalPrices(parsedPrices);
     logAction('Actualizó Precios', 'Se modificaron los aranceles globales');
     alert("¡Precios actualizados con éxito!");
