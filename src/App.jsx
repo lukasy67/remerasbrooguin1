@@ -429,6 +429,15 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
         }
       });
       setGroupConfigs(parsedConfigs);
+      const globalPricingObj = resGlobal.data.find(s => s.id === 'global_pricing');
+      if (globalPricingObj) {
+        try {
+          // Si los encuentra, los convierte de texto a código y los guarda en la memoria
+          setGlobalPrices(JSON.parse(globalPricingObj.value));
+        } catch (e) {
+          console.error("Error al leer los precios globales", e);
+        }
+      }
       setLoading(false);
       performAutoCleanups(resOrders.data || [], parsedArchived);
     }
@@ -467,17 +476,19 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
   const calculateCurrentTotal = useCallback(() => {
     let unitPrice = 0; 
     if (displayEstilo === 'Deportiva') {
-       unitPrice = PRECIOS_BASE[formData.edad]?.[formData.tela]?.[formData.combo] || 85000;
+       // Los signos de interrogación salvan la página
+       unitPrice = globalPrices?.base?.[formData.edad]?.[formData.tela]?.[formData.combo] || 85000;
     } else if (displayEstilo === 'Camisilla') {
-       unitPrice = PRECIOS_CAMISILLA[formData.edad]?.[formData.tela]?.[formData.combo] || 80000;
+       unitPrice = globalPrices?.camisilla?.[formData.edad]?.[formData.tela]?.[formData.combo] || 80000;
     } else {
        unitPrice = 95000; 
     }
+    
     if (formData.longSleeve && allowLongSleeve) unitPrice += costoMangaLarga;
     if (['XXL', 'XXXL'].includes(formData.size)) unitPrice += 10000;
 
     return unitPrice * (parseInt(formData.quantity) || 1);
-  }, [displayEstilo, formData, allowLongSleeve, costoMangaLarga]);
+  }, [displayEstilo, formData, allowLongSleeve, costoMangaLarga, globalPrices]);
 
   const currentOrderTotal = calculateCurrentTotal();
 
@@ -928,6 +939,12 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
     return archivedGroups.filter(g => g.name.toLowerCase().includes(debouncedArchivedSearch.toLowerCase()));
   }, [archivedGroups, debouncedArchivedSearch]);
 
+  // Guarda los precios activos de la tienda
+  const [globalPrices, setGlobalPrices] = useState({ base: PRECIOS_BASE, camisilla: PRECIOS_CAMISILLA });
+  
+  // Controla si el panel editor está abierto o cerrado
+  const [showGlobalPriceManager, setShowGlobalPriceManager] = useState(false);
+
   const handleExportExcel = useCallback(() => {
     const xmlEscape = (value) =>
       String(value ?? '')
@@ -1263,6 +1280,11 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
                     <KeyRound className="w-4 h-4" /> Cambiar Clave
                   </button>
                 )}
+                {canManageSensitive && (
+                  <button onClick={() => setShowGlobalPriceManager(!showGlobalPriceManager)} className="flex items-center gap-2 bg-emerald-500/20 text-emerald-500 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-emerald-500/30 transition-all">
+                    <DollarSign className="w-4 h-4" /> Precios Globales
+                  </button>
+                )}
                 {canManageSponsors && (
                   <button onClick={() => setShowSponsorManager(true)} className="flex items-center gap-2 bg-fuchsia-500/20 text-fuchsia-500 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-fuchsia-500/30 transition-all">
                     <Target className="w-4 h-4" /> Sponsors
@@ -1362,6 +1384,48 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
                     </div>
                   </div>
                 )}
+                {/* PANEL DE PRECIOS GLOBALES */}
+            {showGlobalPriceManager && canManageSensitive && (
+              <div className={`p-6 rounded-2xl shadow-inner border mt-4 mb-4 animate-in fade-in slide-in-from-top-2 ${darkMode ? 'bg-slate-950 border-emerald-800' : 'bg-emerald-50 border-emerald-200'}`}>
+                <div className="flex justify-between items-center mb-4">
+                   <h3 className={`text-lg font-black flex items-center gap-2 ${darkMode ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                     <DollarSign className="w-5 h-5" /> Editor de Precios Globales
+                   </h3>
+                   <button onClick={() => setShowGlobalPriceManager(false)} className="text-gray-500 hover:text-red-500"><X className="w-5 h-5" /></button>
+                </div>
+                
+                <p className={`text-xs mb-4 ${darkMode ? 'text-slate-400' : 'text-emerald-800'}`}>
+                  Modifica los precios. Al guardar, se actualizará la calculadora para todos los clientes al instante. (Respeta las comillas y las llaves).
+                </p>
+
+                <textarea 
+                  className={`w-full h-80 p-4 rounded-xl font-mono text-sm outline-none border focus:ring-2 focus:ring-emerald-500 ${darkMode ? 'bg-slate-900 border-slate-700 text-green-400' : 'bg-white border-emerald-300 text-green-700'}`}
+                  defaultValue={JSON.stringify(globalPrices, null, 2)}
+                  id="json-price-editor"
+                ></textarea>
+
+                <div className="mt-4 flex justify-end">
+                  <button 
+                    onClick={async () => {
+                      try {
+                        const newPricesStr = document.getElementById('json-price-editor').value;
+                        const parsedPrices = JSON.parse(newPricesStr); 
+                        await saveToGlobalSettings('global_pricing', newPricesStr);
+                        setGlobalPrices(parsedPrices);
+                        logAction('Actualizó Precios', 'Se modificaron los aranceles globales');
+                        alert("¡Precios actualizados con éxito!");
+                        setShowGlobalPriceManager(false);
+                      } catch (err) {
+                        alert("Error de formato: Revisa que no falten comillas o llaves en el código que editaste.");
+                      }
+                    }} 
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg font-bold shadow-md transition-colors"
+                  >
+                    Guardar Nuevos Precios
+                  </button>
+                </div>
+              </div>
+            )}
 
                 <div className={`p-5 rounded-xl shadow-inner text-white ${darkMode ? 'bg-slate-900 border border-slate-700' : 'bg-indigo-900 border border-indigo-700'}`}>
                   <h4 className="text-sm font-bold text-emerald-300 mb-1 flex items-center gap-1">
@@ -1975,7 +2039,7 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
                        {/* 1. Tablas de Indumentaria Deportiva (Adultos e Infantil) */}
                        <PricingTable 
                          title="🏃‍♂️ Indumentaria Deportiva" 
-                         data={PRECIOS_BASE} 
+                         data={globalPrices?.base || PRECIOS_BASE} 
                          columns={[
                            { key: 'Solo Remera', label: 'Solo Remera' },
                            { key: 'Remera + Short', label: 'Remera + Short' },
@@ -1990,7 +2054,7 @@ const canManageSensitive = canManageSensitiveActions(roleFlags);
                        {/* 2. Tablas de Camisillas (Adultos e Infantil) */}
                        <PricingTable 
                          title="🎽 Camisillas Deportivas" 
-                         data={PRECIOS_CAMISILLA} 
+                         data={globalPrices?.camisilla || PRECIOS_CAMISILLA} 
                          columns={[
                            { key: 'Solo Camisilla', label: 'Solo Camisilla' },
                            { key: 'Camisilla + Short', label: 'Camisilla + Short' }
