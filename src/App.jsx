@@ -286,8 +286,68 @@ const handleVisualPriceChange = (quality, comboKey, value) => {
 const handleSaveVisualPrices = async () => {
   try {
     const normalizedPrices = {
-      base: globalPrices.base || PRECIOS_BASE,
-      camisilla: globalPrices.camisilla || PRECIOS_CAMISILLA,
+      base: {
+        Adultos: {
+          Premium: {
+            ...PRECIOS_BASE.Adultos.Premium,
+            ...(globalPrices.base?.Adultos?.Premium || {}),
+          },
+          "Semi-Premium": {
+            ...PRECIOS_BASE.Adultos["Semi-Premium"],
+            ...(globalPrices.base?.Adultos?.["Semi-Premium"] || {}),
+          },
+          Estandard: {
+            ...PRECIOS_BASE.Adultos.Estandard,
+            ...(globalPrices.base?.Adultos?.Estandard || {}),
+          },
+        },
+        Infantil: {
+          Premium: {
+            ...PRECIOS_BASE.Infantil.Premium,
+            ...(globalPrices.base?.Infantil?.Premium || {}),
+          },
+          "Semi-Premium": {
+            ...PRECIOS_BASE.Infantil["Semi-Premium"],
+            ...(globalPrices.base?.Infantil?.["Semi-Premium"] || {}),
+          },
+          Estandard: {
+            ...PRECIOS_BASE.Infantil.Estandard,
+            ...(globalPrices.base?.Infantil?.Estandard || {}),
+          },
+        },
+      },
+    
+      camisilla: {
+        Adultos: {
+          Premium: {
+            ...PRECIOS_CAMISILLA.Adultos.Premium,
+            ...(globalPrices.camisilla?.Adultos?.Premium || {}),
+          },
+          "Semi-Premium": {
+            ...PRECIOS_CAMISILLA.Adultos["Semi-Premium"],
+            ...(globalPrices.camisilla?.Adultos?.["Semi-Premium"] || {}),
+          },
+          Estandard: {
+            ...PRECIOS_CAMISILLA.Adultos.Estandard,
+            ...(globalPrices.camisilla?.Adultos?.Estandard || {}),
+          },
+        },
+        Infantil: {
+          Premium: {
+            ...PRECIOS_CAMISILLA.Infantil.Premium,
+            ...(globalPrices.camisilla?.Infantil?.Premium || {}),
+          },
+          "Semi-Premium": {
+            ...PRECIOS_CAMISILLA.Infantil["Semi-Premium"],
+            ...(globalPrices.camisilla?.Infantil?.["Semi-Premium"] || {}),
+          },
+          Estandard: {
+            ...PRECIOS_CAMISILLA.Infantil.Estandard,
+            ...(globalPrices.camisilla?.Infantil?.Estandard || {}),
+          },
+        },
+      },
+    
       pique: {
         Adultos: {
           Premium: 95000,
@@ -541,38 +601,92 @@ const handleSaveVisualPrices = async () => {
       });
       setGroupConfigs(parsedConfigs);
       const globalPricingObj = resGlobal.data.find(s => s.id === 'global_pricing');
-      if (globalPricingObj) {
-        try {
-          const savedPrices = JSON.parse(globalPricingObj.value);
-      
-          setGlobalPrices({
-            base: {
-              ...PRECIOS_BASE,
-              ...(savedPrices.base || {}),
-            },
-            camisilla: {
-              ...PRECIOS_CAMISILLA,
-              ...(savedPrices.camisilla || {}),
-            },
-            pique: {
-              Adultos: {
-                Premium: 95000,
-                "Semi-Premium": 90000,
-                Estandard: 85000,
-                ...(savedPrices.pique?.Adultos || {}),
-              },
-              Infantil: {
-                Premium: 85000,
-                "Semi-Premium": 80000,
-                Estandard: 75000,
-                ...(savedPrices.pique?.Infantil || {}),
-              },
-            },
-          });
-        } catch (e) {
-          console.error("Error al leer los precios globales", e);
-        }
-      }
+if (globalPricingObj) {
+  try {
+    const savedPrices = JSON.parse(globalPricingObj.value);
+
+    setGlobalPrices({
+      base: {
+        Adultos: {
+          Premium: {
+            ...PRECIOS_BASE.Adultos.Premium,
+            ...(savedPrices.base?.Adultos?.Premium || {}),
+          },
+          "Semi-Premium": {
+            ...PRECIOS_BASE.Adultos["Semi-Premium"],
+            ...(savedPrices.base?.Adultos?.["Semi-Premium"] || {}),
+          },
+          Estandard: {
+            ...PRECIOS_BASE.Adultos.Estandard,
+            ...(savedPrices.base?.Adultos?.Estandard || {}),
+          },
+        },
+        Infantil: {
+          Premium: {
+            ...PRECIOS_BASE.Infantil.Premium,
+            ...(savedPrices.base?.Infantil?.Premium || {}),
+          },
+          "Semi-Premium": {
+            ...PRECIOS_BASE.Infantil["Semi-Premium"],
+            ...(savedPrices.base?.Infantil?.["Semi-Premium"] || {}),
+          },
+          Estandard: {
+            ...PRECIOS_BASE.Infantil.Estandard,
+            ...(savedPrices.base?.Infantil?.Estandard || {}),
+          },
+        },
+      },
+
+      camisilla: {
+        Adultos: {
+          Premium: {
+            ...PRECIOS_CAMISILLA.Adultos.Premium,
+            ...(savedPrices.camisilla?.Adultos?.Premium || {}),
+          },
+          "Semi-Premium": {
+            ...PRECIOS_CAMISILLA.Adultos["Semi-Premium"],
+            ...(savedPrices.camisilla?.Adultos?.["Semi-Premium"] || {}),
+          },
+          Estandard: {
+            ...PRECIOS_CAMISILLA.Adultos.Estandard,
+            ...(savedPrices.camisilla?.Adultos?.Estandard || {}),
+          },
+        },
+        Infantil: {
+          Premium: {
+            ...PRECIOS_CAMISILLA.Infantil.Premium,
+            ...(savedPrices.camisilla?.Infantil?.Premium || {}),
+          },
+          "Semi-Premium": {
+            ...PRECIOS_CAMISILLA.Infantil["Semi-Premium"],
+            ...(savedPrices.camisilla?.Infantil?.["Semi-Premium"] || {}),
+          },
+          Estandard: {
+            ...PRECIOS_CAMISILLA.Infantil.Estandard,
+            ...(savedPrices.camisilla?.Infantil?.Estandard || {}),
+          },
+        },
+      },
+
+      pique: {
+        Adultos: {
+          Premium: 95000,
+          "Semi-Premium": 90000,
+          Estandard: 85000,
+          ...(savedPrices.pique?.Adultos || {}),
+        },
+        Infantil: {
+          Premium: 85000,
+          "Semi-Premium": 80000,
+          Estandard: 75000,
+          ...(savedPrices.pique?.Infantil || {}),
+        },
+      },
+    });
+  } catch (e) {
+    console.error("Error al leer los precios globales", e);
+  }
+}
       setLoading(false);
       performAutoCleanups(resOrders.data || [], parsedArchived);
     }
@@ -662,7 +776,7 @@ const handleSaveVisualPrices = async () => {
       prefix = `[👔 ${ageInfo} | Tela: ${formData.tela} | Combo: ${formData.combo} | #${formData.playerNumber || 'S/N'} | ${formData.playerName?.toUpperCase() || 'SIN NOMBRE'} | Short: ${shortFormat} | Arquero: ${formData.isGoalkeeper ? 'SI' : 'NO'}] `;
     } else {
       const ageInfo = formData.edad === 'Infantil' ? `Infantil (${formData.ageRange})` : 'Adultos';
-      prefix = `[👔 ${ageInfo} | Uniforme Piqué | Calidad: Premium] `;
+      prefix = `[👔 ${ageInfo} | Uniforme Piqué | Calidad: ${formData.tela}] `;
     }
     
     prefix += `[Precio: ${currentUnitPrice}] `;
@@ -890,9 +1004,13 @@ const handleSaveVisualPrices = async () => {
     else if (obs.includes('Combo: Camisilla + Short')) combo = 'Camisilla + Short';
     else if (obs.includes('Combo: Solo Camisilla')) combo = 'Solo Camisilla';
     
-    if (obs.includes('Tela: Estandard') || obs.includes('Calidad: Estandard')) tela = 'Estandard';
-    else if (obs.includes('Tela: Semi-Premium')) tela = 'Semi-Premium';
-    
+    if (obs.includes('Tela: Estandard') || obs.includes('Calidad: Estandard')) {
+      tela = 'Estandard';
+    } else if (obs.includes('Tela: Semi-Premium') || obs.includes('Calidad: Semi-Premium')) {
+      tela = 'Semi-Premium';
+    } else if (obs.includes('Tela: Premium') || obs.includes('Calidad: Premium')) {
+      tela = 'Premium';
+    }    
     if (obs.includes('Arquero: SI')) isGk = true;
     if (obs.includes('Infantil')) { eDad = 'Infantil'; const matchAge = obs.match(/Infantil \((.*?)\)/); if (matchAge) aRange = matchAge[1]; }
     
