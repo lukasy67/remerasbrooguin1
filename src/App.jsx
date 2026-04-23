@@ -421,9 +421,9 @@ const handleSaveVisualPrices = async () => {
   useEffect(() => {
     if (!editingId) {
       let defCombo = displayEstilo === 'Camisilla' ? 'Solo Camisilla' : 'Solo Remera';
-      setFormData(prev => ({ ...prev, size: activeSizes[0], shortSize: activeSizes[0], combo: defCombo }));
+      setFormData(prev => ({ ...prev, size: SIZES_UNIVERSAL[0], shortSize: SIZES_UNIVERSAL[0], combo: defCombo }));
     }
-  }, [formData.edad, displayEstilo, activeSizes, editingId]);
+  }, [formData.edad, displayEstilo, editingId]);
 
   useEffect(() => {
     fetchOrdersAndSettings();
@@ -482,36 +482,43 @@ const handleSaveVisualPrices = async () => {
     }
   };
 
-  const performAutoCleanups = async (ordersData, archivedGroupsData) => {
-    if (cleanupRun) return;
+  const performAutoCleanups = useCallback(async (ordersData, archivedGroupsData) => {
+    if (cleanupRun) return false;
+  
     setCleanupRun(true);
     const now = Date.now();
     let needsRefetch = false;
-
+  
     for (const o of ordersData) {
       if (o.deleted) {
         const delMatch = o.observations?.match(/\[DEL:(\d+)\]/);
         const delTime = delMatch ? parseInt(delMatch[1]) : new Date(o.created_at).getTime();
+  
         if ((now - delTime) / (1000 * 60 * 60) >= 48) {
           await supabaseRequest(`orders?id=eq.${o.id}`, 'DELETE');
           needsRefetch = true;
         }
       }
     }
+  
     const validArchived = [];
     for (const g of archivedGroupsData) {
       if ((now - g.archivedAt) / (1000 * 60 * 60 * 24) >= 40) {
-         await supabaseRequest(`orders?group_name=eq.${g.name}`, 'DELETE');
-         await supabaseRequest(`global_settings?id=eq.conf_${g.name}`, 'DELETE');
-         needsRefetch = true;
-      } else validArchived.push(g);
+        await supabaseRequest(`orders?group_name=eq.${g.name}`, 'DELETE');
+        await supabaseRequest(`global_settings?id=eq.conf_${g.name}`, 'DELETE');
+        needsRefetch = true;
+      } else {
+        validArchived.push(g);
+      }
     }
+  
     if (validArchived.length !== archivedGroupsData.length) {
-       await saveToGlobalSettings('archived_groups', JSON.stringify(validArchived));
-       setArchivedGroups(validArchived);
+      await saveToGlobalSettings('archived_groups', JSON.stringify(validArchived));
+      setArchivedGroups(validArchived);
     }
-    if (needsRefetch) fetchOrdersAndSettings(); 
-  };
+  
+    return needsRefetch;
+  }, [cleanupRun]);
 
   const handleSponsorClick = async (sponsor = null) => {
     const currentClicks = siteMetrics.sponsorClicks;
@@ -608,121 +615,143 @@ const handleSaveVisualPrices = async () => {
 
   const fetchOrdersAndSettings = useCallback(async () => {
     setLoading(true);
+  
     const [resOrders, resSettings, resGlobal, resSponsors] = await Promise.all([
       supabaseRequest('orders?select=*&order=created_at.desc'),
       supabaseRequest('group_settings?select=*'),
       supabaseRequest('global_settings?select=*'),
       supabaseRequest('sponsors?select=*&order=display_order.asc')
     ]);
+  
     if (resOrders.data) setOrders(resOrders.data);
     if (resSettings.data) setGroupSettings(resSettings.data);
     if (resSponsors.data) setSponsors(resSponsors.data);
+  
+    let parsedArchived = [];
+  
     if (resGlobal.data) {
       const passObj = resGlobal.data.find(s => s.id === 'admin_password');
       if (passObj) setCurrentAdminPassword(passObj.value);
+  
       const visitsObj = resGlobal.data.find(s => s.id === 'page_visits');
       const clicksObj = resGlobal.data.find(s => s.id === 'sponsor_clicks');
-      setSiteMetrics({ visits: visitsObj ? parseInt(visitsObj.value) : 0, sponsorClicks: clicksObj ? parseInt(clicksObj.value) : 0 });
+  
+      setSiteMetrics({
+        visits: visitsObj ? parseInt(visitsObj.value) : 0,
+        sponsorClicks: clicksObj ? parseInt(clicksObj.value) : 0
+      });
+  
       const archivedObj = resGlobal.data.find(s => s.id === 'archived_groups');
-      const parsedArchived = archivedObj ? JSON.parse(archivedObj.value) : [];
+      parsedArchived = archivedObj ? JSON.parse(archivedObj.value) : [];
       setArchivedGroups(parsedArchived);
+  
       const parsedConfigs = {};
       resGlobal.data.forEach(item => {
         if (item.id.startsWith('conf_')) {
-          try { parsedConfigs[item.id.replace('conf_', '')] = JSON.parse(item.value); } catch(e){}
+          try {
+            parsedConfigs[item.id.replace('conf_', '')] = JSON.parse(item.value);
+          } catch (e) {}
         }
       });
       setGroupConfigs(parsedConfigs);
+  
       const globalPricingObj = resGlobal.data.find(s => s.id === 'global_pricing');
-if (globalPricingObj) {
-  try {
-    const savedPrices = JSON.parse(globalPricingObj.value);
-
-    setGlobalPrices({
-      base: {
-        Adultos: {
-          Premium: {
-            ...PRECIOS_BASE.Adultos.Premium,
-            ...(savedPrices.base?.Adultos?.Premium || {}),
-          },
-          "Semi-Premium": {
-            ...PRECIOS_BASE.Adultos["Semi-Premium"],
-            ...(savedPrices.base?.Adultos?.["Semi-Premium"] || {}),
-          },
-          Estandard: {
-            ...PRECIOS_BASE.Adultos.Estandard,
-            ...(savedPrices.base?.Adultos?.Estandard || {}),
-          },
-        },
-        Infantil: {
-          Premium: {
-            ...PRECIOS_BASE.Infantil.Premium,
-            ...(savedPrices.base?.Infantil?.Premium || {}),
-          },
-          "Semi-Premium": {
-            ...PRECIOS_BASE.Infantil["Semi-Premium"],
-            ...(savedPrices.base?.Infantil?.["Semi-Premium"] || {}),
-          },
-          Estandard: {
-            ...PRECIOS_BASE.Infantil.Estandard,
-            ...(savedPrices.base?.Infantil?.Estandard || {}),
-          },
-        },
-      },
-
-      camisilla: {
-        Adultos: {
-          Premium: {
-            ...PRECIOS_CAMISILLA.Adultos.Premium,
-            ...(savedPrices.camisilla?.Adultos?.Premium || {}),
-          },
-          "Semi-Premium": {
-            ...PRECIOS_CAMISILLA.Adultos["Semi-Premium"],
-            ...(savedPrices.camisilla?.Adultos?.["Semi-Premium"] || {}),
-          },
-          Estandard: {
-            ...PRECIOS_CAMISILLA.Adultos.Estandard,
-            ...(savedPrices.camisilla?.Adultos?.Estandard || {}),
-          },
-        },
-        Infantil: {
-          Premium: {
-            ...PRECIOS_CAMISILLA.Infantil.Premium,
-            ...(savedPrices.camisilla?.Infantil?.Premium || {}),
-          },
-          "Semi-Premium": {
-            ...PRECIOS_CAMISILLA.Infantil["Semi-Premium"],
-            ...(savedPrices.camisilla?.Infantil?.["Semi-Premium"] || {}),
-          },
-          Estandard: {
-            ...PRECIOS_CAMISILLA.Infantil.Estandard,
-            ...(savedPrices.camisilla?.Infantil?.Estandard || {}),
-          },
-        },
-      },
-
-      pique: {
-        Adultos: {
-          Premium: 95000,
-          "Semi-Premium": 90000,
-          Estandard: 85000,
-          ...(savedPrices.pique?.Adultos || {}),
-        },
-        Infantil: {
-          Premium: 85000,
-          "Semi-Premium": 80000,
-          Estandard: 75000,
-          ...(savedPrices.pique?.Infantil || {}),
-        },
-      },
-    });
-  } catch (e) {
-    console.error("Error al leer los precios globales", e);
-  }
-}
-      setLoading(false);
-      performAutoCleanups(resOrders.data || [], parsedArchived);
+      if (globalPricingObj) {
+        try {
+          const savedPrices = JSON.parse(globalPricingObj.value);
+  
+          setGlobalPrices({
+            base: {
+              Adultos: {
+                Premium: {
+                  ...PRECIOS_BASE.Adultos.Premium,
+                  ...(savedPrices.base?.Adultos?.Premium || {}),
+                },
+                "Semi-Premium": {
+                  ...PRECIOS_BASE.Adultos["Semi-Premium"],
+                  ...(savedPrices.base?.Adultos?.["Semi-Premium"] || {}),
+                },
+                Estandard: {
+                  ...PRECIOS_BASE.Adultos.Estandard,
+                  ...(savedPrices.base?.Adultos?.Estandard || {}),
+                },
+              },
+              Infantil: {
+                Premium: {
+                  ...PRECIOS_BASE.Infantil.Premium,
+                  ...(savedPrices.base?.Infantil?.Premium || {}),
+                },
+                "Semi-Premium": {
+                  ...PRECIOS_BASE.Infantil["Semi-Premium"],
+                  ...(savedPrices.base?.Infantil?.["Semi-Premium"] || {}),
+                },
+                Estandard: {
+                  ...PRECIOS_BASE.Infantil.Estandard,
+                  ...(savedPrices.base?.Infantil?.Estandard || {}),
+                },
+              },
+            },
+  
+            camisilla: {
+              Adultos: {
+                Premium: {
+                  ...PRECIOS_CAMISILLA.Adultos.Premium,
+                  ...(savedPrices.camisilla?.Adultos?.Premium || {}),
+                },
+                "Semi-Premium": {
+                  ...PRECIOS_CAMISILLA.Adultos["Semi-Premium"],
+                  ...(savedPrices.camisilla?.Adultos?.["Semi-Premium"] || {}),
+                },
+                Estandard: {
+                  ...PRECIOS_CAMISILLA.Adultos.Estandard,
+                  ...(savedPrices.camisilla?.Adultos?.Estandard || {}),
+                },
+              },
+              Infantil: {
+                Premium: {
+                  ...PRECIOS_CAMISILLA.Infantil.Premium,
+                  ...(savedPrices.camisilla?.Infantil?.Premium || {}),
+                },
+                "Semi-Premium": {
+                  ...PRECIOS_CAMISILLA.Infantil["Semi-Premium"],
+                  ...(savedPrices.camisilla?.Infantil?.["Semi-Premium"] || {}),
+                },
+                Estandard: {
+                  ...PRECIOS_CAMISILLA.Infantil.Estandard,
+                  ...(savedPrices.camisilla?.Infantil?.Estandard || {}),
+                },
+              },
+            },
+  
+            pique: {
+              Adultos: {
+                Premium: 95000,
+                "Semi-Premium": 90000,
+                Estandard: 85000,
+                ...(savedPrices.pique?.Adultos || {}),
+              },
+              Infantil: {
+                Premium: 85000,
+                "Semi-Premium": 80000,
+                Estandard: 75000,
+                ...(savedPrices.pique?.Infantil || {}),
+              },
+            },
+          });
+        } catch (e) {
+          console.error("Error al leer los precios globales", e);
+        }
+      }
     }
+  
+    const needsRefetch = await performAutoCleanups(resOrders.data || [], parsedArchived);
+  
+    if (needsRefetch) {
+      const freshOrders = await supabaseRequest('orders?select=*&order=created_at.desc');
+      if (freshOrders.data) setOrders(freshOrders.data);
+    }
+  
+    setLoading(false);
   }, [performAutoCleanups]);
 
   const logAction = async (action, details) => {
